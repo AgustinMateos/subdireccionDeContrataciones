@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { ORGANISMOS } from "@/lib/constants";
+import { ORGANISMOS, AREA_LABEL } from "@/lib/constants";
 export default function FormularioExpediente({ titulo, inicial, esNuevo, expedientes, onCerrar, onGuardar }) {
   const [f, setF] = useState(inicial || {
     exp: "", area: "Informatica", tipo: "Servicios", agente: "", organismo: "", objeto: "",
@@ -132,4 +132,3 @@ function Campo_Select({ label, value, onChange, opciones, labels }) {
     </div>
   );
 }
-

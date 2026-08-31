@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare } from "lucide-react";
 import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL } from "@/lib/constants";
-import { diasRestantes, alerta, fmtFecha, documentacionDeExpediente } from "@/lib/utils";
+import { diasRestantes, alerta, fmtFecha, fmtMoneda, documentacionDeExpediente } from "@/lib/utils";
 export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, puedeEditar, puedeEliminar }) {
   const [verMasAntecedentes, setVerMasAntecedentes] = useState(false);
   const cadena = expedientes.filter(e => e.cadenaId === exp.cadenaId);
@@ -287,4 +287,3 @@ function Campo({ label, valor }) {
     </div>
   );
 }
-

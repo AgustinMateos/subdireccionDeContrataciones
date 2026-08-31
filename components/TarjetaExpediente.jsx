@@ -1,6 +1,6 @@
 "use client";
 
-import { AREA_ESTILO, AREA_LABEL } from "@/lib/constants";
+import { AREA_ESTILO, AREA_LABEL, ALERTA_ESTILO, ALERTA_LABEL, ESTADO_ESTILO } from "@/lib/constants";
 import { diasRestantes, alerta, fmtFecha, fmtMoneda } from "@/lib/utils";
 export default function TarjetaExpediente({ exp, onVer }) {
   const dias = diasRestantes(exp.fechaVencimiento);
@@ -35,4 +35,3 @@ export default function TarjetaExpediente({ exp, onVer }) {
     </button>
   );
 }
-

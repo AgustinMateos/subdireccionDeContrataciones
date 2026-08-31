@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, FileText, AlertTriangle, Clock, DollarSign } from "lucide-react";
 import { fmtMoneda } from "@/lib/utils";
 export default function Resumen({ resumen }) {
   const [verDesglose, setVerDesglose] = useState(false);
@@ -96,4 +96,3 @@ export default function Resumen({ resumen }) {
     </div>
   );
 }
-
