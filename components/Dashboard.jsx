@@ -1,11 +1,27 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { CheckCircle2 } from "lucide-react";
 
-import { EXPEDIENTES, HOY } from "@/lib/constants";
+import { HOY } from "@/lib/constants";
 import { diasRestantes, alerta, documentacionDeExpediente } from "@/lib/utils";
+
+// Prisma serializa las fechas como ISO ("2026-09-10T00:00:00.000Z"), pero los
+// componentes hijos y utils esperan strings "YYYY-MM-DD". Además `documentacion`
+// vacío debe caer al checklist por defecto (mismo comportamiento que antes).
+function normalizarExpediente(e) {
+  return {
+    ...e,
+    fechaInicio: e.fechaInicio ? String(e.fechaInicio).slice(0, 10) : "",
+    fechaVencimiento: e.fechaVencimiento ? String(e.fechaVencimiento).slice(0, 10) : "",
+    observaciones: Array.isArray(e.observaciones)
+      ? e.observaciones.map((o) => ({ ...o, fecha: o.fecha ? String(o.fecha).slice(0, 10) : "" }))
+      : [],
+    documentacion:
+      Array.isArray(e.documentacion) && e.documentacion.length > 0 ? e.documentacion : undefined,
+  };
+}
 
 import Login from "./Login";
 import TopBar from "./TopBar";
@@ -28,7 +44,8 @@ export default function App() {
   const sesion = session?.user ? { nombre: session.user.name, rol: session.user.rol } : null;
   const [vista, setVista] = useState("expedientes"); // 'expedientes' | 'valorModular'
   const [moduloValor, setModuloValor] = useState(200000);
-  const [expedientes, setExpedientes] = useState(EXPEDIENTES);
+  const [expedientes, setExpedientes] = useState([]);
+  const [cargando, setCargando] = useState(true);
   const [areaFiltro, setAreaFiltro] = useState("Todas");
   const [tipoFiltro, setTipoFiltro] = useState("Todos");
   const [estadoFiltro, setEstadoFiltro] = useState("Todos");
@@ -43,6 +60,38 @@ export default function App() {
   function mostrarToast(msg) {
     setToast(msg);
     setTimeout(() => setToast(""), 2200);
+  }
+
+  // Carga inicial desde la base real una vez que hay sesión.
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    let activo = true;
+    (async () => {
+      setCargando(true);
+      try {
+        const res = await fetch("/api/expedientes");
+        const data = await res.json();
+        if (activo) setExpedientes((data.expedientes || []).map(normalizarExpediente));
+      } catch {
+        if (activo) mostrarToast("No se pudieron cargar los expedientes");
+      } finally {
+        if (activo) setCargando(false);
+      }
+    })();
+    return () => { activo = false; };
+  }, [status]);
+
+  // Vuelve a pedir el listado completo tras una mutación. Si se pasa un id,
+  // re-sincroniza el expediente abierto en el detalle con la copia fresca.
+  async function refrescar(idSeleccion) {
+    const res = await fetch("/api/expedientes");
+    const data = await res.json();
+    const lista = (data.expedientes || []).map(normalizarExpediente);
+    setExpedientes(lista);
+    if (idSeleccion != null) {
+      setSeleccionado(lista.find((e) => e.id === idSeleccion) || null);
+    }
+    return lista;
   }
 
   const filtrados = useMemo(() => {
@@ -113,60 +162,49 @@ export default function App() {
     setVista("expedienteDetalle");
   }
 
-  function guardarObservacion(id, entrada) {
+  async function guardarObservacion(id, entrada) {
     // entrada: { tipo: "general" | "movimiento", texto, sectorNuevo? }
-    setExpedientes(prev => prev.map(e => {
-      if (e.id !== id) return e;
-      const esMovimiento = entrada.tipo === "movimiento";
-      const nuevaEntrada = {
-        fecha: "2026-08-19",
-        usuario: sesion.nombre,
+    const esMovimiento = entrada.tipo === "movimiento";
+    const actual = expedientes.find((e) => e.id === id);
+    const res = await fetch(`/api/expedientes/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nuevaObservacion: entrada.texto,
         tipo: entrada.tipo,
-        texto: entrada.texto,
-        ...(esMovimiento ? { sectorAnterior: e.sector, sectorNuevo: entrada.sectorNuevo } : {}),
-      };
-      return {
-        ...e,
-        sector: esMovimiento ? entrada.sectorNuevo : e.sector,
-        etapa: esMovimiento ? ("En " + entrada.sectorNuevo) : e.etapa,
-        observaciones: [...e.observaciones, nuevaEntrada],
-      };
-    }));
-    setSeleccionado(prev => {
-      if (!prev || prev.id !== id) return prev;
-      const esMovimiento = entrada.tipo === "movimiento";
-      const nuevaEntrada = {
-        fecha: "2026-08-19",
-        usuario: sesion.nombre,
-        tipo: entrada.tipo,
-        texto: entrada.texto,
-        ...(esMovimiento ? { sectorAnterior: prev.sector, sectorNuevo: entrada.sectorNuevo } : {}),
-      };
-      return {
-        ...prev,
-        sector: esMovimiento ? entrada.sectorNuevo : prev.sector,
-        etapa: esMovimiento ? ("En " + entrada.sectorNuevo) : prev.etapa,
-        observaciones: [...prev.observaciones, nuevaEntrada],
-      };
+        sectorAnterior: esMovimiento ? (actual?.sector ?? null) : null,
+        sectorNuevo: esMovimiento ? entrada.sectorNuevo : null,
+      }),
     });
-    mostrarToast(entrada.tipo === "movimiento" ? "Movimiento cargado, sector actualizado" : "Observación agregada");
+    if (!res.ok) { mostrarToast("No se pudo guardar la observación"); return; }
+    await refrescar(id);
+    mostrarToast(esMovimiento ? "Movimiento cargado, sector actualizado" : "Observación agregada");
   }
 
-  function eliminarExpediente(id) {
-    setExpedientes(prev => prev.filter(e => e.id !== id));
+  async function eliminarExpediente(id) {
+    const res = await fetch(`/api/expedientes/${id}`, { method: "DELETE" });
+    if (!res.ok) { mostrarToast("No se pudo eliminar el expediente"); return; }
     setSeleccionado(null);
     setVista("expedientes");
+    await refrescar();
     mostrarToast("Expediente eliminado");
   }
 
-  function toggleDocumentacion(id, indice) {
-    function actualizar(e) {
-      const doc = documentacionDeExpediente(e);
-      const nuevoDoc = doc.map((d, i) => i === indice ? { ...d, cargado: !d.cargado } : d);
-      return { ...e, documentacion: nuevoDoc };
-    }
-    setExpedientes(prev => prev.map(e => e.id === id ? actualizar(e) : e));
-    setSeleccionado(prev => prev && prev.id === id ? actualizar(prev) : prev);
+  async function toggleDocumentacion(id, indice) {
+    const exp = expedientes.find((e) => e.id === id);
+    if (!exp) return;
+    const docs = documentacionDeExpediente(exp);
+    const target = docs[indice];
+    if (!target) return;
+    const res = await fetch(`/api/expedientes/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        toggleDoc: { indice, cargado: !target.cargado, items: docs.map((d) => d.item) },
+      }),
+    });
+    if (!res.ok) { mostrarToast("No se pudo actualizar la documentación"); return; }
+    await refrescar(seleccionado && seleccionado.id === id ? id : undefined);
   }
 
   // Vincula el resultado de un cotizador (taquigráfico, policía adicional, avisos)
@@ -178,54 +216,43 @@ export default function App() {
       mostrarToast("No se encontró el expediente " + expNumero + " para vincular");
       return false;
     }
-    const nuevaEntrada = {
-      fecha: "2026-08-19",
-      usuario: sesion.nombre,
-      tipo: "general",
-      texto,
-    };
-    setExpedientes(prev => prev.map(e => e.id === match.id
-      ? { ...e, observaciones: [...e.observaciones, nuevaEntrada] }
-      : e));
-    setSeleccionado(prev => prev && prev.id === match.id
-      ? { ...prev, observaciones: [...prev.observaciones, nuevaEntrada] }
-      : prev);
-    mostrarToast("Vinculado al expediente " + match.exp);
+    fetch(`/api/expedientes/${match.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nuevaObservacion: texto, tipo: "general" }),
+    })
+      .then((res) => {
+        if (!res.ok) { mostrarToast("No se pudo vincular al expediente " + match.exp); return; }
+        return refrescar(seleccionado && seleccionado.id === match.id ? match.id : undefined)
+          .then(() => mostrarToast("Vinculado al expediente " + match.exp));
+      })
+      .catch(() => mostrarToast("No se pudo vincular al expediente " + match.exp));
     return true;
   }
 
-  function crearRenovacion(vigente) {
-    const nuevoId = "e" + Date.now();
-    const nuevo = {
-      ...vigente,
-      id: nuevoId,
-      rol: "renovacion",
-      exp: "13-0" + String(Math.floor(Math.random() * 9000) + 1000) + "/26",
-      estadoGeneral: "En trámite de renovación",
-      etapa: "En trámite - carátula inicial",
-      observaciones: [],
-    };
-    setExpedientes(prev => [...prev.map(e => e.id === vigente.id ? { ...e, estadoGeneral: "En trámite de renovación" } : e), nuevo]);
-    setSeleccionado(nuevo);
+  async function crearRenovacion(vigente) {
+    const res = await fetch("/api/expedientes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ renovarDeId: vigente.id }),
+    });
+    if (!res.ok) { mostrarToast("No se pudo crear la renovación"); return; }
+    const data = await res.json();
+    await refrescar(data.expediente?.id);
     setFormAbierto(null);
     mostrarToast("Renovación creada y vinculada a " + vigente.exp);
   }
 
   // El contrato anterior vence y la renovación pasa a ser el nuevo Vigente.
-  function activarRenovacion(renovacion) {
+  async function activarRenovacion(renovacion) {
     const vigenteAnterior = expedientes.find(e => e.cadenaId === renovacion.cadenaId && e.rol === "vigente");
-    setExpedientes(prev => prev.map(e => {
-      if (vigenteAnterior && e.id === vigenteAnterior.id) {
-        return { ...e, rol: "antecedente", estadoGeneral: "Finalizado", etapa: "Finalizado" };
-      }
-      if (e.id === renovacion.id) {
-        return { ...e, rol: "vigente", estadoGeneral: "Vigente", etapa: "En ejecución" };
-      }
-      return e;
-    }));
-    setSeleccionado(prev => prev && prev.id === renovacion.id
-      ? { ...prev, rol: "vigente", estadoGeneral: "Vigente", etapa: "En ejecución" }
-      : prev);
+    const res = await fetch(`/api/expedientes/${renovacion.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ activarRenovacion: true }),
+    });
+    if (!res.ok) { mostrarToast("No se pudo activar la renovación"); return; }
+    await refrescar(renovacion.id);
     mostrarToast(
       vigenteAnterior
         ? "Activado como Vigente. " + vigenteAnterior.exp + " pasó a ser el Antecedente."
@@ -238,6 +265,9 @@ export default function App() {
   }
   if (!sesion) {
     return <Login />;
+  }
+  if (cargando) {
+    return <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">Cargando...</div>;
   }
 
   const puedeEditar = sesion.rol === "admin" || sesion.rol === "operador";
@@ -334,7 +364,7 @@ export default function App() {
           esNuevo
           expedientes={expedientes}
           onCerrar={() => setFormAbierto(null)}
-          onGuardar={(datos) => {
+          onGuardar={async (datos) => {
             const { antecedenteExp, ...resto } = datos;
             let cadenaId = "c" + Date.now();
             let rolNuevo = "vigente";
@@ -363,22 +393,21 @@ export default function App() {
               }
             }
 
-            const nuevo = {
-              ...resto,
-              antecedenteRef: antecedenteExp || "",
-              id: "e" + Date.now(),
-              cadenaId,
-              rol: rolNuevo,
-              estadoGeneral: rolNuevo === "renovacion" ? "En trámite de renovación" : resto.estadoGeneral,
-              observaciones: [],
-            };
-
-            setExpedientes(prev => {
-              const actualizados = idVigenteAActualizar
-                ? prev.map(e => e.id === idVigenteAActualizar ? { ...e, estadoGeneral: "En trámite de renovación" } : e)
-                : prev;
-              return [...actualizados, nuevo];
+            const res = await fetch("/api/expedientes", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...resto,
+                montoARS: Number(resto.montoARS) || 0,
+                montoUSD: Number(resto.montoUSD) || 0,
+                cadenaId,
+                rol: rolNuevo,
+                estadoGeneral: rolNuevo === "renovacion" ? "En trámite de renovación" : resto.estadoGeneral,
+                idVigenteAActualizar,
+              }),
             });
+            if (!res.ok) { mostrarToast("No se pudo crear el expediente"); return; }
+            await refrescar();
             setFormAbierto(null);
             mostrarToast(mensaje);
           }}
@@ -391,9 +420,14 @@ export default function App() {
           inicial={seleccionado}
           expedientes={expedientes}
           onCerrar={() => setFormAbierto(null)}
-          onGuardar={(datos) => {
-            setExpedientes(prev => prev.map(e => e.id === seleccionado.id ? { ...e, ...datos } : e));
-            setSeleccionado(prev => ({ ...prev, ...datos }));
+          onGuardar={async (datos) => {
+            const res = await fetch(`/api/expedientes/${seleccionado.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(datos),
+            });
+            if (!res.ok) { mostrarToast("No se pudo actualizar el expediente"); return; }
+            await refrescar(seleccionado.id);
             setFormAbierto(null);
             mostrarToast("Expediente actualizado");
           }}

@@ -3,6 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+const INCLUDE_EXPEDIENTE = {
+  observaciones: { orderBy: { fecha: "asc" } },
+  documentacion: { orderBy: { orden: "asc" } },
+};
+
 export async function GET(request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -30,7 +35,7 @@ export async function GET(request) {
 
   const expedientes = await prisma.expediente.findMany({
     where,
-    include: { observaciones: { orderBy: { fecha: "asc" } }, documentacion: { orderBy: { orden: "asc" } } },
+    include: INCLUDE_EXPEDIENTE,
     orderBy: { fechaVencimiento: "desc" },
   });
 
@@ -44,6 +49,64 @@ export async function POST(request) {
   }
 
   const body = await request.json();
+
+  // ---------- Crear renovación vinculada a un expediente vigente ----------
+  // Genera un expediente nuevo con el mismo cadenaId y rol "renovacion" copiando
+  // los datos del vigente de origen, y pasa a ese vigente a "En trámite de renovación".
+  // Es lógica de negocio (toca dos registros), no un alta simple.
+  if (body.renovarDeId) {
+    const vigente = await prisma.expediente.findUnique({ where: { id: body.renovarDeId } });
+    if (!vigente) {
+      return NextResponse.json({ error: "Expediente de origen no encontrado" }, { status: 404 });
+    }
+
+    let nuevo = null;
+    for (let intento = 0; intento < 6 && !nuevo; intento++) {
+      const expTentativo = "13-0" + (Math.floor(Math.random() * 9000) + 1000) + "/26";
+      try {
+        nuevo = await prisma.expediente.create({
+          data: {
+            cadenaId: vigente.cadenaId,
+            rol: "renovacion",
+            exp: expTentativo,
+            area: vigente.area,
+            tipo: vigente.tipo,
+            agente: vigente.agente,
+            organismo: vigente.organismo,
+            destinatario: vigente.destinatario,
+            domicilio: vigente.domicilio,
+            objeto: vigente.objeto,
+            encuadre: vigente.encuadre,
+            montoARS: vigente.montoARS,
+            montoUSD: vigente.montoUSD,
+            fechaInicio: vigente.fechaInicio,
+            fechaVencimiento: vigente.fechaVencimiento,
+            ocResolucion: vigente.ocResolucion,
+            adjudicatario: vigente.adjudicatario,
+            sector: vigente.sector,
+            etapa: "En trámite - carátula inicial",
+            estadoGeneral: "En trámite de renovación",
+          },
+          include: INCLUDE_EXPEDIENTE,
+        });
+      } catch (e) {
+        // P2002 = colisión del campo único "exp": reintenta con otro número.
+        if (e.code !== "P2002") throw e;
+      }
+    }
+    if (!nuevo) {
+      return NextResponse.json({ error: "No se pudo generar el número de expediente" }, { status: 500 });
+    }
+
+    await prisma.expediente.update({
+      where: { id: vigente.id },
+      data: { estadoGeneral: "En trámite de renovación" },
+    });
+
+    return NextResponse.json({ expediente: nuevo }, { status: 201 });
+  }
+
+  // ---------- Alta normal de expediente ----------
   const nuevo = await prisma.expediente.create({
     data: {
       cadenaId: body.cadenaId || "c" + Date.now(),
@@ -65,7 +128,17 @@ export async function POST(request) {
       etapa: body.etapa || null,
       estadoGeneral: body.estadoGeneral || "Vigente",
     },
+    include: INCLUDE_EXPEDIENTE,
   });
+
+  // Si el alta corresponde a la renovación/prórroga de un vigente existente,
+  // ese vigente pasa a "En trámite de renovación" (el rol/cadena ya vienen resueltos).
+  if (body.idVigenteAActualizar) {
+    await prisma.expediente.update({
+      where: { id: body.idVigenteAActualizar },
+      data: { estadoGeneral: "En trámite de renovación" },
+    });
+  }
 
   return NextResponse.json({ expediente: nuevo }, { status: 201 });
 }
