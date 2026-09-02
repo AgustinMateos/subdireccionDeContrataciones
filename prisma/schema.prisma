@@ -48,6 +48,7 @@ model Expediente {
   exp            String   @unique // "13-06148/26"
   nombreCorto    String? // alias legible para identificar y filtrar rápido ("Limpieza edificio central")
   nroContratacion String? // número de contratación asignado
+  nroResolucion  String? // número de resolución
   area           Area
   tipo           String // Servicios | Provisiones | Servicios Temporales
   agente         String

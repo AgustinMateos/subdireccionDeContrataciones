@@ -187,6 +187,7 @@ export async function PUT(request, { params }) {
       exp: body.exp,
       nombreCorto: body.nombreCorto ?? undefined,
       nroContratacion: body.nroContratacion ?? undefined,
+      nroResolucion: body.nroResolucion ?? undefined,
       area: body.area,
       tipo: body.tipo,
       agente: body.agente,

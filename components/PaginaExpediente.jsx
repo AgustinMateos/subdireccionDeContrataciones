@@ -94,6 +94,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <Campo label="Tipo de expediente" valor={exp.tipo} />
             <Campo label="Agente" valor={exp.agente} />
             <Campo label="N° de contratación" valor={exp.nroContratacion} />
+            <Campo label="N° de resolución" valor={exp.nroResolucion} />
             <Campo label={(exp.organismos || []).length > 1 ? "Organismos" : "Organismo"} valor={(exp.organismos || []).join(", ")} />
             <Campo label="Sector actual" valor={exp.sector} />
             <Campo label="Encuadre" valor={exp.encuadre} />

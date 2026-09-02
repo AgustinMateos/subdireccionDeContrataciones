@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { ORGANISMOS, AREA_LABEL } from "@/lib/constants";
+import { ORGANISMOS, AREA_LABEL, MODALIDADES_CONTRATACION } from "@/lib/constants";
 const FORM_VACIO = {
-  exp: "", nombreCorto: "", nroContratacion: "", area: "Informatica", tipo: "Servicios", agente: "", organismos: [], objeto: "",
+  exp: "", nombreCorto: "", nroContratacion: "", nroResolucion: "", area: "Informatica", tipo: "Servicios", agente: "", organismos: [], objeto: "",
   encuadre: "", presupuestoOficial: "", montoARS: "", montoUSD: "", fechaInicio: "", fechaVencimiento: "",
   ocResolucion: "", adjudicatario: "", sector: "", etapa: "En ejecución", estadoGeneral: "Vigente",
   antecedenteExp: "",
@@ -74,6 +74,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
             <Campo_Input label="N° de expediente" value={f.exp} onChange={v => set("exp", v)} placeholder="13-00000/26" />
             <Campo_Input label="Nombre corto" value={f.nombreCorto} onChange={v => set("nombreCorto", v)} placeholder="Ej: Limpieza edificio central" />
             <Campo_Input label="N° de contratación" value={f.nroContratacion} onChange={v => set("nroContratacion", v)} placeholder="Ej: 45/2026" />
+            <Campo_Input label="N° de resolución" value={f.nroResolucion} onChange={v => set("nroResolucion", v)} placeholder="Ej: 1234/2026" />
             <Campo_Select label="Área" value={f.area} onChange={v => set("area", v)} opciones={["Informatica", "Varios"]} labels={AREA_LABEL} />
             <Campo_Select label="Tipo" value={f.tipo} onChange={v => set("tipo", v)} opciones={["Servicios", "Provisiones", "Servicios Temporales"]} />
             <Campo_Input label="Agente" value={f.agente} onChange={v => set("agente", v)} placeholder="CB" />
@@ -138,7 +139,17 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
             <div className="col-span-2">
               <Campo_Input label="Objeto" value={f.objeto} onChange={v => set("objeto", v)} />
             </div>
-            <Campo_Input label="Encuadre / tipo de contratación" value={f.encuadre} onChange={v => set("encuadre", v)} />
+            <Campo_Select
+              label="Encuadre / modalidad de contratación"
+              value={f.encuadre || ""}
+              onChange={v => set("encuadre", v)}
+              opciones={[
+                "",
+                ...MODALIDADES_CONTRATACION,
+                ...(f.encuadre && !MODALIDADES_CONTRATACION.includes(f.encuadre) ? [f.encuadre] : []),
+              ]}
+              labels={{ "": "— Seleccionar —" }}
+            />
             <Campo_Input label="OC / Resolución" value={f.ocResolucion} onChange={v => set("ocResolucion", v)} />
             <Campo_Input label="Adjudicatario" value={f.adjudicatario} onChange={v => set("adjudicatario", v)} />
             <Campo_Input label="Etapa" value={f.etapa} onChange={v => set("etapa", v)} />
@@ -183,7 +194,7 @@ function Campo_Select({ label, value, onChange, opciones, labels }) {
       <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
       <select value={value} onChange={e => onChange(e.target.value)}
         className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800">
-        {opciones.map(o => <option key={o} value={o}>{labels ? labels[o] : o}</option>)}
+        {opciones.map(o => <option key={o} value={o}>{labels && labels[o] != null ? labels[o] : o}</option>)}
       </select>
     </div>
   );
