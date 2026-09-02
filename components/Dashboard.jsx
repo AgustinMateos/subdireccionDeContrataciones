@@ -124,13 +124,8 @@ export default function App() {
       }
       if (busqueda) {
         const q = busqueda.toLowerCase();
-        if (
-          !e.exp.toLowerCase().includes(q) &&
-          !(e.nombreCorto || "").toLowerCase().includes(q) &&
-          !e.objeto.toLowerCase().includes(q) &&
-          !e.adjudicatario.toLowerCase().includes(q) &&
-          !(e.organismos || []).some(o => o.toLowerCase().includes(q))
-        ) return false;
+        const campos = [e.exp, e.nombreCorto, e.objeto, e.adjudicatario, ...(e.organismos || [])];
+        if (!campos.some(c => String(c || "").toLowerCase().includes(q))) return false;
       }
       return true;
     }).sort((a, b) => new Date(b.fechaVencimiento) - new Date(a.fechaVencimiento));
