@@ -2,7 +2,7 @@
 
 import { Plus, Filter } from "lucide-react";
 import { ORGANISMOS, AREA_LABEL } from "@/lib/constants";
-export default function FiltroBar({ areaFiltro, setAreaFiltro, tipoFiltro, setTipoFiltro, estadoFiltro, setEstadoFiltro, organismoFiltro, setOrganismoFiltro, vencimientoFiltro, setVencimientoFiltro, total, puedeEditar, onNuevo }) {
+export default function FiltroBar({ areaFiltro, setAreaFiltro, tipoFiltro, setTipoFiltro, estadoFiltro, setEstadoFiltro, organismoFiltro, setOrganismoFiltro, vencimientoFiltro, setVencimientoFiltro, nombreCortoFiltro, setNombreCortoFiltro, total, puedeEditar, onNuevo }) {
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -58,6 +58,17 @@ export default function FiltroBar({ areaFiltro, setAreaFiltro, tipoFiltro, setTi
         {organismoFiltro !== "Todos" && (
           <button onClick={() => setOrganismoFiltro("Todos")} className="text-[11px] text-slate-500 hover:text-slate-800 underline">
             Quitar organismo
+          </button>
+        )}
+        <input
+          value={nombreCortoFiltro}
+          onChange={e => setNombreCortoFiltro(e.target.value)}
+          placeholder="Filtrar por nombre corto"
+          className="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white w-[200px] focus:outline-none focus:ring-2 focus:ring-slate-800"
+        />
+        {nombreCortoFiltro && (
+          <button onClick={() => setNombreCortoFiltro("")} className="text-[11px] text-slate-500 hover:text-slate-800 underline">
+            Quitar nombre
           </button>
         )}
         <span className="ml-auto text-xs text-slate-500">{total} expediente{total !== 1 ? "s" : ""} encontrado{total !== 1 ? "s" : ""}</span>

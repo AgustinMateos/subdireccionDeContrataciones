@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare } from "lucide-react";
+import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil, Trash2 } from "lucide-react";
 import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL } from "@/lib/constants";
 import { diasRestantes, alerta, fmtFecha, fmtMoneda, documentacionDeExpediente } from "@/lib/utils";
-export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, puedeEditar, puedeEliminar }) {
+export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, puedeEditar, puedeEliminar, esJefe }) {
   const [verMasAntecedentes, setVerMasAntecedentes] = useState(false);
   const cadena = expedientes.filter(e => e.cadenaId === exp.cadenaId);
   const antecedentes = cadena.filter(e => e.rol === "antecedente")
@@ -26,6 +26,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
         <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
           <div>
             <div className="font-mono text-base font-semibold text-slate-900">{exp.exp}</div>
+            {exp.nombreCorto && <div className="text-sm font-medium text-slate-700">{exp.nombreCorto}</div>}
             <div className="text-xs text-slate-500">{ROL_LABEL[exp.rol]}</div>
           </div>
         </div>
@@ -114,26 +115,14 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <div className="space-y-2 mb-3">
               {exp.observaciones.length === 0 && <p className="text-xs text-slate-400">Sin observaciones ni movimientos registrados.</p>}
               {exp.observaciones.map((o, i) => (
-                <div key={i} className={"rounded-md px-3 py-2 text-xs " + (o.tipo === "movimiento" ? "bg-blue-50 border border-blue-100" : "bg-slate-50")}>
-                  <div className="flex justify-between text-slate-500 mb-1">
-                    <span className="font-medium text-slate-700 flex items-center gap-1.5">
-                      {o.tipo === "movimiento" && <ArrowRight size={12} className="text-blue-600" />}
-                      {o.usuario}
-                      {o.tipo === "movimiento" && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
-                          Movimiento
-                        </span>
-                      )}
-                    </span>
-                    <span>{fmtFecha(o.fecha)}</span>
-                  </div>
-                  {o.tipo === "movimiento" && (
-                    <p className="text-blue-800 font-medium mb-1">
-                      Sector: {o.sectorAnterior || "-"} → {o.sectorNuevo}
-                    </p>
-                  )}
-                  <p className="text-slate-700">{o.texto}</p>
-                </div>
+                <ItemObservacion
+                  key={o.id ?? i}
+                  obs={o}
+                  expId={exp.id}
+                  esJefe={esJefe}
+                  onEditar={onEditarObservacion}
+                  onEliminar={onEliminarObservacion}
+                />
               ))}
             </div>
             {puedeEditar && <FormObservacion exp={exp} onObservacion={onObservacion} />}
@@ -217,6 +206,105 @@ function ChecklistDocumentacion({ exp, onDocumentacion, puedeEditar }) {
           <p className="text-[10px] text-slate-400 pt-1">
             Checklist de referencia para el circuito de contrataciones, adaptable según el tipo de expediente.
           </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Una fila del historial de observaciones/movimientos. Solo el jefe de
+// departamento (esJefe) ve los controles de editar y eliminar.
+function ItemObservacion({ obs, expId, esJefe, onEditar, onEliminar }) {
+  const [editando, setEditando] = useState(false);
+  const [texto, setTexto] = useState(obs.texto);
+  const [sectorNuevo, setSectorNuevo] = useState(obs.sectorNuevo || "");
+  const esMovimiento = obs.tipo === "movimiento";
+  const gestionable = esJefe && obs.id;
+
+  function abrirEdicion() {
+    setTexto(obs.texto);
+    setSectorNuevo(obs.sectorNuevo || "");
+    setEditando(true);
+  }
+
+  function guardar() {
+    if (!texto.trim()) return;
+    onEditar(expId, obs.id, {
+      texto: texto.trim(),
+      ...(esMovimiento ? { sectorNuevo: sectorNuevo.trim() } : {}),
+    });
+    setEditando(false);
+  }
+
+  function eliminar() {
+    const rotulo = esMovimiento ? "este movimiento de sector" : "esta observación";
+    if (window.confirm("¿Eliminar " + rotulo + "? Esta acción no se puede deshacer.")) {
+      onEliminar(expId, obs.id);
+    }
+  }
+
+  return (
+    <div className={"rounded-md px-3 py-2 text-xs " + (esMovimiento ? "bg-blue-50 border border-blue-100" : "bg-slate-50")}>
+      <div className="flex justify-between text-slate-500 mb-1">
+        <span className="font-medium text-slate-700 flex items-center gap-1.5">
+          {esMovimiento && <ArrowRight size={12} className="text-blue-600" />}
+          {obs.usuario}
+          {esMovimiento && (
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
+              Movimiento
+            </span>
+          )}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span>{fmtFecha(obs.fecha)}</span>
+          {gestionable && !editando && (
+            <>
+              <button onClick={abrirEdicion} title="Editar" className="p-1 rounded hover:bg-white text-slate-400 hover:text-slate-800">
+                <Pencil size={12} />
+              </button>
+              <button onClick={eliminar} title="Eliminar" className="p-1 rounded hover:bg-white text-slate-400 hover:text-red-700">
+                <Trash2 size={12} />
+              </button>
+            </>
+          )}
+        </span>
+      </div>
+
+      {!editando ? (
+        <>
+          {esMovimiento && (
+            <p className="text-blue-800 font-medium mb-1">
+              Sector: {obs.sectorAnterior || "-"} → {obs.sectorNuevo}
+            </p>
+          )}
+          <p className="text-slate-700">{obs.texto}</p>
+        </>
+      ) : (
+        <div className="space-y-2 mt-1">
+          {esMovimiento && (
+            <div>
+              <label className="block text-[11px] font-medium text-slate-500 mb-1">Sector destino</label>
+              <input
+                value={sectorNuevo}
+                onChange={e => setSectorNuevo(e.target.value)}
+                className="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-700"
+              />
+            </div>
+          )}
+          <textarea
+            value={texto}
+            onChange={e => setTexto(e.target.value)}
+            rows={2}
+            className="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-800"
+          />
+          <div className="flex gap-2">
+            <button onClick={guardar} className="text-[11px] px-2.5 py-1 rounded-md bg-slate-900 text-white font-medium hover:bg-slate-800">
+              Guardar cambios
+            </button>
+            <button onClick={() => setEditando(false)} className="text-[11px] px-2.5 py-1 rounded-md border border-slate-300 font-medium hover:bg-white">
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
     </div>

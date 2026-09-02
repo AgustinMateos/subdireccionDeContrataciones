@@ -46,6 +46,7 @@ model Expediente {
   cadenaId       String // agrupa antecedente/vigente/renovación de un mismo trámite
   rol            RolCadena
   exp            String   @unique // "13-06148/26"
+  nombreCorto    String? // alias legible para identificar y filtrar rápido ("Limpieza edificio central")
   area           Area
   tipo           String // Servicios | Provisiones | Servicios Temporales
   agente         String
@@ -72,6 +73,7 @@ model Expediente {
   @@index([cadenaId])
   @@index([area])
   @@index([estadoGeneral])
+  @@index([nombreCorto])
 }
 
 model Observacion {

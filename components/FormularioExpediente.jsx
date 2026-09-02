@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { ORGANISMOS, AREA_LABEL } from "@/lib/constants";
 export default function FormularioExpediente({ titulo, inicial, esNuevo, expedientes, onCerrar, onGuardar }) {
   const [f, setF] = useState(inicial || {
-    exp: "", area: "Informatica", tipo: "Servicios", agente: "", organismo: "", objeto: "",
+    exp: "", nombreCorto: "", area: "Informatica", tipo: "Servicios", agente: "", organismo: "", objeto: "",
     encuadre: "", montoARS: "", montoUSD: "", fechaInicio: "", fechaVencimiento: "",
     ocResolucion: "", adjudicatario: "", sector: "", etapa: "En ejecución", estadoGeneral: "Vigente",
     antecedenteExp: "",
@@ -39,6 +39,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Campo_Input label="N° de expediente" value={f.exp} onChange={v => set("exp", v)} placeholder="13-00000/26" />
+            <Campo_Input label="Nombre corto" value={f.nombreCorto} onChange={v => set("nombreCorto", v)} placeholder="Ej: Limpieza edificio central" />
             <Campo_Select label="Área" value={f.area} onChange={v => set("area", v)} opciones={["Informatica", "Varios"]} labels={AREA_LABEL} />
             <Campo_Select label="Tipo" value={f.tipo} onChange={v => set("tipo", v)} opciones={["Servicios", "Provisiones", "Servicios Temporales"]} />
             <Campo_Input label="Agente" value={f.agente} onChange={v => set("agente", v)} placeholder="CB" />
@@ -115,7 +116,7 @@ function Campo_Input({ label, value, onChange, type = "text", placeholder }) {
   return (
     <div>
       <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
-      <input type={type} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)}
+      <input type={type} value={value ?? ""} placeholder={placeholder} onChange={e => onChange(e.target.value)}
         className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
     </div>
   );

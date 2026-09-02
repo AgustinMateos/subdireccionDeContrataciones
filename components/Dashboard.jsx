@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { CheckCircle2 } from "lucide-react";
 
-import { HOY } from "@/lib/constants";
+import { HOY, ROL_USUARIO_LABEL } from "@/lib/constants";
 import { diasRestantes, alerta, documentacionDeExpediente } from "@/lib/utils";
 
 // Prisma serializa las fechas como ISO ("2026-09-10T00:00:00.000Z"), pero los
@@ -41,7 +41,9 @@ import ValorModular from "./ValorModular";
 
 export default function App() {
   const { data: session, status } = useSession();
-  const sesion = session?.user ? { nombre: session.user.name, rol: session.user.rol } : null;
+  const sesion = session?.user
+    ? { nombre: session.user.name, rol: session.user.rol, rolLabel: ROL_USUARIO_LABEL[session.user.rol] || session.user.rol }
+    : null;
   const [vista, setVista] = useState("expedientes"); // 'expedientes' | 'valorModular'
   const [moduloValor, setModuloValor] = useState(200000);
   const [expedientes, setExpedientes] = useState([]);
@@ -51,6 +53,7 @@ export default function App() {
   const [estadoFiltro, setEstadoFiltro] = useState("Todos");
   const [organismoFiltro, setOrganismoFiltro] = useState("Todos");
   const [vencimientoFiltro, setVencimientoFiltro] = useState("Todos");
+  const [nombreCortoFiltro, setNombreCortoFiltro] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [visibles, setVisibles] = useState(6);
   const [seleccionado, setSeleccionado] = useState(null);
@@ -69,9 +72,16 @@ export default function App() {
     (async () => {
       setCargando(true);
       try {
-        const res = await fetch("/api/expedientes");
-        const data = await res.json();
+        const [resExp, resVM] = await Promise.all([
+          fetch("/api/expedientes"),
+          fetch("/api/valor-modular"),
+        ]);
+        const data = await resExp.json();
         if (activo) setExpedientes((data.expedientes || []).map(normalizarExpediente));
+        if (resVM.ok) {
+          const dataVM = await resVM.json();
+          if (activo && dataVM.valorModular?.valor) setModuloValor(dataVM.valorModular.valor);
+        }
       } catch {
         if (activo) mostrarToast("No se pudieron cargar los expedientes");
       } finally {
@@ -100,6 +110,7 @@ export default function App() {
       if (tipoFiltro !== "Todos" && e.tipo !== tipoFiltro) return false;
       if (estadoFiltro !== "Todos" && e.estadoGeneral !== estadoFiltro) return false;
       if (organismoFiltro !== "Todos" && e.organismo !== organismoFiltro) return false;
+      if (nombreCortoFiltro.trim() && !(e.nombreCorto || "").toLowerCase().includes(nombreCortoFiltro.trim().toLowerCase())) return false;
       if (vencimientoFiltro !== "Todos") {
         const dias = diasRestantes(e.fechaVencimiento);
         const niv = alerta(dias);
@@ -112,6 +123,7 @@ export default function App() {
         const q = busqueda.toLowerCase();
         if (
           !e.exp.toLowerCase().includes(q) &&
+          !(e.nombreCorto || "").toLowerCase().includes(q) &&
           !e.objeto.toLowerCase().includes(q) &&
           !e.adjudicatario.toLowerCase().includes(q) &&
           !e.organismo.toLowerCase().includes(q)
@@ -119,7 +131,7 @@ export default function App() {
       }
       return true;
     }).sort((a, b) => new Date(b.fechaVencimiento) - new Date(a.fechaVencimiento));
-  }, [expedientes, areaFiltro, tipoFiltro, estadoFiltro, organismoFiltro, vencimientoFiltro, busqueda]);
+  }, [expedientes, areaFiltro, tipoFiltro, estadoFiltro, organismoFiltro, vencimientoFiltro, nombreCortoFiltro, busqueda]);
 
   const resumen = useMemo(() => {
     const anioActual = HOY.getFullYear();
@@ -156,6 +168,25 @@ export default function App() {
     };
   }, [expedientes]);
 
+  async function guardarValorModular(nuevoValor) {
+    const anterior = moduloValor;
+    setModuloValor(nuevoValor); // optimista
+    try {
+      const res = await fetch("/api/valor-modular", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ valor: nuevoValor }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setModuloValor(data.valorModular?.valor ?? nuevoValor);
+      mostrarToast("Valor modular actualizado");
+    } catch {
+      setModuloValor(anterior); // revierte si falló
+      mostrarToast("No se pudo guardar el valor modular");
+    }
+  }
+
   function verExpediente(id) {
     const exp = expedientes.find(e => e.id === id);
     setSeleccionado(exp);
@@ -179,6 +210,29 @@ export default function App() {
     if (!res.ok) { mostrarToast("No se pudo guardar la observación"); return; }
     await refrescar(id);
     mostrarToast(esMovimiento ? "Movimiento cargado, sector actualizado" : "Observación agregada");
+  }
+
+  async function editarObservacion(expId, obsId, cambios) {
+    // cambios: { texto, sectorNuevo? }  — solo jefe de departamento
+    const res = await fetch(`/api/expedientes/${expId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ editarObservacion: { obsId, ...cambios } }),
+    });
+    if (!res.ok) { mostrarToast("No se pudo editar la observación"); return; }
+    await refrescar(expId);
+    mostrarToast("Observación actualizada");
+  }
+
+  async function eliminarObservacion(expId, obsId) {
+    const res = await fetch(`/api/expedientes/${expId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eliminarObservacion: { obsId } }),
+    });
+    if (!res.ok) { mostrarToast("No se pudo eliminar la observación"); return; }
+    await refrescar(expId);
+    mostrarToast("Observación eliminada");
   }
 
   async function eliminarExpediente(id) {
@@ -271,7 +325,8 @@ export default function App() {
   }
 
   const puedeEditar = sesion.rol === "admin" || sesion.rol === "operador";
-  const puedeEliminar = sesion.rol === "admin";
+  const esJefe = sesion.rol === "admin"; // jefe de departamento
+  const puedeEliminar = esJefe;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -287,7 +342,7 @@ export default function App() {
         {vista === "valorModular" ? (
           <ValorModular
             moduloValor={moduloValor}
-            setModuloValor={(v) => { setModuloValor(v); mostrarToast("Valor modular actualizado"); }}
+            setModuloValor={guardarValorModular}
             sesion={sesion}
           />
         ) : vista === "cotizadorTaquigrafico" ? (
@@ -309,6 +364,8 @@ export default function App() {
             onVolver={() => { setVista("expedientes"); setSeleccionado(null); }}
             onNavegar={(id) => verExpediente(id)}
             onObservacion={guardarObservacion}
+            onEditarObservacion={editarObservacion}
+            onEliminarObservacion={eliminarObservacion}
             onDocumentacion={toggleDocumentacion}
             onEliminar={eliminarExpediente}
             onEditar={() => setFormAbierto("editar")}
@@ -316,6 +373,7 @@ export default function App() {
             onActivar={() => activarRenovacion(seleccionado)}
             puedeEditar={puedeEditar}
             puedeEliminar={puedeEliminar}
+            esJefe={esJefe}
           />
         ) : (
           <>
@@ -327,6 +385,7 @@ export default function App() {
               estadoFiltro={estadoFiltro} setEstadoFiltro={setEstadoFiltro}
               organismoFiltro={organismoFiltro} setOrganismoFiltro={setOrganismoFiltro}
               vencimientoFiltro={vencimientoFiltro} setVencimientoFiltro={setVencimientoFiltro}
+              nombreCortoFiltro={nombreCortoFiltro} setNombreCortoFiltro={setNombreCortoFiltro}
               total={filtrados.length}
               puedeEditar={puedeEditar}
               onNuevo={() => setFormAbierto("nuevo")}

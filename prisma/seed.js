@@ -32,8 +32,8 @@ async function main() {
   // ---------- Valor Modular ----------
   const yaHayValor = await prisma.valorModular.count();
   if (yaHayValor === 0) {
-    await prisma.valorModular.create({ data: { valor: 200000, actualizadoPor: "seed" } });
-    console.log("Valor modular inicial: $200.000");
+    await prisma.valorModular.create({ data: { valor: 300000, actualizadoPor: "seed" } });
+    console.log("Valor modular inicial: $300.000");
   }
 
   // ---------- Configuración del Libro de Aperturas ----------

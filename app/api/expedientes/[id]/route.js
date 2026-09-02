@@ -8,6 +8,22 @@ const INCLUDE_EXPEDIENTE = {
   documentacion: { orderBy: { orden: "asc" } },
 };
 
+// Tras editar o borrar un movimiento, el "sector actual" del expediente vuelve a
+// derivarse del último movimiento que quede registrado. Si no queda ninguno, se
+// conserva el sector que ya tenía cargado.
+async function resyncSectorDesdeMovimientos(expedienteId) {
+  const ultimoMov = await prisma.observacion.findFirst({
+    where: { expedienteId, tipo: "movimiento" },
+    orderBy: { fecha: "desc" },
+  });
+  if (ultimoMov?.sectorNuevo) {
+    await prisma.expediente.update({
+      where: { id: expedienteId },
+      data: { sector: ultimoMov.sectorNuevo, etapa: "En " + ultimoMov.sectorNuevo },
+    });
+  }
+}
+
 export async function GET(request, { params }) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
@@ -50,6 +66,48 @@ export async function PUT(request, { params }) {
       },
       include: INCLUDE_EXPEDIENTE,
     });
+    return NextResponse.json({ expediente: actualizado });
+  }
+
+  // ---------- Editar una observación / movimiento ya registrado ----------
+  // Solo el jefe de departamento (admin) puede modificar historial.
+  if (body.editarObservacion) {
+    if (session.user.rol !== "admin") {
+      return NextResponse.json({ error: "Solo el jefe de departamento puede editar observaciones" }, { status: 403 });
+    }
+    const { obsId, texto, sectorNuevo } = body.editarObservacion;
+    const obs = await prisma.observacion.findUnique({ where: { id: obsId } });
+    if (!obs || obs.expedienteId !== id) {
+      return NextResponse.json({ error: "Observación no encontrada" }, { status: 404 });
+    }
+    const esMovimiento = obs.tipo === "movimiento";
+    await prisma.observacion.update({
+      where: { id: obsId },
+      data: {
+        texto: typeof texto === "string" ? texto : obs.texto,
+        ...(esMovimiento && sectorNuevo ? { sectorNuevo } : {}),
+      },
+    });
+    if (esMovimiento) await resyncSectorDesdeMovimientos(id);
+
+    const actualizado = await prisma.expediente.findUnique({ where: { id }, include: INCLUDE_EXPEDIENTE });
+    return NextResponse.json({ expediente: actualizado });
+  }
+
+  // ---------- Eliminar una observación / movimiento ya registrado ----------
+  if (body.eliminarObservacion) {
+    if (session.user.rol !== "admin") {
+      return NextResponse.json({ error: "Solo el jefe de departamento puede eliminar observaciones" }, { status: 403 });
+    }
+    const { obsId } = body.eliminarObservacion;
+    const obs = await prisma.observacion.findUnique({ where: { id: obsId } });
+    if (!obs || obs.expedienteId !== id) {
+      return NextResponse.json({ error: "Observación no encontrada" }, { status: 404 });
+    }
+    await prisma.observacion.delete({ where: { id: obsId } });
+    if (obs.tipo === "movimiento") await resyncSectorDesdeMovimientos(id);
+
+    const actualizado = await prisma.expediente.findUnique({ where: { id }, include: INCLUDE_EXPEDIENTE });
     return NextResponse.json({ expediente: actualizado });
   }
 
@@ -127,6 +185,7 @@ export async function PUT(request, { params }) {
     where: { id },
     data: {
       exp: body.exp,
+      nombreCorto: body.nombreCorto ?? undefined,
       area: body.area,
       tipo: body.tipo,
       agente: body.agente,
@@ -152,8 +211,9 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
-  if (!session || (session.user.rol !== "admin" && session.user.rol !== "operador")) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  // Solo el jefe de departamento (admin) puede eliminar expedientes.
+  if (!session || session.user.rol !== "admin") {
+    return NextResponse.json({ error: "Solo el jefe de departamento puede eliminar expedientes" }, { status: 403 });
   }
 
   await prisma.expediente.delete({ where: { id } });

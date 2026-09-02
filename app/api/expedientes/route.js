@@ -17,6 +17,7 @@ export async function GET(request) {
   const tipo = searchParams.get("tipo");
   const estadoGeneral = searchParams.get("estado");
   const organismo = searchParams.get("organismo");
+  const nombreCorto = searchParams.get("nombreCorto");
   const q = searchParams.get("q");
 
   const where = {};
@@ -24,9 +25,11 @@ export async function GET(request) {
   if (tipo) where.tipo = tipo;
   if (estadoGeneral) where.estadoGeneral = estadoGeneral;
   if (organismo) where.organismo = organismo;
+  if (nombreCorto) where.nombreCorto = { contains: nombreCorto, mode: "insensitive" };
   if (q) {
     where.OR = [
       { exp: { contains: q, mode: "insensitive" } },
+      { nombreCorto: { contains: q, mode: "insensitive" } },
       { objeto: { contains: q, mode: "insensitive" } },
       { adjudicatario: { contains: q, mode: "insensitive" } },
       { organismo: { contains: q, mode: "insensitive" } },
@@ -69,6 +72,7 @@ export async function POST(request) {
             cadenaId: vigente.cadenaId,
             rol: "renovacion",
             exp: expTentativo,
+            nombreCorto: vigente.nombreCorto,
             area: vigente.area,
             tipo: vigente.tipo,
             agente: vigente.agente,
@@ -112,6 +116,7 @@ export async function POST(request) {
       cadenaId: body.cadenaId || "c" + Date.now(),
       rol: body.rol || "vigente",
       exp: body.exp,
+      nombreCorto: body.nombreCorto || null,
       area: body.area,
       tipo: body.tipo,
       agente: body.agente,

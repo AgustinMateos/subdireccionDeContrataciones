@@ -6,7 +6,7 @@ import { signIn } from "next-auth/react";
 // Solo para autocompletar el formulario más rápido en desarrollo/demo.
 // La autenticación real la valida el servidor contra la tabla Usuario (ver prisma/seed.js).
 const USUARIOS_DEMO = [
-  { email: "admin@pj.gob.ar", clave: "admin123", rolLabel: "Admin" },
+  { email: "admin@pj.gob.ar", clave: "admin123", rolLabel: "Jefe de Departamento" },
   { email: "operador@pj.gob.ar", clave: "operador123", rolLabel: "Operador" },
   { email: "lector@pj.gob.ar", clave: "lector123", rolLabel: "Solo Lectura" },
   { email: "soporte@pj.gob.ar", clave: "soporte123", rolLabel: "Soporte" },

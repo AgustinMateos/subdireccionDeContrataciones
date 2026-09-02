@@ -18,6 +18,9 @@ export default function TarjetaExpediente({ exp, onVer }) {
 
       <div>
         <div className="font-mono text-sm font-semibold text-slate-900">{exp.exp}</div>
+        {exp.nombreCorto && (
+          <div className="text-xs font-medium text-slate-700 mt-0.5">{exp.nombreCorto}</div>
+        )}
         <div className="text-xs text-slate-500 mt-0.5">{exp.tipo} · Agente {exp.agente}</div>
         <div className="text-[11px] text-slate-400 mt-0.5 truncate">{exp.organismo}</div>
       </div>
