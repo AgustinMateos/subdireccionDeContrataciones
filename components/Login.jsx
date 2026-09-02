@@ -60,10 +60,10 @@ export default function Login() {
             Seguimiento centralizado de servicios, provisiones y servicios temporales, con trazabilidad completa desde el antecedente hasta la renovación en trámite.
           </p>
         </div>
-        <div className="flex gap-10 pt-8 border-t border-slate-700 text-sm">
+        {/* <div className="flex gap-10 pt-8 border-t border-slate-700 text-sm">
           <div><div className="text-2xl font-semibold">Informática</div><div className="text-slate-400">Área técnica</div></div>
           <div><div className="text-2xl font-semibold">Varios</div><div className="text-slate-400">Área administrativa</div></div>
-        </div>
+        </div> */}
       </div>
 
       <div className="flex items-center justify-center p-6 sm:p-14">
