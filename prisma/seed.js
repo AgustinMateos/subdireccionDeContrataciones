@@ -56,7 +56,7 @@ async function main() {
         area: "Informatica",
         tipo: "Servicios",
         agente: "CB",
-        organismo: "Centro de Computos",
+        organismos: ["Centro de Computos"],
         objeto: "Servicio de soporte técnico y mantenimiento de red de datos",
         encuadre: "Contratación Directa - Art. 15",
         montoARS: 9800000,

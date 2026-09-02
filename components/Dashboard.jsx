@@ -13,6 +13,7 @@ import { diasRestantes, alerta, documentacionDeExpediente } from "@/lib/utils";
 function normalizarExpediente(e) {
   return {
     ...e,
+    organismos: Array.isArray(e.organismos) ? e.organismos : e.organismo ? [e.organismo] : [],
     fechaInicio: e.fechaInicio ? String(e.fechaInicio).slice(0, 10) : "",
     fechaVencimiento: e.fechaVencimiento ? String(e.fechaVencimiento).slice(0, 10) : "",
     observaciones: Array.isArray(e.observaciones)
@@ -109,7 +110,7 @@ export default function App() {
       if (areaFiltro !== "Todas" && e.area !== areaFiltro) return false;
       if (tipoFiltro !== "Todos" && e.tipo !== tipoFiltro) return false;
       if (estadoFiltro !== "Todos" && e.estadoGeneral !== estadoFiltro) return false;
-      if (organismoFiltro !== "Todos" && e.organismo !== organismoFiltro) return false;
+      if (organismoFiltro !== "Todos" && !(e.organismos || []).includes(organismoFiltro)) return false;
       if (nombreCortoFiltro.trim() && !(e.nombreCorto || "").toLowerCase().includes(nombreCortoFiltro.trim().toLowerCase())) return false;
       if (vencimientoFiltro !== "Todos") {
         const dias = diasRestantes(e.fechaVencimiento);
@@ -126,7 +127,7 @@ export default function App() {
           !(e.nombreCorto || "").toLowerCase().includes(q) &&
           !e.objeto.toLowerCase().includes(q) &&
           !e.adjudicatario.toLowerCase().includes(q) &&
-          !e.organismo.toLowerCase().includes(q)
+          !(e.organismos || []).some(o => o.toLowerCase().includes(q))
         ) return false;
       }
       return true;

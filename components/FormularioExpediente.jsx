@@ -3,16 +3,40 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { ORGANISMOS, AREA_LABEL } from "@/lib/constants";
+const FORM_VACIO = {
+  exp: "", nombreCorto: "", nroContratacion: "", area: "Informatica", tipo: "Servicios", agente: "", organismos: [], objeto: "",
+  encuadre: "", presupuestoOficial: "", montoARS: "", montoUSD: "", fechaInicio: "", fechaVencimiento: "",
+  ocResolucion: "", adjudicatario: "", sector: "", etapa: "En ejecución", estadoGeneral: "Vigente",
+  antecedenteExp: "",
+};
+
+function normalizarInicial(inicial) {
+  if (!inicial) return FORM_VACIO;
+  return {
+    ...inicial,
+    organismos: Array.isArray(inicial.organismos)
+      ? inicial.organismos
+      : inicial.organismo ? [inicial.organismo] : [],
+  };
+}
+
 export default function FormularioExpediente({ titulo, inicial, esNuevo, expedientes, onCerrar, onGuardar }) {
-  const [f, setF] = useState(inicial || {
-    exp: "", nombreCorto: "", area: "Informatica", tipo: "Servicios", agente: "", organismo: "", objeto: "",
-    encuadre: "", montoARS: "", montoUSD: "", fechaInicio: "", fechaVencimiento: "",
-    ocResolucion: "", adjudicatario: "", sector: "", etapa: "En ejecución", estadoGeneral: "Vigente",
-    antecedenteExp: "",
-  });
+  const [f, setF] = useState(() => normalizarInicial(inicial));
+  const [orgInput, setOrgInput] = useState("");
   const [error, setError] = useState("");
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
+
+  function agregarOrganismo() {
+    const v = orgInput.trim();
+    if (!v) return;
+    if (!f.organismos.includes(v)) set("organismos", [...f.organismos, v]);
+    setOrgInput("");
+  }
+
+  function quitarOrganismo(o) {
+    set("organismos", f.organismos.filter(x => x !== o));
+  }
 
   const coincidenciaAntecedente = f.antecedenteExp && expedientes
     ? expedientes.find(e => e.exp.trim().toLowerCase() === f.antecedenteExp.trim().toLowerCase())
@@ -24,7 +48,16 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
       setError("Completá al menos N° de expediente, objeto y fecha de vencimiento.");
       return;
     }
-    onGuardar({ ...f, montoARS: Number(f.montoARS) || 0, montoUSD: Number(f.montoUSD) || 0 });
+    if (f.organismos.length === 0) {
+      setError("Agregá al menos un organismo.");
+      return;
+    }
+    onGuardar({
+      ...f,
+      presupuestoOficial: Number(f.presupuestoOficial) || 0,
+      montoARS: Number(f.montoARS) || 0,
+      montoUSD: Number(f.montoUSD) || 0,
+    });
   }
 
   return (
@@ -40,21 +73,42 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
           <div className="grid grid-cols-2 gap-4">
             <Campo_Input label="N° de expediente" value={f.exp} onChange={v => set("exp", v)} placeholder="13-00000/26" />
             <Campo_Input label="Nombre corto" value={f.nombreCorto} onChange={v => set("nombreCorto", v)} placeholder="Ej: Limpieza edificio central" />
+            <Campo_Input label="N° de contratación" value={f.nroContratacion} onChange={v => set("nroContratacion", v)} placeholder="Ej: 45/2026" />
             <Campo_Select label="Área" value={f.area} onChange={v => set("area", v)} opciones={["Informatica", "Varios"]} labels={AREA_LABEL} />
             <Campo_Select label="Tipo" value={f.tipo} onChange={v => set("tipo", v)} opciones={["Servicios", "Provisiones", "Servicios Temporales"]} />
             <Campo_Input label="Agente" value={f.agente} onChange={v => set("agente", v)} placeholder="CB" />
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Organismo</label>
-              <input
-                list="lista-organismos"
-                value={f.organismo}
-                onChange={e => set("organismo", e.target.value)}
-                placeholder="Empezá a escribir o elegí de la lista"
-                className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800"
-              />
-              <datalist id="lista-organismos">
-                {ORGANISMOS.map(o => <option key={o} value={o} />)}
-              </datalist>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Organismos {f.organismos.length > 0 && <span className="text-slate-400">({f.organismos.length})</span>}
+              </label>
+              {f.organismos.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {f.organismos.map(o => (
+                    <span key={o} className="flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-full pl-2.5 pr-1 py-1 text-xs text-slate-700">
+                      {o}
+                      <button type="button" onClick={() => quitarOrganismo(o)} className="p-0.5 rounded-full hover:bg-slate-300 text-slate-500">
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  list="lista-organismos"
+                  value={orgInput}
+                  onChange={e => setOrgInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); agregarOrganismo(); } }}
+                  placeholder="Escribí o elegí de la lista y presioná Agregar"
+                  className="flex-1 text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                />
+                <datalist id="lista-organismos">
+                  {ORGANISMOS.map(o => <option key={o} value={o} />)}
+                </datalist>
+                <button type="button" onClick={agregarOrganismo} className="px-3 py-2 rounded-md border border-slate-300 text-xs font-medium hover:bg-slate-50 shrink-0">
+                  Agregar
+                </button>
+              </div>
             </div>
             <Campo_Input label="Sector actual" value={f.sector} onChange={v => set("sector", v)} />
             {esNuevo && (
@@ -88,8 +142,9 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
             <Campo_Input label="OC / Resolución" value={f.ocResolucion} onChange={v => set("ocResolucion", v)} />
             <Campo_Input label="Adjudicatario" value={f.adjudicatario} onChange={v => set("adjudicatario", v)} />
             <Campo_Input label="Etapa" value={f.etapa} onChange={v => set("etapa", v)} />
-            <Campo_Input label="Monto $ (ARS)" type="number" value={f.montoARS} onChange={v => set("montoARS", v)} />
-            <Campo_Input label="Monto USD" type="number" value={f.montoUSD} onChange={v => set("montoUSD", v)} />
+            <Campo_Input label="Presupuesto oficial (ARS)" type="number" value={f.presupuestoOficial} onChange={v => set("presupuestoOficial", v)} />
+            <Campo_Input label="Monto adjudicado (ARS)" type="number" value={f.montoARS} onChange={v => set("montoARS", v)} />
+            <Campo_Input label="Monto adjudicado (USD)" type="number" value={f.montoUSD} onChange={v => set("montoUSD", v)} />
             <Campo_Input label="Fecha de inicio" type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
             <Campo_Input label="Fecha de vencimiento" type="date" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
             <Campo_Select label="Estado general" value={f.estadoGeneral} onChange={v => set("estadoGeneral", v)}

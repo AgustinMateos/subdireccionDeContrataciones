@@ -93,7 +93,8 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
           <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
             <Campo label="Tipo de expediente" valor={exp.tipo} />
             <Campo label="Agente" valor={exp.agente} />
-            <Campo label="Organismo" valor={exp.organismo} />
+            <Campo label="N° de contratación" valor={exp.nroContratacion} />
+            <Campo label={(exp.organismos || []).length > 1 ? "Organismos" : "Organismo"} valor={(exp.organismos || []).join(", ")} />
             <Campo label="Sector actual" valor={exp.sector} />
             <Campo label="Encuadre" valor={exp.encuadre} />
             <Campo label="OC / Resolución" valor={exp.ocResolucion} />
@@ -101,8 +102,9 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <Campo label="Etapa" valor={exp.etapa} />
             <Campo label="Fecha inicio" valor={fmtFecha(exp.fechaInicio)} />
             <Campo label="Fecha vencimiento" valor={fmtFecha(exp.fechaVencimiento)} />
-            <Campo label="Monto $" valor={fmtMoneda(exp.montoARS)} />
-            <Campo label="Monto USD" valor={exp.montoUSD ? fmtMoneda(exp.montoUSD, "USD") : "-"} />
+            <Campo label="Presupuesto oficial" valor={exp.presupuestoOficial ? fmtMoneda(exp.presupuestoOficial) : "-"} />
+            <Campo label="Monto adjudicado" valor={fmtMoneda(exp.montoARS)} />
+            <Campo label="Monto adjudicado USD" valor={exp.montoUSD ? fmtMoneda(exp.montoUSD, "USD") : "-"} />
             <div className="col-span-2"><Campo label="Objeto" valor={exp.objeto} /></div>
           </div>
 

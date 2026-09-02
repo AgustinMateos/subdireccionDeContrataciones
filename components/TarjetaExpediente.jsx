@@ -22,7 +22,7 @@ export default function TarjetaExpediente({ exp, onVer }) {
           <div className="text-xs font-medium text-slate-700 mt-0.5">{exp.nombreCorto}</div>
         )}
         <div className="text-xs text-slate-500 mt-0.5">{exp.tipo} · Agente {exp.agente}</div>
-        <div className="text-[11px] text-slate-400 mt-0.5 truncate">{exp.organismo}</div>
+        <div className="text-[11px] text-slate-400 mt-0.5 truncate">{(exp.organismos || []).join(" · ")}</div>
       </div>
 
       <p className="text-sm text-slate-700 line-clamp-2 leading-snug">{exp.objeto}</p>

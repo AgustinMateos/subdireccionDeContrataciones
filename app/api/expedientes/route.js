@@ -8,6 +8,14 @@ const INCLUDE_EXPEDIENTE = {
   documentacion: { orderBy: { orden: "asc" } },
 };
 
+// Acepta `organismos` (array) del cliente nuevo o `organismo` (string) por compatibilidad.
+function normalizarOrganismos(body) {
+  if (Array.isArray(body.organismos)) {
+    return body.organismos.map((o) => String(o).trim()).filter(Boolean);
+  }
+  return body.organismo ? [String(body.organismo).trim()].filter(Boolean) : [];
+}
+
 export async function GET(request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -24,7 +32,7 @@ export async function GET(request) {
   if (area) where.area = area;
   if (tipo) where.tipo = tipo;
   if (estadoGeneral) where.estadoGeneral = estadoGeneral;
-  if (organismo) where.organismo = organismo;
+  if (organismo) where.organismos = { has: organismo };
   if (nombreCorto) where.nombreCorto = { contains: nombreCorto, mode: "insensitive" };
   if (q) {
     where.OR = [
@@ -32,7 +40,7 @@ export async function GET(request) {
       { nombreCorto: { contains: q, mode: "insensitive" } },
       { objeto: { contains: q, mode: "insensitive" } },
       { adjudicatario: { contains: q, mode: "insensitive" } },
-      { organismo: { contains: q, mode: "insensitive" } },
+      { organismos: { has: q } },
     ];
   }
 
@@ -73,14 +81,16 @@ export async function POST(request) {
             rol: "renovacion",
             exp: expTentativo,
             nombreCorto: vigente.nombreCorto,
+            nroContratacion: vigente.nroContratacion,
             area: vigente.area,
             tipo: vigente.tipo,
             agente: vigente.agente,
-            organismo: vigente.organismo,
+            organismos: vigente.organismos,
             destinatario: vigente.destinatario,
             domicilio: vigente.domicilio,
             objeto: vigente.objeto,
             encuadre: vigente.encuadre,
+            presupuestoOficial: vigente.presupuestoOficial,
             montoARS: vigente.montoARS,
             montoUSD: vigente.montoUSD,
             fechaInicio: vigente.fechaInicio,
@@ -117,12 +127,14 @@ export async function POST(request) {
       rol: body.rol || "vigente",
       exp: body.exp,
       nombreCorto: body.nombreCorto || null,
+      nroContratacion: body.nroContratacion || null,
       area: body.area,
       tipo: body.tipo,
       agente: body.agente,
-      organismo: body.organismo,
+      organismos: normalizarOrganismos(body),
       objeto: body.objeto,
       encuadre: body.encuadre || null,
+      presupuestoOficial: Number(body.presupuestoOficial) || 0,
       montoARS: Number(body.montoARS) || 0,
       montoUSD: Number(body.montoUSD) || 0,
       fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,

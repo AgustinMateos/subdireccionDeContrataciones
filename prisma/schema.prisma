@@ -47,15 +47,17 @@ model Expediente {
   rol            RolCadena
   exp            String   @unique // "13-06148/26"
   nombreCorto    String? // alias legible para identificar y filtrar rápido ("Limpieza edificio central")
+  nroContratacion String? // número de contratación asignado
   area           Area
   tipo           String // Servicios | Provisiones | Servicios Temporales
   agente         String
-  organismo      String
+  organismos     String[] @default([]) // uno o más organismos solicitantes / destinatarios
   destinatario   String?
   domicilio      String?
   objeto         String
   encuadre       String?
-  montoARS       Float    @default(0)
+  presupuestoOficial Float @default(0) // presupuesto oficial estimado
+  montoARS       Float    @default(0) // valor adjudicado (ARS)
   montoUSD       Float    @default(0)
   fechaInicio    DateTime?
   fechaVencimiento DateTime

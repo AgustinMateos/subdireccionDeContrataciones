@@ -186,12 +186,16 @@ export async function PUT(request, { params }) {
     data: {
       exp: body.exp,
       nombreCorto: body.nombreCorto ?? undefined,
+      nroContratacion: body.nroContratacion ?? undefined,
       area: body.area,
       tipo: body.tipo,
       agente: body.agente,
-      organismo: body.organismo,
+      organismos: Array.isArray(body.organismos)
+        ? body.organismos.map((o) => String(o).trim()).filter(Boolean)
+        : undefined,
       objeto: body.objeto,
       encuadre: body.encuadre ?? undefined,
+      presupuestoOficial: body.presupuestoOficial != null ? Number(body.presupuestoOficial) || 0 : undefined,
       montoARS: Number(body.montoARS) || 0,
       montoUSD: Number(body.montoUSD) || 0,
       fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
