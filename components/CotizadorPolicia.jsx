@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 import { CheckCircle2, Download, Shield, CalendarDays } from "lucide-react";
 import { FUERZAS_SEGURIDAD, PERIODICIDADES_POLICIA, FERIADOS_2026 } from "@/lib/constants";
 import { calcularDiasServicio, diasServicioPorMes, fmtMoneda, fmtFecha } from "@/lib/utils";
-export default function CotizadorPolicia({ mostrarToast, expedientes, onVincular }) {
+export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarYVincular }) {
   const [fuerza, setFuerza] = useState("PFA");
   const [periodicidad, setPeriodicidad] = useState("lv_habiles");
   const [fechaInicio, setFechaInicio] = useState("2026-09-01");
@@ -109,11 +109,28 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onVincular
       mostrarToast("Cargá el valor del módulo antes de aprobar");
       return;
     }
-    onVincular(
-      expNro,
-      "Cotizador de policía adicional aprobado: " + fuerzaSeleccionada.nombre + ", " + periodicidadSeleccionada.label +
-      ", " + totalModulos.toLocaleString("es-AR") + " módulos = " + fmtMoneda(costoTotal) + "."
-    );
+    if (!expNro.trim()) {
+      mostrarToast("Indicá el N° de expediente para vincular la cotización");
+      return;
+    }
+    onAprobarYVincular({
+      expNro: expNro.trim(),
+      fuerza,
+      periodicidad,
+      periodo: { inicio: fechaInicio, fin: fechaFin },
+      dias,
+      modulosPorDia: modulosPorDiaNum,
+      cantidadOficiales: oficialesNum,
+      totalModulos,
+      costoTotal,
+      objeto,
+      desglose: desgloseMensual.map(m => ({
+        mes: m.mes, etiqueta: m.etiqueta, dias: m.dias, modulos: m.modulos, valorModulo: m.valorModulo, monto: m.monto,
+      })),
+      texto:
+        "Cotizador de policía adicional aprobado: " + fuerzaSeleccionada.nombre + ", " + periodicidadSeleccionada.label +
+        ", " + totalModulos.toLocaleString("es-AR") + " módulos = " + fmtMoneda(costoTotal) + ".",
+    });
   }
 
   return (

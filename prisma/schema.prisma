@@ -60,6 +60,11 @@ model Expediente {
   presupuestoOficial Float @default(0) // presupuesto oficial estimado
   montoARS       Float    @default(0) // valor adjudicado (ARS)
   montoUSD       Float    @default(0)
+
+  // Policía adicional (contratación interadministrativa con fuerzas de seguridad)
+  esPoliciaAdicional Boolean @default(false)
+  fuerzaSeguridad    String? // PFA | GNA | PNA | PCABA
+  cotizacionPolicia  Json?   // snapshot de la cotización aprobada y vinculada desde el cotizador
   fechaInicio    DateTime?
   fechaVencimiento DateTime
   ocResolucion   String?
@@ -77,6 +82,7 @@ model Expediente {
   @@index([area])
   @@index([estadoGeneral])
   @@index([nombreCorto])
+  @@index([esPoliciaAdicional])
 }
 
 model Observacion {

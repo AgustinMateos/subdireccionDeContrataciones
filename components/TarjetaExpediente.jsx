@@ -1,13 +1,13 @@
 "use client";
 
-import { AREA_ESTILO, AREA_LABEL, ALERTA_ESTILO, ALERTA_LABEL, ESTADO_ESTILO } from "@/lib/constants";
+import { AREA_ESTILO, AREA_LABEL, ALERTA_ESTILO, ALERTA_LABEL, ESTADO_ESTILO, FUERZA_LABEL } from "@/lib/constants";
 import { diasRestantes, alerta, fmtFecha, fmtMoneda } from "@/lib/utils";
 export default function TarjetaExpediente({ exp, onVer }) {
   const dias = diasRestantes(exp.fechaVencimiento);
   const niv = alerta(dias);
   return (
     <button onClick={onVer} className="text-left bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-400 hover:shadow-sm transition-all flex flex-col gap-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <span className={"text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded " + AREA_ESTILO[exp.area]}>
           {AREA_LABEL[exp.area]}
         </span>
@@ -15,6 +15,11 @@ export default function TarjetaExpediente({ exp, onVer }) {
           {ALERTA_LABEL[niv]}
         </span>
       </div>
+      {exp.esPoliciaAdicional && (
+        <span className="self-start text-[10px] font-medium px-2 py-0.5 rounded border border-indigo-300 bg-indigo-50 text-indigo-800">
+          Policía adicional{exp.fuerzaSeguridad ? " · " + (FUERZA_LABEL[exp.fuerzaSeguridad] || exp.fuerzaSeguridad) : ""}
+        </span>
+      )}
 
       <div>
         <div className="font-mono text-sm font-semibold text-slate-900">{exp.exp}</div>

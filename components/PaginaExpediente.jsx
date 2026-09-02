@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil, Trash2 } from "lucide-react";
-import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL } from "@/lib/constants";
+import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil, Trash2, Shield } from "lucide-react";
+import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL } from "@/lib/constants";
 import { diasRestantes, alerta, fmtFecha, fmtMoneda, documentacionDeExpediente } from "@/lib/utils";
-export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, puedeEditar, puedeEliminar, esJefe }) {
+export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
   const [verMasAntecedentes, setVerMasAntecedentes] = useState(false);
   const cadena = expedientes.filter(e => e.cadenaId === exp.cadenaId);
   const antecedentes = cadena.filter(e => e.rol === "antecedente")
@@ -38,7 +38,40 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <span className={"text-[11px] font-medium px-2 py-1 rounded border " + ALERTA_ESTILO[niv]}>
               {dias >= 0 ? dias + " días restantes" : Math.abs(dias) + " días vencido"} · {ALERTA_LABEL[niv]}
             </span>
+            {exp.esPoliciaAdicional && (
+              <span className="text-[11px] font-semibold px-2 py-1 rounded border border-indigo-300 bg-indigo-50 text-indigo-800 flex items-center gap-1">
+                <Shield size={11} /> Policía adicional{exp.fuerzaSeguridad ? " · " + (FUERZA_LABEL[exp.fuerzaSeguridad] || exp.fuerzaSeguridad) : ""}
+              </span>
+            )}
           </div>
+
+          {exp.esPoliciaAdicional && exp.cotizacionPolicia && (
+            <div className="bg-indigo-50/60 border border-indigo-100 rounded-lg p-4">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-indigo-700 mb-2">
+                Cotización de módulos aprobada y vinculada
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-400">Total módulos</div>
+                  <div className="text-slate-800 font-medium">{Number(exp.cotizacionPolicia.totalModulos || 0).toLocaleString("es-AR")}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-400">Costo total</div>
+                  <div className="text-slate-800 font-medium">{fmtMoneda(exp.cotizacionPolicia.costoTotal)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-400">Período</div>
+                  <div className="text-slate-800 font-medium">
+                    {fmtFecha(exp.cotizacionPolicia.periodo?.inicio)} — {fmtFecha(exp.cotizacionPolicia.periodo?.fin)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-400">Aprobada</div>
+                  <div className="text-slate-800 font-medium">{fmtFecha(exp.cotizacionPolicia.aprobadoEn)}</div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Trazabilidad del expediente</h3>
@@ -109,7 +142,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <div className="col-span-2"><Campo label="Objeto" valor={exp.objeto} /></div>
           </div>
 
-          <ChecklistDocumentacion exp={exp} onDocumentacion={onDocumentacion} puedeEditar={puedeEditar} />
+          <ChecklistDocumentacion exp={exp} onDocumentacion={onDocumentacion} puedeEditar={puedeEditar} moduloValor={moduloValor} />
 
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3 flex items-center gap-1.5">
@@ -159,12 +192,21 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   );
 }
 
-function ChecklistDocumentacion({ exp, onDocumentacion, puedeEditar }) {
+function ChecklistDocumentacion({ exp, onDocumentacion, puedeEditar, moduloValor }) {
   const [abierto, setAbierto] = useState(false);
   const documentacion = documentacionDeExpediente(exp);
   const completados = documentacion.filter(d => d.cargado).length;
   const total = documentacion.length;
   const porcentaje = total ? Math.round((completados / total) * 100) : 0;
+
+  // Circuito de policía adicional: el paso de firmas define si interviene la
+  // Unidad de Auditoría Interna o la Comisión de Administración y Financiera
+  // según el presupuesto (adjudicado u oficial) contra 15.000 módulos.
+  const itemAuditoria = CHECKLIST_POLICIA_ADICIONAL[7];
+  const baseMonto = Math.max(Number(exp.montoARS) || 0, Number(exp.presupuestoOficial) || 0);
+  const modulosEquivalentes = moduloValor ? baseMonto / moduloValor : 0;
+  const requiereCAF = modulosEquivalentes >= UMBRAL_MODULOS_CAF;
+  const umbralPesos = moduloValor ? UMBRAL_MODULOS_CAF * moduloValor : 0;
 
   return (
     <div className="border border-slate-200 rounded-lg overflow-hidden">
@@ -191,23 +233,35 @@ function ChecklistDocumentacion({ exp, onDocumentacion, puedeEditar }) {
       {abierto && (
         <div className="p-4 space-y-1.5">
           {documentacion.map((d, i) => (
-            <label
-              key={i}
-              className={"flex items-center gap-2.5 text-xs rounded-md px-2 py-1.5 " +
-                (puedeEditar ? "cursor-pointer hover:bg-slate-50" : "")}
-            >
-              <input
-                type="checkbox"
-                checked={d.cargado}
-                disabled={!puedeEditar}
-                onChange={() => onDocumentacion(exp.id, i)}
-                className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-600"
-              />
-              <span className={d.cargado ? "text-slate-700" : "text-slate-500"}>{d.item}</span>
-            </label>
+            <div key={i}>
+              <label
+                className={"flex items-center gap-2.5 text-xs rounded-md px-2 py-1.5 " +
+                  (puedeEditar ? "cursor-pointer hover:bg-slate-50" : "")}
+              >
+                <input
+                  type="checkbox"
+                  checked={d.cargado}
+                  disabled={!puedeEditar}
+                  onChange={() => onDocumentacion(exp.id, i)}
+                  className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-600"
+                />
+                <span className={d.cargado ? "text-slate-700" : "text-slate-500"}>{d.item}</span>
+              </label>
+              {exp.esPoliciaAdicional && d.item === itemAuditoria && (
+                <p className={"ml-8 text-[10px] mt-0.5 " + (requiereCAF ? "text-amber-700" : "text-slate-400")}>
+                  {moduloValor
+                    ? (requiereCAF
+                        ? "Supera 15.000 módulos (" + fmtMoneda(umbralPesos) + ") → interviene la Comisión de Administración y Financiera."
+                        : "No supera 15.000 módulos (" + fmtMoneda(umbralPesos) + ") → interviene la Unidad de Auditoría Interna.")
+                    : "Definí el valor modular para calcular si corresponde CAF."}
+                </p>
+              )}
+            </div>
           ))}
           <p className="text-[10px] text-slate-400 pt-1">
-            Checklist de referencia para el circuito de contrataciones, adaptable según el tipo de expediente.
+            {exp.esPoliciaAdicional
+              ? "Circuito de legalidad para contrataciones de policía adicional (interadministrativas)."
+              : "Checklist de referencia para el circuito de contrataciones, adaptable según el tipo de expediente."}
           </p>
         </div>
       )}

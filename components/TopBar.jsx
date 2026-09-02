@@ -1,15 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, BookOpen, Phone, Globe, ExternalLink, User, Contact, FileDown } from "lucide-react";
+import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, BookOpen, Phone, Globe, ExternalLink, User, Contact, FileDown, BarChart3 } from "lucide-react";
 import { descargarArchivoBase64 } from "@/lib/utils";
 import { FORMULARIO_FALTAS_BASE64 } from "@/lib/constants";
 export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista, setVista, mostrarToast }) {
   const [variosAbierto, setVariosAbierto] = useState(false);
+  const [informesAbierto, setInformesAbierto] = useState(false);
   const [publicacionesAbierto, setPublicacionesAbierto] = useState(false);
   const [perfilAbierto, setPerfilAbierto] = useState(false);
   const vistasVarios = ["cotizadorTaquigrafico", "cotizadorPolicia", "cotizadorAvisos"];
   const variosActivo = vistasVarios.includes(vista);
+  const vistasInformes = ["informePoliciaAdicional"];
+  const informesActivo = vistasInformes.includes(vista);
 
   function accederLegajo() {
     setPerfilAbierto(false);
@@ -129,6 +132,32 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
                   <Newspaper size={14} className="text-slate-400" /> Cotizador de avisos
                 </button>
                 <div className="px-3 py-2 text-[11px] text-slate-400">Más herramientas del área, próximamente</div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="relative h-full">
+          <button
+            onClick={() => setInformesAbierto(v => !v)}
+            className={"h-full px-3 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 " +
+              (informesActivo ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}
+          >
+            <BarChart3 size={13} /> Informes <ChevronDown size={13} className={"transition-transform " + (informesAbierto ? "rotate-180" : "")} />
+          </button>
+
+          {informesAbierto && (
+            <>
+              <div className="fixed inset-0 z-20" onClick={() => setInformesAbierto(false)} />
+              <div className="absolute left-0 top-full mt-0.5 w-60 bg-white border border-slate-200 rounded-lg shadow-lg z-30 py-1.5">
+                <button
+                  onClick={() => { setVista("informePoliciaAdicional"); setInformesAbierto(false); }}
+                  className={"w-full flex items-center gap-2.5 text-left px-3 py-2 text-xs hover:bg-slate-50 " +
+                    (vista === "informePoliciaAdicional" ? "text-slate-900 font-medium bg-slate-50" : "text-slate-600")}
+                >
+                  <Shield size={14} className="text-slate-400" /> Policía Adicional
+                </button>
+                <div className="px-3 py-2 text-[11px] text-slate-400">Más informes, próximamente</div>
               </div>
             </>
           )}

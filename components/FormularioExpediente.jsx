@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { ORGANISMOS, AREA_LABEL, MODALIDADES_CONTRATACION } from "@/lib/constants";
+import { ORGANISMOS, AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO } from "@/lib/constants";
 const FORM_VACIO = {
   exp: "", nombreCorto: "", nroContratacion: "", nroResolucion: "", area: "Informatica", tipo: "Servicios", agente: "", organismos: [], objeto: "",
   encuadre: "", presupuestoOficial: "", montoARS: "", montoUSD: "", fechaInicio: "", fechaVencimiento: "",
   ocResolucion: "", adjudicatario: "", sector: "", etapa: "En ejecución", estadoGeneral: "Vigente",
+  esPoliciaAdicional: false, fuerzaSeguridad: "",
   antecedenteExp: "",
 };
 
@@ -17,6 +18,8 @@ function normalizarInicial(inicial) {
     organismos: Array.isArray(inicial.organismos)
       ? inicial.organismos
       : inicial.organismo ? [inicial.organismo] : [],
+    esPoliciaAdicional: !!inicial.esPoliciaAdicional,
+    fuerzaSeguridad: inicial.fuerzaSeguridad || "",
   };
 }
 
@@ -38,6 +41,15 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
     set("organismos", f.organismos.filter(x => x !== o));
   }
 
+  function togglePoliciaAdicional(activo) {
+    setF(prev => ({
+      ...prev,
+      esPoliciaAdicional: activo,
+      fuerzaSeguridad: activo ? prev.fuerzaSeguridad : "",
+      encuadre: activo ? ENCUADRE_INTERADMINISTRATIVO : prev.encuadre,
+    }));
+  }
+
   const coincidenciaAntecedente = f.antecedenteExp && expedientes
     ? expedientes.find(e => e.exp.trim().toLowerCase() === f.antecedenteExp.trim().toLowerCase())
     : null;
@@ -50,6 +62,10 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
     }
     if (f.organismos.length === 0) {
       setError("Agregá al menos un organismo.");
+      return;
+    }
+    if (f.esPoliciaAdicional && !f.fuerzaSeguridad) {
+      setError("Elegí la fuerza de seguridad para el expediente de policía adicional.");
       return;
     }
     onGuardar({
@@ -139,10 +155,43 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
             <div className="col-span-2">
               <Campo_Input label="Objeto" value={f.objeto} onChange={v => set("objeto", v)} />
             </div>
+
+            <div className="col-span-2 border border-slate-200 rounded-md p-3 bg-slate-50">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={f.esPoliciaAdicional}
+                  onChange={e => togglePoliciaAdicional(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 rounded border-slate-300 text-slate-800 focus:ring-slate-800"
+                />
+                <span>
+                  <span className="text-xs font-medium text-slate-700">Contratación de policía adicional (interadministrativo)</span>
+                  <span className="block text-[11px] text-slate-500 mt-0.5">
+                    Fija el encuadre en "{ENCUADRE_INTERADMINISTRATIVO}", usa el circuito de legalidad
+                    específico y suma el expediente al informe de policía adicional.
+                  </span>
+                </span>
+              </label>
+              {f.esPoliciaAdicional && (
+                <div className="mt-3 sm:w-72">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Fuerza de seguridad</label>
+                  <select
+                    value={f.fuerzaSeguridad}
+                    onChange={e => set("fuerzaSeguridad", e.target.value)}
+                    className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+                  >
+                    <option value="">— Elegir fuerza —</option>
+                    {FUERZAS_SEGURIDAD.map(fz => <option key={fz.key} value={fz.key}>{fz.nombre}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+
             <Campo_Select
               label="Encuadre / modalidad de contratación"
               value={f.encuadre || ""}
               onChange={v => set("encuadre", v)}
+              disabled={f.esPoliciaAdicional}
               opciones={[
                 "",
                 ...MODALIDADES_CONTRATACION,
@@ -188,12 +237,12 @@ function Campo_Input({ label, value, onChange, type = "text", placeholder }) {
   );
 }
 
-function Campo_Select({ label, value, onChange, opciones, labels }) {
+function Campo_Select({ label, value, onChange, opciones, labels, disabled }) {
   return (
     <div>
       <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
-      <select value={value} onChange={e => onChange(e.target.value)}
-        className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800">
+      <select value={value} onChange={e => onChange(e.target.value)} disabled={disabled}
+        className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800 disabled:bg-slate-100 disabled:text-slate-500">
         {opciones.map(o => <option key={o} value={o}>{labels && labels[o] != null ? labels[o] : o}</option>)}
       </select>
     </div>

@@ -39,6 +39,7 @@ import LibroAperturas from "./LibroAperturas";
 import ListadoTelefonos from "./ListadoTelefonos";
 import PlanillaCotizacion from "./PlanillaCotizacion";
 import ValorModular from "./ValorModular";
+import InformePoliciaAdicional from "./InformePoliciaAdicional";
 
 export default function App() {
   const { data: session, status } = useSession();
@@ -285,6 +286,42 @@ export default function App() {
     return true;
   }
 
+  // "Aprobar y vincular" del cotizador de policía adicional: marca el expediente
+  // como policía adicional, guarda el snapshot de la cotización y tilda el paso
+  // del cotizador en el circuito de legalidad.
+  async function vincularCotizacionPolicia(datos) {
+    const numeroBuscado = (datos.expNro || "").trim().toLowerCase();
+    const match = expedientes.find(e => e.exp.trim().toLowerCase() === numeroBuscado);
+    if (!match) {
+      mostrarToast("No se encontró el expediente " + datos.expNro + " para vincular");
+      return false;
+    }
+    const res = await fetch(`/api/expedientes/${match.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        vincularCotizacionPolicia: {
+          fuerza: datos.fuerza,
+          periodicidad: datos.periodicidad,
+          periodo: datos.periodo,
+          dias: datos.dias,
+          modulosPorDia: datos.modulosPorDia,
+          cantidadOficiales: datos.cantidadOficiales,
+          totalModulos: datos.totalModulos,
+          costoTotal: datos.costoTotal,
+          objeto: datos.objeto,
+          desglose: datos.desglose,
+          texto: datos.texto,
+          aprobadoEn: new Date().toISOString().slice(0, 10),
+        },
+      }),
+    });
+    if (!res.ok) { mostrarToast("No se pudo vincular la cotización al expediente " + match.exp); return false; }
+    await refrescar(seleccionado && seleccionado.id === match.id ? match.id : undefined);
+    mostrarToast("Cotización aprobada y vinculada a " + match.exp);
+    return true;
+  }
+
   async function crearRenovacion(vigente) {
     const res = await fetch("/api/expedientes", {
       method: "POST",
@@ -349,7 +386,9 @@ export default function App() {
         ) : vista === "cotizadorTaquigrafico" ? (
           <CotizadorTaquigrafico sesion={sesion} mostrarToast={mostrarToast} expedientes={expedientes} onVincular={vincularCotizacionAExpediente} />
         ) : vista === "cotizadorPolicia" ? (
-          <CotizadorPolicia mostrarToast={mostrarToast} expedientes={expedientes} onVincular={vincularCotizacionAExpediente} />
+          <CotizadorPolicia mostrarToast={mostrarToast} expedientes={expedientes} onAprobarYVincular={vincularCotizacionPolicia} />
+        ) : vista === "informePoliciaAdicional" ? (
+          <InformePoliciaAdicional expedientes={expedientes} moduloValor={moduloValor} />
         ) : vista === "cotizadorAvisos" ? (
           <CotizadorAvisos mostrarToast={mostrarToast} expedientes={expedientes} onVincular={vincularCotizacionAExpediente} />
         ) : vista === "libroAperturas" ? (
@@ -375,6 +414,7 @@ export default function App() {
             puedeEditar={puedeEditar}
             puedeEliminar={puedeEliminar}
             esJefe={esJefe}
+            moduloValor={moduloValor}
           />
         ) : (
           <>

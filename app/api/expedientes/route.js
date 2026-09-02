@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ENCUADRE_INTERADMINISTRATIVO } from "@/lib/constants";
 
 const INCLUDE_EXPEDIENTE = {
   observaciones: { orderBy: { fecha: "asc" } },
@@ -94,6 +95,9 @@ export async function POST(request) {
             presupuestoOficial: vigente.presupuestoOficial,
             montoARS: vigente.montoARS,
             montoUSD: vigente.montoUSD,
+            esPoliciaAdicional: vigente.esPoliciaAdicional,
+            fuerzaSeguridad: vigente.fuerzaSeguridad,
+            cotizacionPolicia: vigente.cotizacionPolicia ?? undefined,
             fechaInicio: vigente.fechaInicio,
             fechaVencimiento: vigente.fechaVencimiento,
             ocResolucion: vigente.ocResolucion,
@@ -135,10 +139,12 @@ export async function POST(request) {
       agente: body.agente,
       organismos: normalizarOrganismos(body),
       objeto: body.objeto,
-      encuadre: body.encuadre || null,
+      encuadre: body.esPoliciaAdicional ? ENCUADRE_INTERADMINISTRATIVO : (body.encuadre || null),
       presupuestoOficial: Number(body.presupuestoOficial) || 0,
       montoARS: Number(body.montoARS) || 0,
       montoUSD: Number(body.montoUSD) || 0,
+      esPoliciaAdicional: !!body.esPoliciaAdicional,
+      fuerzaSeguridad: body.esPoliciaAdicional ? (body.fuerzaSeguridad || null) : null,
       fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
       fechaVencimiento: new Date(body.fechaVencimiento),
       ocResolucion: body.ocResolucion || null,

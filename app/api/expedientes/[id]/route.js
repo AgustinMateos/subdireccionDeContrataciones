@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO } from "@/lib/constants";
+
+const ITEM_COTIZADOR_POLICIA = CHECKLIST_POLICIA_ADICIONAL[3]; // "Control con el cotizador de módulos (aprobado y vinculado)"
 
 const INCLUDE_EXPEDIENTE = {
   observaciones: { orderBy: { fecha: "asc" } },
@@ -46,6 +49,49 @@ export async function PUT(request, { params }) {
   }
 
   const body = await request.json();
+
+  // ---------- Aprobar y vincular una cotización de policía adicional ----------
+  // Marca el expediente como policía adicional, fija la fuerza y el encuadre,
+  // guarda el snapshot de la cotización, deja una observación y tilda el paso
+  // "Control con el cotizador de módulos" del circuito de legalidad.
+  if (body.vincularCotizacionPolicia) {
+    const c = body.vincularCotizacionPolicia;
+    await prisma.expediente.update({
+      where: { id },
+      data: {
+        esPoliciaAdicional: true,
+        fuerzaSeguridad: c.fuerza || undefined,
+        encuadre: ENCUADRE_INTERADMINISTRATIVO,
+        cotizacionPolicia: c,
+        observaciones: {
+          create: { usuario: session.user.name, tipo: "general", texto: c.texto || "Cotización de policía adicional aprobada y vinculada." },
+        },
+      },
+    });
+
+    const existentes = await prisma.documentacionItem.findMany({
+      where: { expedienteId: id },
+      orderBy: { orden: "asc" },
+    });
+    if (existentes.length === 0) {
+      await prisma.documentacionItem.createMany({
+        data: CHECKLIST_POLICIA_ADICIONAL.map((item, i) => ({
+          expedienteId: id,
+          item,
+          orden: i,
+          cargado: item === ITEM_COTIZADOR_POLICIA,
+        })),
+      });
+    } else {
+      const target = existentes.find((e) => e.item === ITEM_COTIZADOR_POLICIA);
+      if (target) {
+        await prisma.documentacionItem.update({ where: { id: target.id }, data: { cargado: true } });
+      }
+    }
+
+    const actualizado = await prisma.expediente.findUnique({ where: { id }, include: INCLUDE_EXPEDIENTE });
+    return NextResponse.json({ expediente: actualizado });
+  }
 
   // ---------- Agregar una observación o un movimiento de sector ----------
   if (body.nuevaObservacion) {
@@ -195,10 +241,14 @@ export async function PUT(request, { params }) {
         ? body.organismos.map((o) => String(o).trim()).filter(Boolean)
         : undefined,
       objeto: body.objeto,
-      encuadre: body.encuadre ?? undefined,
+      encuadre: body.esPoliciaAdicional ? ENCUADRE_INTERADMINISTRATIVO : (body.encuadre ?? undefined),
       presupuestoOficial: body.presupuestoOficial != null ? Number(body.presupuestoOficial) || 0 : undefined,
       montoARS: Number(body.montoARS) || 0,
       montoUSD: Number(body.montoUSD) || 0,
+      esPoliciaAdicional: typeof body.esPoliciaAdicional === "boolean" ? body.esPoliciaAdicional : undefined,
+      fuerzaSeguridad: body.esPoliciaAdicional === true
+        ? (body.fuerzaSeguridad || null)
+        : body.esPoliciaAdicional === false ? null : undefined,
       fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
       fechaVencimiento: body.fechaVencimiento ? new Date(body.fechaVencimiento) : undefined,
       ocResolucion: body.ocResolucion ?? undefined,
