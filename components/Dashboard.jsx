@@ -40,6 +40,7 @@ import ListadoTelefonos from "./ListadoTelefonos";
 import PlanillaCotizacion from "./PlanillaCotizacion";
 import ValorModular from "./ValorModular";
 import InformePoliciaAdicional from "./InformePoliciaAdicional";
+import InformeOrganismos from "./InformeOrganismos";
 
 export default function App() {
   const { data: session, status } = useSession();
@@ -389,6 +390,8 @@ export default function App() {
           <CotizadorPolicia mostrarToast={mostrarToast} expedientes={expedientes} onAprobarYVincular={vincularCotizacionPolicia} />
         ) : vista === "informePoliciaAdicional" ? (
           <InformePoliciaAdicional expedientes={expedientes} moduloValor={moduloValor} />
+        ) : vista === "informeOrganismos" ? (
+          <InformeOrganismos expedientes={expedientes} />
         ) : vista === "cotizadorAvisos" ? (
           <CotizadorAvisos mostrarToast={mostrarToast} expedientes={expedientes} onVincular={vincularCotizacionAExpediente} />
         ) : vista === "libroAperturas" ? (

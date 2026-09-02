@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, BookOpen, Phone, Globe, ExternalLink, User, Contact, FileDown, BarChart3 } from "lucide-react";
+import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, BookOpen, Phone, Globe, ExternalLink, User, Contact, FileDown, BarChart3, Building2 } from "lucide-react";
 import { descargarArchivoBase64 } from "@/lib/utils";
 import { FORMULARIO_FALTAS_BASE64 } from "@/lib/constants";
 export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista, setVista, mostrarToast }) {
@@ -11,7 +11,7 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
   const [perfilAbierto, setPerfilAbierto] = useState(false);
   const vistasVarios = ["cotizadorTaquigrafico", "cotizadorPolicia", "cotizadorAvisos"];
   const variosActivo = vistasVarios.includes(vista);
-  const vistasInformes = ["informePoliciaAdicional"];
+  const vistasInformes = ["informePoliciaAdicional", "informeOrganismos"];
   const informesActivo = vistasInformes.includes(vista);
 
   function accederLegajo() {
@@ -156,6 +156,13 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
                     (vista === "informePoliciaAdicional" ? "text-slate-900 font-medium bg-slate-50" : "text-slate-600")}
                 >
                   <Shield size={14} className="text-slate-400" /> Policía Adicional
+                </button>
+                <button
+                  onClick={() => { setVista("informeOrganismos"); setInformesAbierto(false); }}
+                  className={"w-full flex items-center gap-2.5 text-left px-3 py-2 text-xs hover:bg-slate-50 " +
+                    (vista === "informeOrganismos" ? "text-slate-900 font-medium bg-slate-50" : "text-slate-600")}
+                >
+                  <Building2 size={14} className="text-slate-400" /> Organismos
                 </button>
                 <div className="px-3 py-2 text-[11px] text-slate-400">Más informes, próximamente</div>
               </div>
