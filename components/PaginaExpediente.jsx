@@ -17,7 +17,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   const niv = alerta(dias);
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       <button onClick={onVolver} className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
         <ChevronLeft size={16} /> Volver a Expedientes
       </button>
@@ -122,7 +122,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
               </div>
             )}
           </div>
-
+<div className="col-span-2"><Campo label="Objeto" valor={exp.objeto} /></div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
             <Campo label="Tipo de expediente" valor={exp.tipo} />
             <Campo label="Agente" valor={exp.agente} />
@@ -139,7 +139,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <Campo label="Presupuesto oficial" valor={exp.presupuestoOficial ? fmtMoneda(exp.presupuestoOficial) : "-"} />
             <Campo label="Monto adjudicado" valor={fmtMoneda(exp.montoARS)} />
             <Campo label="Monto adjudicado USD" valor={exp.montoUSD ? fmtMoneda(exp.montoUSD, "USD") : "-"} />
-            <div className="col-span-2"><Campo label="Objeto" valor={exp.objeto} /></div>
+            
           </div>
 
           <ChecklistDocumentacion exp={exp} onDocumentacion={onDocumentacion} puedeEditar={puedeEditar} moduloValor={moduloValor} />
