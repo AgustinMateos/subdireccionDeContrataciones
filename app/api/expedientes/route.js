@@ -29,7 +29,7 @@ export async function GET(request) {
   const nombreCorto = searchParams.get("nombreCorto");
   const q = searchParams.get("q");
 
-  const where = { departamentoId: session.user.departamentoId };
+  const where = {};
   if (area) where.area = area;
   if (tipo) where.tipo = tipo;
   if (estadoGeneral) where.estadoGeneral = estadoGeneral;
@@ -68,7 +68,7 @@ export async function POST(request) {
   // Es lógica de negocio (toca dos registros), no un alta simple.
   if (body.renovarDeId) {
     const vigente = await prisma.expediente.findUnique({ where: { id: body.renovarDeId } });
-    if (!vigente || vigente.departamentoId !== session.user.departamentoId) {
+    if (!vigente) {
       return NextResponse.json({ error: "Expediente de origen no encontrado" }, { status: 404 });
     }
 
@@ -84,7 +84,6 @@ export async function POST(request) {
             nombreCorto: vigente.nombreCorto,
             nroContratacion: vigente.nroContratacion,
             nroResolucion: vigente.nroResolucion,
-            departamentoId: session.user.departamentoId,
             area: vigente.area,
             tipo: vigente.tipo,
             agente: vigente.agente,
@@ -135,8 +134,7 @@ export async function POST(request) {
       nombreCorto: body.nombreCorto || null,
       nroContratacion: body.nroContratacion || null,
       nroResolucion: body.nroResolucion || null,
-      departamentoId: session.user.departamentoId,
-      area: body.area || null,
+      area: body.area,
       tipo: body.tipo,
       agente: body.agente,
       organismos: normalizarOrganismos(body),
@@ -154,12 +152,6 @@ export async function POST(request) {
       sector: body.sector || null,
       etapa: body.etapa || null,
       estadoGeneral: body.estadoGeneral || "Vigente",
-      fuero: body.fuero || null,
-      zona: body.zona || null,
-      codigoInterno: body.codigoInterno || null,
-      legitimoAbono: !!body.legitimoAbono,
-      legitimoAbonoDetalle: body.legitimoAbonoDetalle || null,
-      estadoConvocatoria: body.estadoConvocatoria || null,
     },
     include: INCLUDE_EXPEDIENTE,
   });
@@ -167,8 +159,8 @@ export async function POST(request) {
   // Si el alta corresponde a la renovación/prórroga de un vigente existente,
   // ese vigente pasa a "En trámite de renovación" (el rol/cadena ya vienen resueltos).
   if (body.idVigenteAActualizar) {
-    await prisma.expediente.updateMany({
-      where: { id: body.idVigenteAActualizar, departamentoId: session.user.departamentoId },
+    await prisma.expediente.update({
+      where: { id: body.idVigenteAActualizar },
       data: { estadoGeneral: "En trámite de renovación" },
     });
   }

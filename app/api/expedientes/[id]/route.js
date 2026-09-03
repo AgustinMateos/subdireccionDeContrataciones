@@ -36,9 +36,7 @@ export async function GET(request, { params }) {
     where: { id },
     include: INCLUDE_EXPEDIENTE,
   });
-  if (!expediente || expediente.departamentoId !== session.user.departamentoId) {
-    return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-  }
+  if (!expediente) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   return NextResponse.json({ expediente });
 }
@@ -48,11 +46,6 @@ export async function PUT(request, { params }) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.rol === "lector") {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-  }
-
-  const existente = await prisma.expediente.findUnique({ where: { id }, select: { departamentoId: true } });
-  if (!existente || existente.departamentoId !== session.user.departamentoId) {
-    return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
 
   const body = await request.json();
@@ -172,12 +165,7 @@ export async function PUT(request, { params }) {
     if (!renovacion) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
     const vigenteAnterior = await prisma.expediente.findFirst({
-      where: {
-        cadenaId: renovacion.cadenaId,
-        rol: "vigente",
-        departamentoId: session.user.departamentoId,
-        NOT: { id: renovacion.id },
-      },
+      where: { cadenaId: renovacion.cadenaId, rol: "vigente", NOT: { id: renovacion.id } },
     });
 
     const ops = [];
@@ -246,7 +234,7 @@ export async function PUT(request, { params }) {
       nombreCorto: body.nombreCorto ?? undefined,
       nroContratacion: body.nroContratacion ?? undefined,
       nroResolucion: body.nroResolucion ?? undefined,
-      area: body.area || null,
+      area: body.area,
       tipo: body.tipo,
       agente: body.agente,
       organismos: Array.isArray(body.organismos)
@@ -268,12 +256,6 @@ export async function PUT(request, { params }) {
       sector: body.sector ?? undefined,
       etapa: body.etapa ?? undefined,
       estadoGeneral: body.estadoGeneral,
-      fuero: body.fuero ?? undefined,
-      zona: body.zona ?? undefined,
-      codigoInterno: body.codigoInterno ?? undefined,
-      legitimoAbono: typeof body.legitimoAbono === "boolean" ? body.legitimoAbono : undefined,
-      legitimoAbonoDetalle: body.legitimoAbonoDetalle ?? undefined,
-      estadoConvocatoria: body.estadoConvocatoria ?? undefined,
     },
     include: INCLUDE_EXPEDIENTE,
   });
@@ -289,10 +271,6 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ error: "Solo el jefe de departamento puede eliminar expedientes" }, { status: 403 });
   }
 
-  const { count } = await prisma.expediente.deleteMany({
-    where: { id, departamentoId: session.user.departamentoId },
-  });
-  if (count === 0) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-
+  await prisma.expediente.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

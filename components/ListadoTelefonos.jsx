@@ -3,10 +3,8 @@
 import { useState, useMemo } from "react";
 import { Plus, Lock, Trash2, Phone } from "lucide-react";
 import { TELEFONOS_INICIALES } from "@/lib/constants";
-export default function ListadoTelefonos({ sesion, mostrarToast, seccionesIniciales }) {
-  const [secciones, setSecciones] = useState(
-    seccionesIniciales && seccionesIniciales.length > 0 ? seccionesIniciales : TELEFONOS_INICIALES
-  );
+export default function ListadoTelefonos({ sesion, mostrarToast }) {
+  const [secciones, setSecciones] = useState(TELEFONOS_INICIALES);
   const [busqueda, setBusqueda] = useState("");
   const puedeEditar = sesion.rol === "soporte";
 

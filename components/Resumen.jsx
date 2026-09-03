@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { TrendingUp, FileText, AlertTriangle, Clock, DollarSign } from "lucide-react";
 import { fmtMoneda } from "@/lib/utils";
-export default function Resumen({ resumen, mostrarDesgloseArea = true }) {
+export default function Resumen({ resumen }) {
   const [verDesglose, setVerDesglose] = useState(false);
   const items = [
     { label: "Expedientes vigentes", valor: resumen.vigentes, icon: FileText, color: "text-blue-700 bg-blue-50" },
@@ -26,7 +26,6 @@ export default function Resumen({ resumen, mostrarDesgloseArea = true }) {
           </div>
         ))}
       </div>
-      {mostrarDesgloseArea && (
       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
         <span className="inline-flex items-center gap-1.5 bg-white border border-slate-200 rounded-full px-3 py-1.5">
           <span className="w-2 h-2 rounded-full bg-slate-800" /> Informática: <strong className="text-slate-900">{resumen.porArea.Informatica}</strong> expedientes activos
@@ -42,9 +41,8 @@ export default function Resumen({ resumen, mostrarDesgloseArea = true }) {
           {verDesglose ? "Ocultar" : "Ver"} desglose de presupuesto por ejercicio financiero
         </button>
       </div>
-      )}
 
-      {mostrarDesgloseArea && verDesglose && (
+      {verDesglose && (
         <div className="mt-3 bg-white border border-slate-200 rounded-xl p-4 overflow-x-auto">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">

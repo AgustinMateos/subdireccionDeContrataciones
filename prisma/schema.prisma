@@ -10,17 +10,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ---------- Departamentos ----------
-
-model Departamento {
-  id     String @id @default(cuid())
-  nombre String @unique // "Informática y Varios" | "Servicios"
-  slug   String @unique // "informatica-y-varios" | "servicios"
-
-  usuarios    Usuario[]
-  expedientes Expediente[]
-}
-
 // ---------- Usuarios y autenticación ----------
 
 enum Rol {
@@ -31,16 +20,12 @@ enum Rol {
 }
 
 model Usuario {
-  id             String       @id @default(cuid())
-  nombre         String
-  email          String       @unique
-  passwordHash   String
-  rol            Rol
-  departamentoId String
-  departamento   Departamento @relation(fields: [departamentoId], references: [id])
-  creadoEn       DateTime     @default(now())
-
-  @@index([departamentoId])
+  id           String   @id @default(cuid())
+  nombre       String
+  email        String   @unique
+  passwordHash String
+  rol          Rol
+  creadoEn     DateTime @default(now())
 }
 
 // ---------- Expedientes ----------
@@ -53,59 +38,47 @@ enum Area {
 enum RolCadena {
   antecedente
   vigente
-  parche
   renovacion
 }
 
 model Expediente {
-  id                 String       @id @default(cuid())
-  cadenaId           String // agrupa antecedente/vigente/parche/renovación de un mismo trámite
-  rol                RolCadena
-  exp                String       @unique // "13-06148/26"
-  nombreCorto        String? // alias legible para identificar y filtrar rápido ("Limpieza edificio central")
-  nroContratacion    String? // número de contratación asignado
-  nroResolucion      String? // número de resolución
-  departamentoId     String
-  departamento       Departamento @relation(fields: [departamentoId], references: [id])
-  area               Area? // sub-área interna de Informática y Varios; no aplica a Servicios
-  tipo               String // Informática y Varios: Servicios | Provisiones | Servicios Temporales — Servicios: Ascensores | Termomecánica | Limpieza | Desratización | Servicios Varios / Prevención de Incendios | Matafuegos | Tanques de agua
-  agente             String
-  organismos         String[]     @default([]) // uno o más organismos solicitantes / destinatarios
-  destinatario       String?
-  domicilio          String?
-  objeto             String
-  encuadre           String?
-  presupuestoOficial Float        @default(0) // presupuesto oficial estimado
-  montoARS           Float        @default(0) // valor adjudicado (ARS)
-  montoUSD           Float        @default(0)
+  id             String   @id @default(cuid())
+  cadenaId       String // agrupa antecedente/vigente/renovación de un mismo trámite
+  rol            RolCadena
+  exp            String   @unique // "13-06148/26"
+  nombreCorto    String? // alias legible para identificar y filtrar rápido ("Limpieza edificio central")
+  nroContratacion String? // número de contratación asignado
+  nroResolucion  String? // número de resolución
+  area           Area
+  tipo           String // Servicios | Provisiones | Servicios Temporales
+  agente         String
+  organismos     String[] @default([]) // uno o más organismos solicitantes / destinatarios
+  destinatario   String?
+  domicilio      String?
+  objeto         String
+  encuadre       String?
+  presupuestoOficial Float @default(0) // presupuesto oficial estimado
+  montoARS       Float    @default(0) // valor adjudicado (ARS)
+  montoUSD       Float    @default(0)
 
   // Policía adicional (contratación interadministrativa con fuerzas de seguridad)
-  esPoliciaAdicional Boolean   @default(false)
+  esPoliciaAdicional Boolean @default(false)
   fuerzaSeguridad    String? // PFA | GNA | PNA | PCABA
-  cotizacionPolicia  Json? // snapshot de la cotización aprobada y vinculada desde el cotizador
-  fechaInicio        DateTime?
-  fechaVencimiento   DateTime
-  ocResolucion       String?
-  adjudicatario      String?
-  sector             String?
-  etapa              String?
-  estadoGeneral      String // Vigente | En trámite de renovación | Finalizado | Archivado
-  creadoEn           DateTime  @default(now())
-  actualizadoEn      DateTime  @updatedAt
+  cotizacionPolicia  Json?   // snapshot de la cotización aprobada y vinculada desde el cotizador
+  fechaInicio    DateTime?
+  fechaVencimiento DateTime
+  ocResolucion   String?
+  adjudicatario  String?
+  sector         String?
+  etapa          String?
+  estadoGeneral  String // Vigente | En trámite de renovación | Finalizado | Archivado
+  creadoEn       DateTime @default(now())
+  actualizadoEn  DateTime @updatedAt
 
-  // --- Campos exclusivos del departamento Servicios (nullable, sin uso en Informática y Varios) ---
-  fuero                String? // ej "Cámara Federal de Apelaciones de Córdoba"
-  zona                 String? // "CABA" | "Interior"
-  codigoInterno        String? // código corto de la planilla, ej "02ID", "01LA"
-  legitimoAbono        Boolean @default(false) // "LA" en la planilla
-  legitimoAbonoDetalle String?
-  estadoConvocatoria   String? // vocabulario propio de Servicios (string libre, la lista puede crecer)
-
-  observaciones Observacion[]
-  documentacion DocumentacionItem[]
+  observaciones     Observacion[]
+  documentacion     DocumentacionItem[]
 
   @@index([cadenaId])
-  @@index([departamentoId])
   @@index([area])
   @@index([estadoGeneral])
   @@index([nombreCorto])
@@ -113,10 +86,10 @@ model Expediente {
 }
 
 model Observacion {
-  id             String     @id @default(cuid())
+  id             String   @id @default(cuid())
   expedienteId   String
   expediente     Expediente @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
-  fecha          DateTime   @default(now())
+  fecha          DateTime @default(now())
   usuario        String
   tipo           String // "general" | "movimiento"
   texto          String
@@ -127,12 +100,12 @@ model Observacion {
 }
 
 model DocumentacionItem {
-  id           String     @id @default(cuid())
+  id           String   @id @default(cuid())
   expedienteId String
   expediente   Expediente @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
   item         String
-  cargado      Boolean    @default(false)
-  orden        Int        @default(0)
+  cargado      Boolean  @default(false)
+  orden        Int      @default(0)
 
   @@index([expedienteId])
 }
@@ -140,7 +113,7 @@ model DocumentacionItem {
 // ---------- Libro de Aperturas ----------
 
 model Contratacion {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   anio          Int
   numeroOrden   Int
   totalAnual    Int
@@ -148,11 +121,11 @@ model Contratacion {
   organismo     String
   objeto        String
   tipo          String
-  fechaCarga    DateTime  @default(now())
+  fechaCarga    DateTime @default(now())
   fechaApertura DateTime? // null para tipos sin acto de apertura (Compra Directa, Anticipo de Fondos)
   hora          Int?
   creadoPor     String?
-  actualizadoEn DateTime  @updatedAt
+  actualizadoEn DateTime @updatedAt
 
   @@unique([anio, numeroOrden])
   @@unique([fechaApertura, hora])
@@ -171,16 +144,16 @@ model ConfiguracionAnio {
 // ---------- Valor Modular ----------
 
 model ValorModular {
-  id             String   @id @default(cuid())
-  valor          Float
-  vigenteDesde   DateTime @default(now())
+  id        String   @id @default(cuid())
+  valor     Float
+  vigenteDesde DateTime @default(now())
   actualizadoPor String?
 }
 
 // ---------- Listado de Teléfonos ----------
 
 model SeccionTelefonica {
-  id     String  @id @default(cuid())
+  id     String @id @default(cuid())
   titulo String? // null para las secciones sin encabezado (Aperturas, Mesa de Entradas, etc.)
   orden  Int     @default(0)
 
@@ -188,11 +161,11 @@ model SeccionTelefonica {
 }
 
 model GrupoTelefonico {
-  id        String            @id @default(cuid())
-  seccionId String
-  seccion   SeccionTelefonica @relation(fields: [seccionId], references: [id], onDelete: Cascade)
-  rotulo    String
-  orden     Int               @default(0)
+  id         String @id @default(cuid())
+  seccionId  String
+  seccion    SeccionTelefonica @relation(fields: [seccionId], references: [id], onDelete: Cascade)
+  rotulo     String
+  orden      Int    @default(0)
 
   personas PersonaTelefono[]
 
@@ -200,12 +173,12 @@ model GrupoTelefonico {
 }
 
 model PersonaTelefono {
-  id      String          @id @default(cuid())
+  id      String @id @default(cuid())
   grupoId String
   grupo   GrupoTelefonico @relation(fields: [grupoId], references: [id], onDelete: Cascade)
   nombre  String
   interno String?
-  orden   Int             @default(0)
+  orden   Int    @default(0)
 
   @@index([grupoId])
 }

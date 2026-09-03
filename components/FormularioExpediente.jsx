@@ -2,38 +2,29 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { ORGANISMOS, AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS_SERVICIOS } from "@/lib/constants";
-function formVacio(esServicios) {
-  return {
-    exp: "", nombreCorto: "", nroContratacion: "", nroResolucion: "",
-    area: esServicios ? "" : "Informatica", tipo: esServicios ? TIPOS_SERVICIOS[0] : "Servicios",
-    agente: "", organismos: [], objeto: "",
-    encuadre: "", presupuestoOficial: "", montoARS: "", montoUSD: "", fechaInicio: "", fechaVencimiento: "",
-    ocResolucion: "", adjudicatario: "", sector: "", etapa: "En ejecución", estadoGeneral: "Vigente",
-    esPoliciaAdicional: false, fuerzaSeguridad: "",
-    antecedenteExp: "",
-    fuero: "", zona: esServicios ? ZONAS_SERVICIOS[0] : "", codigoInterno: "",
-    legitimoAbono: false, legitimoAbonoDetalle: "", estadoConvocatoria: "",
-  };
-}
+import { ORGANISMOS, AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO } from "@/lib/constants";
+const FORM_VACIO = {
+  exp: "", nombreCorto: "", nroContratacion: "", nroResolucion: "", area: "Informatica", tipo: "Servicios", agente: "", organismos: [], objeto: "",
+  encuadre: "", presupuestoOficial: "", montoARS: "", montoUSD: "", fechaInicio: "", fechaVencimiento: "",
+  ocResolucion: "", adjudicatario: "", sector: "", etapa: "En ejecución", estadoGeneral: "Vigente",
+  esPoliciaAdicional: false, fuerzaSeguridad: "",
+  antecedenteExp: "",
+};
 
-function normalizarInicial(inicial, esServicios) {
-  if (!inicial) return formVacio(esServicios);
+function normalizarInicial(inicial) {
+  if (!inicial) return FORM_VACIO;
   return {
-    ...formVacio(esServicios),
     ...inicial,
     organismos: Array.isArray(inicial.organismos)
       ? inicial.organismos
       : inicial.organismo ? [inicial.organismo] : [],
     esPoliciaAdicional: !!inicial.esPoliciaAdicional,
     fuerzaSeguridad: inicial.fuerzaSeguridad || "",
-    legitimoAbono: !!inicial.legitimoAbono,
   };
 }
 
-export default function FormularioExpediente({ titulo, inicial, esNuevo, expedientes, departamentoSlug, onCerrar, onGuardar }) {
-  const esServicios = departamentoSlug === "servicios";
-  const [f, setF] = useState(() => normalizarInicial(inicial, esServicios));
+export default function FormularioExpediente({ titulo, inicial, esNuevo, expedientes, onCerrar, onGuardar }) {
+  const [f, setF] = useState(() => normalizarInicial(inicial));
   const [orgInput, setOrgInput] = useState("");
   const [error, setError] = useState("");
 
@@ -100,11 +91,8 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
             <Campo_Input label="Nombre corto" value={f.nombreCorto} onChange={v => set("nombreCorto", v)} placeholder="Ej: Limpieza edificio central" />
             <Campo_Input label="N° de contratación" value={f.nroContratacion} onChange={v => set("nroContratacion", v)} placeholder="Ej: 45/2026" />
             <Campo_Input label="N° de resolución" value={f.nroResolucion} onChange={v => set("nroResolucion", v)} placeholder="Ej: 1234/2026" />
-            {!esServicios && (
-              <Campo_Select label="Área" value={f.area} onChange={v => set("area", v)} opciones={["Informatica", "Varios"]} labels={AREA_LABEL} />
-            )}
-            <Campo_Select label="Tipo" value={f.tipo} onChange={v => set("tipo", v)}
-              opciones={esServicios ? TIPOS_SERVICIOS : ["Servicios", "Provisiones", "Servicios Temporales"]} />
+            <Campo_Select label="Área" value={f.area} onChange={v => set("area", v)} opciones={["Informatica", "Varios"]} labels={AREA_LABEL} />
+            <Campo_Select label="Tipo" value={f.tipo} onChange={v => set("tipo", v)} opciones={["Servicios", "Provisiones", "Servicios Temporales"]} />
             <Campo_Input label="Agente" value={f.agente} onChange={v => set("agente", v)} placeholder="CB" />
             <div className="col-span-2">
               <label className="block text-xs font-medium text-slate-600 mb-1">
@@ -140,33 +128,6 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
               </div>
             </div>
             <Campo_Input label="Sector actual" value={f.sector} onChange={v => set("sector", v)} />
-            {esServicios && (
-              <>
-                <Campo_Select label="Zona" value={f.zona} onChange={v => set("zona", v)} opciones={ZONAS_SERVICIOS} />
-                <Campo_Input label="Fuero" value={f.fuero} onChange={v => set("fuero", v)} placeholder="Ej: Cámara Federal de Apelaciones de Córdoba" />
-                <Campo_Input label="Código interno (planilla)" value={f.codigoInterno} onChange={v => set("codigoInterno", v)} placeholder="Ej: 02ID" />
-                <Campo_Input label="Estado de convocatoria" value={f.estadoConvocatoria} onChange={v => set("estadoConvocatoria", v)} placeholder="Ej: Estimación de Costos" />
-                <div className="col-span-2 border border-slate-200 rounded-md p-3 bg-slate-50">
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={f.legitimoAbono}
-                      onChange={e => set("legitimoAbono", e.target.checked)}
-                      className="w-4 h-4 mt-0.5 rounded border-slate-300 text-slate-800 focus:ring-slate-800"
-                    />
-                    <span className="text-xs font-medium text-slate-700">Legítimo abono</span>
-                  </label>
-                  {f.legitimoAbono && (
-                    <input
-                      value={f.legitimoAbonoDetalle}
-                      onChange={e => set("legitimoAbonoDetalle", e.target.value)}
-                      placeholder="Ej: Sep y Octubre/26 - Notificada el 22/6/26"
-                      className="w-full mt-2 text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
-                    />
-                  )}
-                </div>
-              </>
-            )}
             {esNuevo && (
               <div className="col-span-2 bg-slate-50 border border-slate-200 rounded-md p-3">
                 <label className="block text-xs font-medium text-slate-600 mb-1">
