@@ -41,15 +41,29 @@ import PlanillaCotizacion from "./PlanillaCotizacion";
 import ValorModular from "./ValorModular";
 import InformePoliciaAdicional from "./InformePoliciaAdicional";
 import InformeOrganismos from "./InformeOrganismos";
+import InformeServicios from "./InformeServicios";
+
+const VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS = [
+  "libroAperturas", "cotizadorTaquigrafico", "cotizadorPolicia", "cotizadorAvisos",
+  "informePoliciaAdicional", "informeOrganismos",
+];
 
 export default function App() {
   const { data: session, status } = useSession();
   const sesion = session?.user
-    ? { nombre: session.user.name, rol: session.user.rol, rolLabel: ROL_USUARIO_LABEL[session.user.rol] || session.user.rol }
+    ? {
+        nombre: session.user.name,
+        rol: session.user.rol,
+        rolLabel: ROL_USUARIO_LABEL[session.user.rol] || session.user.rol,
+        departamentoId: session.user.departamentoId,
+        departamentoSlug: session.user.departamentoSlug,
+        departamentoNombre: session.user.departamentoNombre,
+      }
     : null;
   const [vista, setVista] = useState("expedientes"); // 'expedientes' | 'valorModular'
   const [moduloValor, setModuloValor] = useState(200000);
   const [expedientes, setExpedientes] = useState([]);
+  const [secciones, setSecciones] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [areaFiltro, setAreaFiltro] = useState("Todas");
   const [tipoFiltro, setTipoFiltro] = useState("Todos");
@@ -57,6 +71,7 @@ export default function App() {
   const [organismoFiltro, setOrganismoFiltro] = useState("Todos");
   const [vencimientoFiltro, setVencimientoFiltro] = useState("Todos");
   const [nombreCortoFiltro, setNombreCortoFiltro] = useState("");
+  const [zonaFiltro, setZonaFiltro] = useState("Todas");
   const [busqueda, setBusqueda] = useState("");
   const [visibles, setVisibles] = useState(6);
   const [seleccionado, setSeleccionado] = useState(null);
@@ -75,15 +90,20 @@ export default function App() {
     (async () => {
       setCargando(true);
       try {
-        const [resExp, resVM] = await Promise.all([
+        const [resExp, resVM, resTel] = await Promise.all([
           fetch("/api/expedientes"),
           fetch("/api/valor-modular"),
+          fetch("/api/telefonos"),
         ]);
         const data = await resExp.json();
         if (activo) setExpedientes((data.expedientes || []).map(normalizarExpediente));
         if (resVM.ok) {
           const dataVM = await resVM.json();
           if (activo && dataVM.valorModular?.valor) setModuloValor(dataVM.valorModular.valor);
+        }
+        if (resTel.ok) {
+          const dataTel = await resTel.json();
+          if (activo && dataTel.secciones?.length) setSecciones(dataTel.secciones);
         }
       } catch {
         if (activo) mostrarToast("No se pudieron cargar los expedientes");
@@ -113,6 +133,7 @@ export default function App() {
       if (tipoFiltro !== "Todos" && e.tipo !== tipoFiltro) return false;
       if (estadoFiltro !== "Todos" && e.estadoGeneral !== estadoFiltro) return false;
       if (organismoFiltro !== "Todos" && !(e.organismos || []).includes(organismoFiltro)) return false;
+      if (zonaFiltro !== "Todas" && e.zona !== zonaFiltro) return false;
       if (nombreCortoFiltro.trim() && !(e.nombreCorto || "").toLowerCase().includes(nombreCortoFiltro.trim().toLowerCase())) return false;
       if (vencimientoFiltro !== "Todos") {
         const dias = diasRestantes(e.fechaVencimiento);
@@ -129,7 +150,7 @@ export default function App() {
       }
       return true;
     }).sort((a, b) => new Date(b.fechaVencimiento) - new Date(a.fechaVencimiento));
-  }, [expedientes, areaFiltro, tipoFiltro, estadoFiltro, organismoFiltro, vencimientoFiltro, nombreCortoFiltro, busqueda]);
+  }, [expedientes, areaFiltro, tipoFiltro, estadoFiltro, organismoFiltro, zonaFiltro, vencimientoFiltro, nombreCortoFiltro, busqueda]);
 
   const resumen = useMemo(() => {
     const anioActual = HOY.getFullYear();
@@ -361,6 +382,12 @@ export default function App() {
   const puedeEditar = sesion.rol === "admin" || sesion.rol === "operador";
   const esJefe = sesion.rol === "admin"; // jefe de departamento
   const puedeEliminar = esJefe;
+  const esInformaticaYVarios = sesion.departamentoSlug === "informatica-y-varios";
+  // Defensivo: si se llega a una vista exclusiva de Informática y Varios sin pasar
+  // por el botón del navbar (ej. estado previo de sesión), se vuelve al listado.
+  const vistaEfectiva = (!esInformaticaYVarios && VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS.includes(vista))
+    ? "expedientes"
+    : vista;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -373,29 +400,31 @@ export default function App() {
       <TopBar sesion={sesion} onLogout={() => signOut()} busqueda={busqueda} setBusqueda={setBusqueda} vista={vista} setVista={setVista} mostrarToast={mostrarToast} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {vista === "valorModular" ? (
+        {vistaEfectiva === "valorModular" ? (
           <ValorModular
             moduloValor={moduloValor}
             setModuloValor={guardarValorModular}
             sesion={sesion}
           />
-        ) : vista === "cotizadorTaquigrafico" ? (
+        ) : vistaEfectiva === "cotizadorTaquigrafico" ? (
           <CotizadorTaquigrafico sesion={sesion} mostrarToast={mostrarToast} expedientes={expedientes} onVincular={vincularCotizacionAExpediente} />
-        ) : vista === "cotizadorPolicia" ? (
+        ) : vistaEfectiva === "cotizadorPolicia" ? (
           <CotizadorPolicia mostrarToast={mostrarToast} expedientes={expedientes} onAprobarYVincular={vincularCotizacionPolicia} />
-        ) : vista === "informePoliciaAdicional" ? (
+        ) : vistaEfectiva === "informePoliciaAdicional" ? (
           <InformePoliciaAdicional expedientes={expedientes} moduloValor={moduloValor} />
-        ) : vista === "informeOrganismos" ? (
+        ) : vistaEfectiva === "informeOrganismos" ? (
           <InformeOrganismos expedientes={expedientes} />
-        ) : vista === "cotizadorAvisos" ? (
+        ) : vistaEfectiva === "informeServicios" ? (
+          <InformeServicios expedientes={expedientes} />
+        ) : vistaEfectiva === "cotizadorAvisos" ? (
           <CotizadorAvisos mostrarToast={mostrarToast} expedientes={expedientes} onVincular={vincularCotizacionAExpediente} />
-        ) : vista === "libroAperturas" ? (
+        ) : vistaEfectiva === "libroAperturas" ? (
           <LibroAperturas sesion={sesion} mostrarToast={mostrarToast} />
-        ) : vista === "listadoTelefonos" ? (
-          <ListadoTelefonos sesion={sesion} mostrarToast={mostrarToast} />
-        ) : vista === "planillaCotizacion" ? (
+        ) : vistaEfectiva === "listadoTelefonos" ? (
+          <ListadoTelefonos sesion={sesion} mostrarToast={mostrarToast} seccionesIniciales={secciones} />
+        ) : vistaEfectiva === "planillaCotizacion" ? (
           <PlanillaCotizacion mostrarToast={mostrarToast} />
-        ) : vista === "expedienteDetalle" && seleccionado ? (
+        ) : vistaEfectiva === "expedienteDetalle" && seleccionado ? (
           <PaginaExpediente
             exp={seleccionado}
             expedientes={expedientes}
@@ -416,7 +445,7 @@ export default function App() {
           />
         ) : (
           <>
-            <Resumen resumen={resumen} />
+            <Resumen resumen={resumen} mostrarDesgloseArea={esInformaticaYVarios} />
 
             <FiltroBar
               areaFiltro={areaFiltro} setAreaFiltro={setAreaFiltro}
@@ -425,9 +454,11 @@ export default function App() {
               organismoFiltro={organismoFiltro} setOrganismoFiltro={setOrganismoFiltro}
               vencimientoFiltro={vencimientoFiltro} setVencimientoFiltro={setVencimientoFiltro}
               nombreCortoFiltro={nombreCortoFiltro} setNombreCortoFiltro={setNombreCortoFiltro}
+              zonaFiltro={zonaFiltro} setZonaFiltro={setZonaFiltro}
               total={filtrados.length}
               puedeEditar={puedeEditar}
               onNuevo={() => setFormAbierto("nuevo")}
+              departamentoSlug={sesion.departamentoSlug}
             />
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -461,6 +492,7 @@ export default function App() {
           titulo="Nuevo expediente"
           esNuevo
           expedientes={expedientes}
+          departamentoSlug={sesion.departamentoSlug}
           onCerrar={() => setFormAbierto(null)}
           onGuardar={async (datos) => {
             const { antecedenteExp, ...resto } = datos;
@@ -517,6 +549,7 @@ export default function App() {
           titulo={"Editar " + seleccionado.exp}
           inicial={seleccionado}
           expedientes={expedientes}
+          departamentoSlug={sesion.departamentoSlug}
           onCerrar={() => setFormAbierto(null)}
           onGuardar={async (datos) => {
             const res = await fetch(`/api/expedientes/${seleccionado.id}`, {

@@ -8,9 +8,11 @@ export default function TarjetaExpediente({ exp, onVer }) {
   return (
     <button onClick={onVer} className="text-left bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-400 hover:shadow-sm transition-all flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
-        <span className={"text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded " + AREA_ESTILO[exp.area]}>
-          {AREA_LABEL[exp.area]}
-        </span>
+        {exp.area ? (
+          <span className={"text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded " + AREA_ESTILO[exp.area]}>
+            {AREA_LABEL[exp.area]}
+          </span>
+        ) : <span />}
         <span className={"text-[10px] font-medium uppercase tracking-wide px-2 py-1 rounded border " + ALERTA_ESTILO[niv]}>
           {ALERTA_LABEL[niv]}
         </span>

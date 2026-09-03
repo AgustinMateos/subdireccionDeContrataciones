@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil, Trash2, Shield } from "lucide-react";
 import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL } from "@/lib/constants";
-import { diasRestantes, alerta, fmtFecha, fmtMoneda, documentacionDeExpediente } from "@/lib/utils";
+import { diasRestantes, alerta, fmtFecha, fmtMoneda, documentacionDeExpediente, diasFrenado } from "@/lib/utils";
 export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
   const [verMasAntecedentes, setVerMasAntecedentes] = useState(false);
   const cadena = expedientes.filter(e => e.cadenaId === exp.cadenaId);
@@ -12,9 +12,13 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   const antecedente = antecedentes[0];
   const antecedentesAnteriores = antecedentes.slice(1);
   const vigente = cadena.find(e => e.rol === "vigente");
+  const parche = cadena.find(e => e.rol === "parche");
   const renovacion = cadena.find(e => e.rol === "renovacion");
+  const rolesCadena = parche ? ["antecedente", "vigente", "parche", "renovacion"] : ["antecedente", "vigente", "renovacion"];
+  const nodoPorRol = { antecedente, vigente, parche, renovacion };
   const dias = diasRestantes(exp.fechaVencimiento);
   const niv = alerta(dias);
+  const frenado = diasFrenado(exp.observaciones);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -33,7 +37,9 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
 
         <div className="p-6 space-y-6">
           <div className="flex flex-wrap gap-2">
-            <span className={"text-[11px] font-semibold uppercase tracking-wide px-2 py-1 rounded " + AREA_ESTILO[exp.area]}>{AREA_LABEL[exp.area]}</span>
+            {exp.area && (
+              <span className={"text-[11px] font-semibold uppercase tracking-wide px-2 py-1 rounded " + AREA_ESTILO[exp.area]}>{AREA_LABEL[exp.area]}</span>
+            )}
             <span className={"text-[11px] font-medium px-2 py-1 rounded border " + ESTADO_ESTILO[exp.estadoGeneral]}>{exp.estadoGeneral}</span>
             <span className={"text-[11px] font-medium px-2 py-1 rounded border " + ALERTA_ESTILO[niv]}>
               {dias >= 0 ? dias + " días restantes" : Math.abs(dias) + " días vencido"} · {ALERTA_LABEL[niv]}
@@ -76,8 +82,8 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Trazabilidad del expediente</h3>
             <div className="flex items-stretch gap-1">
-              {["antecedente", "vigente", "renovacion"].map((rol, idx) => {
-                const item = rol === "antecedente" ? antecedente : rol === "vigente" ? vigente : renovacion;
+              {rolesCadena.map((rol, idx) => {
+                const item = nodoPorRol[rol];
                 const activo = exp.rol === rol;
                 return (
                   <div key={rol} className="flex-1 flex items-center">
@@ -91,7 +97,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                       <div className="text-[10px] uppercase tracking-wide opacity-70">{ROL_LABEL[rol]}</div>
                       <div className="text-xs font-mono mt-0.5">{item ? item.exp : "No registrado"}</div>
                     </button>
-                    {idx < 2 && <ChevronRight size={14} className="text-slate-300 shrink-0 mx-1" />}
+                    {idx < rolesCadena.length - 1 && <ChevronRight size={14} className="text-slate-300 shrink-0 mx-1" />}
                   </div>
                 );
               })}
@@ -130,6 +136,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <Campo label="N° de resolución" valor={exp.nroResolucion} />
             <Campo label={(exp.organismos || []).length > 1 ? "Organismos" : "Organismo"} valor={(exp.organismos || []).join(", ")} />
             <Campo label="Sector actual" valor={exp.sector} />
+            {frenado != null && <Campo label="Días frenado" valor={frenado + " día" + (frenado !== 1 ? "s" : "")} />}
             <Campo label="Encuadre" valor={exp.encuadre} />
             <Campo label="OC / Resolución" valor={exp.ocResolucion} />
             <Campo label="Adjudicatario" valor={exp.adjudicatario} />
@@ -141,6 +148,16 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <Campo label="Monto adjudicado USD" valor={exp.montoUSD ? fmtMoneda(exp.montoUSD, "USD") : "-"} />
             
           </div>
+
+          {(exp.fuero || exp.zona || exp.codigoInterno || exp.estadoConvocatoria || exp.legitimoAbono) && (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm border-t border-slate-100 pt-4">
+              {exp.zona && <Campo label="Zona" valor={exp.zona} />}
+              {exp.fuero && <Campo label="Fuero" valor={exp.fuero} />}
+              {exp.codigoInterno && <Campo label="Código interno" valor={exp.codigoInterno} />}
+              {exp.estadoConvocatoria && <Campo label="Estado de convocatoria" valor={exp.estadoConvocatoria} />}
+              {exp.legitimoAbono && <Campo label="Legítimo abono" valor={exp.legitimoAbonoDetalle || "Sí"} />}
+            </div>
+          )}
 
           <ChecklistDocumentacion exp={exp} onDocumentacion={onDocumentacion} puedeEditar={puedeEditar} moduloValor={moduloValor} />
 
