@@ -53,6 +53,12 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
   const fuerzaSeleccionada = FUERZAS_SEGURIDAD.find(f => f.key === fuerza);
   const periodicidadSeleccionada = PERIODICIDADES_POLICIA.find(p => p.key === periodicidad);
 
+  function handleExpNroChange(valor) {
+    setExpNro(valor);
+    const match = expedientes?.find(e => e.exp.trim().toLowerCase() === valor.trim().toLowerCase());
+    if (match) setObjeto(match.objeto || "");
+  }
+
   function actualizarValorMes(mes, valor) {
     setValoresPorMes(prev => ({ ...prev, [mes]: valor }));
   }
@@ -225,7 +231,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
         <div className="grid sm:grid-cols-3 gap-4">
           <div className="sm:col-span-1">
             <label className="block text-xs font-medium text-slate-600 mb-1">N° de expediente (opcional)</label>
-            <input value={expNro} onChange={e => setExpNro(e.target.value)} list="lista-exp-policia" placeholder="13-00000/26"
+            <input value={expNro} onChange={e => handleExpNroChange(e.target.value)} list="lista-exp-policia" placeholder="13-00000/26"
               className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
             <datalist id="lista-exp-policia">
               {expedientes?.map(e => <option key={e.id} value={e.exp} />)}

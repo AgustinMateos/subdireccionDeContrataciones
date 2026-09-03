@@ -20,6 +20,12 @@ export default function CotizadorTaquigrafico({ sesion, mostrarToast, expediente
     { id: 5, nombre: "Ezequiel Marino", precioHora: "150000", fojas: "14/15" },
   ]);
 
+  function handleExpNroChange(valor) {
+    setExpNro(valor);
+    const match = expedientes?.find(e => e.exp.trim().toLowerCase() === valor.trim().toLowerCase());
+    if (match) setObjeto(match.objeto || "");
+  }
+
   function actualizarOferente(id, campo, valor) {
     setOferentes(prev => prev.map(o => o.id === id ? { ...o, [campo]: valor } : o));
   }
@@ -158,7 +164,7 @@ export default function CotizadorTaquigrafico({ sesion, mostrarToast, expediente
         <div className="grid sm:grid-cols-4 gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">N° de expediente</label>
-            <input value={expNro} onChange={e => setExpNro(e.target.value)} list="lista-exp-taquigrafico" placeholder="13-00000/26"
+            <input value={expNro} onChange={e => handleExpNroChange(e.target.value)} list="lista-exp-taquigrafico" placeholder="13-00000/26"
               className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
             <datalist id="lista-exp-taquigrafico">
               {expedientes?.map(e => <option key={e.id} value={e.exp} />)}

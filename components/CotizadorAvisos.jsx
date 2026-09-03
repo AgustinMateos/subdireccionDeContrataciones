@@ -29,6 +29,12 @@ export default function CotizadorAvisos({ mostrarToast, expedientes, onVincular 
     return Number(String(v).replace(/\./g, "").replace(",", ".")) || 0;
   }
 
+  function handleExpNroChange(valor) {
+    setExpNro(valor);
+    const match = expedientes?.find(e => e.exp.trim().toLowerCase() === valor.trim().toLowerCase());
+    if (match) setObjeto(match.objeto || "");
+  }
+
   function agregarDiario() {
     const nuevoId = Date.now();
     setDiarios(prev => [...prev, { id: nuevoId, nombre: "" }]);
@@ -217,7 +223,7 @@ export default function CotizadorAvisos({ mostrarToast, expedientes, onVincular 
         <div className="grid sm:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">N° de expediente (opcional)</label>
-            <input value={expNro} onChange={e => setExpNro(e.target.value)} list="lista-exp-avisos" placeholder="13-00000/26"
+            <input value={expNro} onChange={e => handleExpNroChange(e.target.value)} list="lista-exp-avisos" placeholder="13-00000/26"
               className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
             <datalist id="lista-exp-avisos">
               {expedientes?.map(e => <option key={e.id} value={e.exp} />)}
