@@ -1,19 +1,24 @@
 "use client";
 
 import { Plus, Filter } from "lucide-react";
-import { ORGANISMOS, AREA_LABEL } from "@/lib/constants";
-export default function FiltroBar({ areaFiltro, setAreaFiltro, tipoFiltro, setTipoFiltro, estadoFiltro, setEstadoFiltro, organismoFiltro, setOrganismoFiltro, vencimientoFiltro, setVencimientoFiltro, nombreCortoFiltro, setNombreCortoFiltro, total, puedeEditar, onNuevo }) {
+import { ORGANISMOS, AREA_LABEL, TIPOS_SERVICIOS, ZONAS_SERVICIOS } from "@/lib/constants";
+export default function FiltroBar({ areaFiltro, setAreaFiltro, tipoFiltro, setTipoFiltro, estadoFiltro, setEstadoFiltro, organismoFiltro, setOrganismoFiltro, vencimientoFiltro, setVencimientoFiltro, nombreCortoFiltro, setNombreCortoFiltro, zonaFiltro, setZonaFiltro, total, puedeEditar, onNuevo, departamentoSlug }) {
+  const esServicios = departamentoSlug === "servicios";
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-slate-500 uppercase tracking-wide mr-1">Área</span>
-        {["Todas", "Informatica", "Varios"].map(a => (
-          <button key={a} onClick={() => setAreaFiltro(a)}
-            className={"px-3 py-1.5 rounded-full text-xs font-medium border transition-colors " +
-              (areaFiltro === a ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-300 hover:border-slate-500")}>
-            {a === "Todas" ? "Todas" : AREA_LABEL[a]}
-          </button>
-        ))}
+        {!esServicios && (
+          <>
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wide mr-1">Área</span>
+            {["Todas", "Informatica", "Varios"].map(a => (
+              <button key={a} onClick={() => setAreaFiltro(a)}
+                className={"px-3 py-1.5 rounded-full text-xs font-medium border transition-colors " +
+                  (areaFiltro === a ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-300 hover:border-slate-500")}>
+                {a === "Todas" ? "Todas" : AREA_LABEL[a]}
+              </button>
+            ))}
+          </>
+        )}
         {puedeEditar && (
           <button onClick={onNuevo} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800">
             <Plus size={14} /> Nuevo expediente
@@ -27,10 +32,22 @@ export default function FiltroBar({ areaFiltro, setAreaFiltro, tipoFiltro, setTi
         </div>
         <select value={tipoFiltro} onChange={e => setTipoFiltro(e.target.value)} className="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
           <option value="Todos">Todos los tipos</option>
-          <option value="Servicios">Servicios</option>
-          <option value="Provisiones">Provisiones</option>
-          <option value="Servicios Temporales">Servicios Temporales</option>
+          {esServicios
+            ? TIPOS_SERVICIOS.map(t => <option key={t} value={t}>{t}</option>)
+            : (
+              <>
+                <option value="Servicios">Servicios</option>
+                <option value="Provisiones">Provisiones</option>
+                <option value="Servicios Temporales">Servicios Temporales</option>
+              </>
+            )}
         </select>
+        {esServicios && (
+          <select value={zonaFiltro} onChange={e => setZonaFiltro(e.target.value)} className="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
+            <option value="Todas">Todas las zonas</option>
+            {ZONAS_SERVICIOS.map(z => <option key={z} value={z}>{z}</option>)}
+          </select>
+        )}
         <select value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value)} className="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
           <option value="Todos">Todos los estados</option>
           <option value="Vigente">Vigente</option>
