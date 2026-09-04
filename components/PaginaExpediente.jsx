@@ -29,7 +29,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   const frenado = diasFrenado(exp.observaciones);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       <button onClick={onVolver} className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
         <ChevronLeft size={16} /> Volver a Expedientes
       </button>
@@ -156,8 +156,9 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
               )}
             </div>
           )}
-<div className="col-span-2"><Campo label="Objeto" valor={exp.objeto} /></div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+<div className="col-span-2">
+  <Campo label="Objeto" valor={exp.objeto} /></div>
+          <div className="grid grid-cols-4 gap-x-4 gap-y-3 text-sm">
             <Campo label="Tipo de expediente" valor={exp.tipo} />
             <Campo label="Agente" valor={exp.agente} />
             <Campo label="N° de contratación" valor={exp.nroContratacion} />
