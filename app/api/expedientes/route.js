@@ -66,13 +66,27 @@ export async function POST(request) {
 
   // ---------- Crear renovación vinculada a un expediente vigente ----------
   // Genera un expediente nuevo con el mismo cadenaId y rol "renovacion" copiando
-  // los datos del vigente de origen, y pasa a ese vigente a "En trámite de renovación".
-  // Es lógica de negocio (toca dos registros), no un alta simple.
+  // los datos del vigente de origen. El vigente NO cambia de estado: ya fue
+  // adjudicado y sigue en ejecución tal cual — es la renovación la que entra
+  // "En trámite de renovación", no él.
   if (body.renovarDeId) {
     const vigente = await prisma.expediente.findUnique({ where: { id: body.renovarDeId } });
     if (!vigente || vigente.departamentoId !== session.user.departamentoId) {
       return NextResponse.json({ error: "Expediente de origen no encontrado" }, { status: 404 });
     }
+
+    // El período de la renovación es correlativo al que cubre hoy la cadena:
+    // arranca al día siguiente del vencimiento del vigente, o del parche más
+    // tardío si hay alguno cubriendo más adelante.
+    const parchesOrigen = await prisma.expediente.findMany({ where: { cadenaId: vigente.cadenaId, rol: "parche" } });
+    const finCobertura = [vigente, ...parchesOrigen].reduce(
+      (max, e) => (!max || e.fechaVencimiento > max ? e.fechaVencimiento : max),
+      null
+    );
+    const nuevaFechaInicio = new Date(finCobertura);
+    nuevaFechaInicio.setDate(nuevaFechaInicio.getDate() + 1);
+    const duracionMs = vigente.fechaInicio ? new Date(vigente.fechaVencimiento) - new Date(vigente.fechaInicio) : 0;
+    const nuevaFechaVencimiento = new Date(nuevaFechaInicio.getTime() + duracionMs);
 
     let nuevo = null;
     for (let intento = 0; intento < 6 && !nuevo; intento++) {
@@ -84,7 +98,9 @@ export async function POST(request) {
             rol: "renovacion",
             exp: expTentativo,
             nombreCorto: vigente.nombreCorto,
-            nroContratacion: vigente.nroContratacion,
+            // La renovación arranca su propio trámite: sin N° de contratación,
+            // presupuesto ni monto adjudicado todavía (se cargan al adjudicarla).
+            nroContratacion: null,
             nroResolucion: vigente.nroResolucion,
             departamentoId: session.user.departamentoId,
             area: vigente.area,
@@ -95,14 +111,14 @@ export async function POST(request) {
             domicilio: vigente.domicilio,
             objeto: vigente.objeto,
             encuadre: vigente.encuadre,
-            presupuestoOficial: vigente.presupuestoOficial,
-            montoARS: vigente.montoARS,
-            montoUSD: vigente.montoUSD,
+            presupuestoOficial: 0,
+            montoARS: 0,
+            montoUSD: 0,
             esPoliciaAdicional: vigente.esPoliciaAdicional,
             fuerzaSeguridad: vigente.fuerzaSeguridad,
             cotizacionPolicia: vigente.cotizacionPolicia ?? undefined,
-            fechaInicio: vigente.fechaInicio,
-            fechaVencimiento: vigente.fechaVencimiento,
+            fechaInicio: nuevaFechaInicio,
+            fechaVencimiento: nuevaFechaVencimiento,
             ocResolucion: vigente.ocResolucion,
             adjudicatario: vigente.adjudicatario,
             sector: vigente.sector,
@@ -120,11 +136,6 @@ export async function POST(request) {
       return NextResponse.json({ error: "No se pudo generar el número de expediente" }, { status: 500 });
     }
 
-    await prisma.expediente.update({
-      where: { id: vigente.id },
-      data: { estadoGeneral: "En trámite de renovación" },
-    });
-
     return NextResponse.json({ expediente: nuevo }, { status: 201 });
   }
 
@@ -138,6 +149,10 @@ export async function POST(request) {
     if (!origen || origen.departamentoId !== session.user.departamentoId) {
       return NextResponse.json({ error: "Expediente de origen no encontrado" }, { status: 404 });
     }
+
+    // El legítimo abono nunca lleva orden de compra; descentralizada y
+    // trámite simplificado sí pueden tenerla.
+    const esLegitimoAbono = body.tipoParche === "Legítimo abono";
 
     const nuevoParche = await prisma.expediente.create({
       data: {
@@ -157,6 +172,7 @@ export async function POST(request) {
         montoUSD: 0,
         fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
         fechaVencimiento: new Date(body.fechaVencimiento),
+        ocResolucion: esLegitimoAbono ? null : (body.ocResolucion || null),
         sector: origen.sector,
         estadoGeneral: "Vigente",
         tipoParche: body.tipoParche || null,
@@ -166,6 +182,28 @@ export async function POST(request) {
       },
       include: INCLUDE_EXPEDIENTE,
     });
+
+    // Si ya hay una renovación en trámite en la misma cadena, su período
+    // deja de ser correlativo (el parche ahora cubre más adelante) — se
+    // corre para que arranque justo al día siguiente del parche, conservando
+    // la duración que tenía planificada.
+    const renovacionEnTramite = await prisma.expediente.findFirst({
+      where: { cadenaId: origen.cadenaId, rol: "renovacion", departamentoId: session.user.departamentoId },
+    });
+    if (renovacionEnTramite) {
+      const nuevaFechaInicio = new Date(nuevoParche.fechaVencimiento);
+      nuevaFechaInicio.setDate(nuevaFechaInicio.getDate() + 1);
+      const duracionMs = renovacionEnTramite.fechaInicio
+        ? new Date(renovacionEnTramite.fechaVencimiento) - new Date(renovacionEnTramite.fechaInicio)
+        : 0;
+      await prisma.expediente.update({
+        where: { id: renovacionEnTramite.id },
+        data: {
+          fechaInicio: nuevaFechaInicio,
+          fechaVencimiento: new Date(nuevaFechaInicio.getTime() + duracionMs),
+        },
+      });
+    }
 
     return NextResponse.json({ expediente: nuevoParche }, { status: 201 });
   }
@@ -191,13 +229,18 @@ export async function POST(request) {
     }
   }
 
+  // La renovación de un vigente arranca su propio trámite: sin N° de
+  // contratación, presupuesto ni monto adjudicado todavía, sin importar lo
+  // que se haya tipeado en el formulario.
+  const esRenovacionVinculada = !!body.idVigenteAActualizar;
+
   const nuevo = await prisma.expediente.create({
     data: {
       cadenaId: body.cadenaId || "c" + Date.now(),
       rol: body.rol || "vigente",
       exp: body.exp,
       nombreCorto: body.nombreCorto || null,
-      nroContratacion: body.nroContratacion || null,
+      nroContratacion: esRenovacionVinculada ? null : (body.nroContratacion || null),
       nroResolucion: body.nroResolucion || null,
       departamentoId: session.user.departamentoId,
       area: body.area || null,
@@ -206,8 +249,8 @@ export async function POST(request) {
       organismos: normalizarOrganismos(body),
       objeto: body.objeto,
       encuadre: puedePoliciaAdicional && body.esPoliciaAdicional ? ENCUADRE_INTERADMINISTRATIVO : (body.encuadre || null),
-      presupuestoOficial: Number(body.presupuestoOficial) || 0,
-      montoARS: Number(body.montoARS) || 0,
+      presupuestoOficial: esRenovacionVinculada ? 0 : (Number(body.presupuestoOficial) || 0),
+      montoARS: esRenovacionVinculada ? 0 : (Number(body.montoARS) || 0),
       montoUSD: Number(body.montoUSD) || 0,
       esPoliciaAdicional: puedePoliciaAdicional && !!body.esPoliciaAdicional,
       fuerzaSeguridad: puedePoliciaAdicional && body.esPoliciaAdicional ? (body.fuerzaSeguridad || null) : null,
@@ -227,14 +270,9 @@ export async function POST(request) {
     include: INCLUDE_EXPEDIENTE,
   });
 
-  // Si el alta corresponde a la renovación/prórroga de un vigente existente,
-  // ese vigente pasa a "En trámite de renovación" (el rol/cadena ya vienen resueltos).
-  if (body.idVigenteAActualizar) {
-    await prisma.expediente.updateMany({
-      where: { id: body.idVigenteAActualizar, departamentoId: session.user.departamentoId },
-      data: { estadoGeneral: "En trámite de renovación" },
-    });
-  }
+  // El vigente NO cambia de estado al vincularle una renovación: ya fue
+  // adjudicado y sigue en ejecución tal cual — es la renovación la que
+  // entra "En trámite de renovación", no él.
 
   return NextResponse.json({ expediente: nuevo }, { status: 201 });
 }

@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
-import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
+import { fechaMinimaRenovacion, fmtFecha, sumarDiasISO } from "@/lib/utils";
 function formVacio(esServicios) {
   return {
     exp: "", nombreCorto: "", nroContratacion: "", nroResolucion: "",
@@ -55,6 +55,16 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
     ? expedientes.find(e => e.exp.trim().toLowerCase() === f.antecedenteExp.trim().toLowerCase())
     : null;
   const fechaMinima = coincidenciaAntecedente ? fechaMinimaRenovacion(coincidenciaAntecedente, expedientes) : null;
+  const esVinculoAVigente = coincidenciaAntecedente?.rol === "vigente";
+
+  function handleAntecedenteExpChange(valor) {
+    set("antecedenteExp", valor);
+    const match = expedientes?.find(e => e.exp.trim().toLowerCase() === valor.trim().toLowerCase());
+    if (match && match.rol === "vigente") {
+      const minima = fechaMinimaRenovacion(match, expedientes);
+      if (minima) set("fechaInicio", sumarDiasISO(minima, 1));
+    }
+  }
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -95,7 +105,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
           <div className="grid grid-cols-2 gap-4">
             <Campo_Input label="N° de expediente" value={f.exp} onChange={v => set("exp", v)} placeholder="13-00000/26" />
             <Campo_Input label="Nombre corto" value={f.nombreCorto} onChange={v => set("nombreCorto", v)} placeholder="Ej: Limpieza edificio central" />
-            <Campo_Input label="N° de contratación" value={f.nroContratacion} onChange={v => set("nroContratacion", v)} placeholder="Ej: 45/2026" />
+            <Campo_Input label="N° de contratación" value={esVinculoAVigente ? "" : f.nroContratacion} onChange={v => set("nroContratacion", v)} placeholder={esVinculoAVigente ? "Se completa al adjudicar" : "Ej: 45/2026"} disabled={esVinculoAVigente} />
             <Campo_Input label="N° de resolución" value={f.nroResolucion} onChange={v => set("nroResolucion", v)} placeholder="Ej: 1234/2026" />
             {!esServicios && (
               <Campo_Select label="Área" value={f.area} onChange={v => set("area", v)} opciones={["Informatica", "Varios"]} labels={AREA_LABEL} />
@@ -139,7 +149,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
                 </label>
                 <input
                   value={f.antecedenteExp || ""}
-                  onChange={e => set("antecedenteExp", e.target.value)}
+                  onChange={e => handleAntecedenteExpChange(e.target.value)}
                   placeholder="Ej: 13-05877/25"
                   className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
                 />
@@ -156,8 +166,10 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
                         <p className="text-[11px] text-emerald-700 mt-1">✓ Encontrado: {coincidenciaAntecedente.objeto}</p>
                         {fechaMinima && (
                           <p className="text-[11px] text-amber-700 mt-1">
-                            La fecha de inicio de la renovación no puede ser anterior al {fmtFecha(fechaMinima)}
-                            {" "}(cuando termina la cobertura vigente{coincidenciaAntecedente.rol === "vigente" && coincidenciaAntecedente.tieneProrroga && coincidenciaAntecedente.prorrogaActivada ? ", ya extendida por la prórroga activada" : ""}).
+                            Fecha de inicio precargada en el {fmtFecha(sumarDiasISO(fechaMinima, 1))}, correlativa al
+                            {" "}{fmtFecha(fechaMinima)} en que termina la cobertura vigente{coincidenciaAntecedente.tieneProrroga && coincidenciaAntecedente.prorrogaActivada ? " (ya extendida por la prórroga activada)" : ""}.
+                            El vigente no cambia de estado; N° de contratación, presupuesto y monto adjudicado quedan
+                            vacíos hasta que se adjudique esta renovación.
                           </p>
                         )}
                       </>
@@ -215,11 +227,13 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
               ]}
               labels={{ "": "— Seleccionar —" }}
             />
-            <Campo_Input label="OC / Resolución" value={f.ocResolucion} onChange={v => set("ocResolucion", v)} />
+            {f.tipoParche !== "Legítimo abono" && (
+              <Campo_Input label="OC / Resolución" value={f.ocResolucion} onChange={v => set("ocResolucion", v)} />
+            )}
             <Campo_Input label="Adjudicatario" value={f.adjudicatario} onChange={v => set("adjudicatario", v)} />
             <Campo_Input label="Etapa" value={f.etapa} onChange={v => set("etapa", v)} />
-            <Campo_Input label="Presupuesto oficial (ARS)" type="number" value={f.presupuestoOficial} onChange={v => set("presupuestoOficial", v)} />
-            <Campo_Input label="Monto adjudicado (ARS)" type="number" value={f.montoARS} onChange={v => set("montoARS", v)} />
+            <Campo_Input label="Presupuesto oficial (ARS)" type="number" value={esVinculoAVigente ? "" : f.presupuestoOficial} onChange={v => set("presupuestoOficial", v)} disabled={esVinculoAVigente} />
+            <Campo_Input label="Monto adjudicado (ARS)" type="number" value={esVinculoAVigente ? "" : f.montoARS} onChange={v => set("montoARS", v)} disabled={esVinculoAVigente} />
             <Campo_Input label="Monto adjudicado (USD)" type="number" value={f.montoUSD} onChange={v => set("montoUSD", v)} />
             <Campo_Input label="Fecha de inicio" type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
             <Campo_Input label="Fecha de vencimiento" type="date" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />

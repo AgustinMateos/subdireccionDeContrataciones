@@ -6,21 +6,24 @@ import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, RO
 import { diasRestantes, alerta, fmtFecha, fmtMoneda, documentacionDeExpediente, diasFrenado } from "@/lib/utils";
 export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onActivarProrroga, onGenerarParche, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
   const [verMasAntecedentes, setVerMasAntecedentes] = useState(false);
-  const [verMasParches, setVerMasParches] = useState(false);
   const cadena = expedientes.filter(e => e.cadenaId === exp.cadenaId);
   const antecedentes = cadena.filter(e => e.rol === "antecedente")
     .sort((a, b) => new Date(b.fechaVencimiento) - new Date(a.fechaVencimiento));
   const antecedente = antecedentes[0];
   const antecedentesAnteriores = antecedentes.slice(1);
   const vigente = cadena.find(e => e.rol === "vigente");
+  // Todos los parches se muestran en la línea de tiempo, en orden cronológico
+  // — a diferencia de los antecedentes, nunca quedan ocultos detrás de un
+  // "ver más": si hubo que cubrir el período varias veces, se tiene que ver.
   const parches = cadena.filter(e => e.rol === "parche")
-    .sort((a, b) => new Date(b.fechaVencimiento) - new Date(a.fechaVencimiento));
-  const parche = parches[0];
-  const parchesAnteriores = parches.slice(1);
+    .sort((a, b) => new Date(a.fechaInicio || a.fechaVencimiento) - new Date(b.fechaInicio || b.fechaVencimiento));
   const renovacion = cadena.find(e => e.rol === "renovacion");
-  const rolesCadena = parche ? ["antecedente", "vigente", "parche", "renovacion"] : ["antecedente", "vigente", "renovacion"];
-  const nodoPorRol = { antecedente, vigente, parche, renovacion };
-  const labelPorRol = { ...ROL_LABEL, parche: (parche && parche.tipoParche) || ROL_LABEL.parche };
+  const nodos = [
+    { key: "antecedente", label: ROL_LABEL.antecedente, item: antecedente },
+    { key: "vigente", label: ROL_LABEL.vigente, item: vigente },
+    ...parches.map(p => ({ key: p.id, label: p.tipoParche || ROL_LABEL.parche, item: p })),
+    { key: "renovacion", label: ROL_LABEL.renovacion, item: renovacion },
+  ];
   const dias = diasRestantes(exp.fechaVencimiento);
   const niv = alerta(dias);
   const frenado = diasFrenado(exp.observaciones);
@@ -86,12 +89,12 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
 
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Trazabilidad del expediente</h3>
-            <div className="flex items-stretch gap-1">
-              {rolesCadena.map((rol, idx) => {
-                const item = nodoPorRol[rol];
-                const activo = exp.rol === rol;
+            <div className="flex items-stretch gap-1 flex-wrap">
+              {nodos.map((nodo, idx) => {
+                const item = nodo.item;
+                const activo = item && item.id === exp.id;
                 return (
-                  <div key={rol} className="flex-1 flex items-center">
+                  <div key={nodo.key} className="flex items-center" style={{ minWidth: "9rem", flex: "1 1 9rem" }}>
                     <button
                       disabled={!item}
                       onClick={() => item && onNavegar(item.id)}
@@ -99,7 +102,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                         (!item ? "border-dashed border-slate-200 text-slate-300 cursor-default" :
                           activo ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-400 text-slate-700")}
                     >
-                      <div className="text-[10px] uppercase tracking-wide opacity-70">{labelPorRol[rol]}</div>
+                      <div className="text-[10px] uppercase tracking-wide opacity-70">{nodo.label}</div>
                       <div className="text-xs font-mono mt-0.5">{item ? item.exp : "No registrado"}</div>
                       {item && (
                         <div className={"text-[10px] mt-0.5 " + (activo ? "text-slate-300" : "text-slate-400")}>
@@ -107,7 +110,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                         </div>
                       )}
                     </button>
-                    {idx < rolesCadena.length - 1 && <ChevronRight size={14} className="text-slate-300 shrink-0 mx-1" />}
+                    {idx < nodos.length - 1 && <ChevronRight size={14} className="text-slate-300 shrink-0 mx-1" />}
                   </div>
                 );
               })}
@@ -138,30 +141,6 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
               </div>
             )}
 
-            {parchesAnteriores.length > 0 && (
-              <div className="mt-2">
-                <button
-                  onClick={() => setVerMasParches(v => !v)}
-                  className="text-[11px] font-medium text-slate-500 hover:text-slate-800 underline"
-                >
-                  {verMasParches ? "Ocultar" : "Ver más parches"} ({parchesAnteriores.length})
-                </button>
-                {verMasParches && (
-                  <div className="mt-2 space-y-1.5">
-                    {parchesAnteriores.map(p => (
-                      <button
-                        key={p.id}
-                        onClick={() => onNavegar(p.id)}
-                        className="w-full flex items-center justify-between text-left rounded-md border border-slate-200 px-3 py-2 text-xs hover:border-slate-400"
-                      >
-                        <span className="font-mono text-slate-700">{p.exp}</span>
-                        <span className="text-slate-400">{p.tipoParche || ROL_LABEL.parche} · {fmtFecha(p.fechaInicio)} — {fmtFecha(p.fechaVencimiento)}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {exp.rol === "vigente" && exp.tieneProrroga && (

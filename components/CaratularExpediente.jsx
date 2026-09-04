@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
-import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
+import { fechaMinimaRenovacion, fmtFecha, sumarDiasISO } from "@/lib/utils";
 
 function formVacio(esServicios) {
   return {
@@ -40,6 +40,15 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
     ? expedientes.find(e => e.exp.trim().toLowerCase() === f.antecedenteExp.trim().toLowerCase())
     : null;
   const fechaMinima = coincidenciaAntecedente ? fechaMinimaRenovacion(coincidenciaAntecedente, expedientes) : null;
+
+  function handleAntecedenteExpChange(valor) {
+    set("antecedenteExp", valor);
+    const match = expedientes?.find(e => e.exp.trim().toLowerCase() === valor.trim().toLowerCase());
+    if (match && match.rol === "vigente") {
+      const minima = fechaMinimaRenovacion(match, expedientes);
+      if (minima) set("fechaInicio", sumarDiasISO(minima, 1));
+    }
+  }
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -107,7 +116,7 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
               </label>
               <input
                 value={f.antecedenteExp || ""}
-                onChange={e => set("antecedenteExp", e.target.value)}
+                onChange={e => handleAntecedenteExpChange(e.target.value)}
                 placeholder="Ej: 13-05877/25"
                 className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
               />
@@ -123,7 +132,9 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
                       <p className="text-[11px] text-emerald-700 mt-1">✓ Encontrado: {coincidenciaAntecedente.objeto}</p>
                       {fechaMinima && (
                         <p className="text-[11px] text-amber-700 mt-1">
-                          La fecha de inicio no puede ser anterior al {fmtFecha(fechaMinima)} (cuando termina la cobertura vigente).
+                          Fecha de inicio precargada en el {fmtFecha(sumarDiasISO(fechaMinima, 1))}, correlativa al
+                          {" "}{fmtFecha(fechaMinima)} en que termina la cobertura vigente. N° de contratación,
+                          presupuesto y monto adjudicado quedan vacíos hasta adjudicar la renovación.
                         </p>
                       )}
                     </>

@@ -13,8 +13,10 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
     fechaVencimiento: "",
     montoARS: "",
     detalleParche: "",
+    ocResolucion: "",
   });
   const [error, setError] = useState("");
+  const esLegitimoAbono = f.tipoParche === "Legítimo abono";
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
 
@@ -23,7 +25,7 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
       setError("Completá al menos N° de expediente, objeto y fecha de vencimiento.");
       return;
     }
-    onConfirmar({ ...f, montoARS: Number(f.montoARS) || 0 });
+    onConfirmar({ ...f, montoARS: Number(f.montoARS) || 0, ocResolucion: esLegitimoAbono ? "" : f.ocResolucion });
   }
 
   return (
@@ -41,6 +43,11 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
             <span className="font-mono font-medium text-slate-700"> {exp.exp}</span>. Se puede generar más de uno
             sucesivo si hace falta.
           </p>
+          {esLegitimoAbono && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              El legítimo abono no lleva orden de compra.
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -55,6 +62,13 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
                 {TIPOS_PARCHE.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
+            {!esLegitimoAbono && (
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-slate-600 mb-1">OC / Resolución</label>
+                <input value={f.ocResolucion} onChange={e => set("ocResolucion", e.target.value)}
+                  className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+              </div>
+            )}
             <div className="col-span-2">
               <label className="block text-xs font-medium text-slate-600 mb-1">Objeto</label>
               <input value={f.objeto} onChange={e => set("objeto", e.target.value)}

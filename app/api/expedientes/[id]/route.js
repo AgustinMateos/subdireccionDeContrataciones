@@ -278,6 +278,8 @@ export async function PUT(request, { params }) {
   // La contratación de policía adicional es exclusiva de Informática y Varios.
   const puedePoliciaAdicional = session.user.departamentoSlug === "informatica-y-varios";
   const esPoliciaAdicionalPedido = puedePoliciaAdicional && body.esPoliciaAdicional === true;
+  // El legítimo abono nunca lleva orden de compra.
+  const esLegitimoAbono = body.tipoParche === "Legítimo abono";
 
   // ---------- Edición normal de campos del expediente ----------
   const actualizado = await prisma.expediente.update({
@@ -304,7 +306,7 @@ export async function PUT(request, { params }) {
         : body.esPoliciaAdicional === false ? null : undefined,
       fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
       fechaVencimiento: body.fechaVencimiento ? new Date(body.fechaVencimiento) : undefined,
-      ocResolucion: body.ocResolucion ?? undefined,
+      ocResolucion: esLegitimoAbono ? null : (body.ocResolucion ?? undefined),
       adjudicatario: body.adjudicatario ?? undefined,
       sector: body.sector ?? undefined,
       etapa: body.etapa ?? undefined,
