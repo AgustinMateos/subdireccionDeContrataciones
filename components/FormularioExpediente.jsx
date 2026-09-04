@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { ORGANISMOS, AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS_SERVICIOS } from "@/lib/constants";
+import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA } from "@/lib/constants";
+import { Campo_Input, Campo_Select } from "./CamposFormulario";
+import SelectorOrganismos from "./SelectorOrganismos";
+import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
 function formVacio(esServicios) {
   return {
     exp: "", nombreCorto: "", nroContratacion: "", nroResolucion: "",
@@ -12,8 +15,9 @@ function formVacio(esServicios) {
     ocResolucion: "", adjudicatario: "", sector: "", etapa: "En ejecución", estadoGeneral: "Vigente",
     esPoliciaAdicional: false, fuerzaSeguridad: "",
     antecedenteExp: "",
-    fuero: "", zona: esServicios ? ZONAS_SERVICIOS[0] : "", codigoInterno: "",
-    legitimoAbono: false, legitimoAbonoDetalle: "", estadoConvocatoria: "",
+    fuero: "", zona: ZONAS[0], codigoInterno: "",
+    estadoConvocatoria: esServicios ? ESTADOS_CONVOCATORIA[0] : "",
+    tieneProrroga: false,
   };
 }
 
@@ -27,28 +31,16 @@ function normalizarInicial(inicial, esServicios) {
       : inicial.organismo ? [inicial.organismo] : [],
     esPoliciaAdicional: !!inicial.esPoliciaAdicional,
     fuerzaSeguridad: inicial.fuerzaSeguridad || "",
-    legitimoAbono: !!inicial.legitimoAbono,
+    tieneProrroga: !!inicial.tieneProrroga,
   };
 }
 
 export default function FormularioExpediente({ titulo, inicial, esNuevo, expedientes, departamentoSlug, onCerrar, onGuardar }) {
   const esServicios = departamentoSlug === "servicios";
   const [f, setF] = useState(() => normalizarInicial(inicial, esServicios));
-  const [orgInput, setOrgInput] = useState("");
   const [error, setError] = useState("");
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
-
-  function agregarOrganismo() {
-    const v = orgInput.trim();
-    if (!v) return;
-    if (!f.organismos.includes(v)) set("organismos", [...f.organismos, v]);
-    setOrgInput("");
-  }
-
-  function quitarOrganismo(o) {
-    set("organismos", f.organismos.filter(x => x !== o));
-  }
 
   function togglePoliciaAdicional(activo) {
     setF(prev => ({
@@ -62,6 +54,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
   const coincidenciaAntecedente = f.antecedenteExp && expedientes
     ? expedientes.find(e => e.exp.trim().toLowerCase() === f.antecedenteExp.trim().toLowerCase())
     : null;
+  const fechaMinima = coincidenciaAntecedente ? fechaMinimaRenovacion(coincidenciaAntecedente, expedientes) : null;
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -75,6 +68,10 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
     }
     if (f.esPoliciaAdicional && !f.fuerzaSeguridad) {
       setError("Elegí la fuerza de seguridad para el expediente de policía adicional.");
+      return;
+    }
+    if (fechaMinima && f.fechaInicio && new Date(f.fechaInicio) < new Date(fechaMinima)) {
+      setError("La fecha de inicio de la renovación no puede ser anterior al " + fmtFecha(fechaMinima) + " (cuando termina la cobertura vigente).");
       return;
     }
     onGuardar({
@@ -107,66 +104,34 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
               opciones={esServicios ? TIPOS_SERVICIOS : ["Servicios", "Provisiones", "Servicios Temporales"]} />
             <Campo_Input label="Agente" value={f.agente} onChange={v => set("agente", v)} placeholder="CB" />
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Organismos {f.organismos.length > 0 && <span className="text-slate-400">({f.organismos.length})</span>}
-              </label>
-              {f.organismos.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {f.organismos.map(o => (
-                    <span key={o} className="flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-full pl-2.5 pr-1 py-1 text-xs text-slate-700">
-                      {o}
-                      <button type="button" onClick={() => quitarOrganismo(o)} className="p-0.5 rounded-full hover:bg-slate-300 text-slate-500">
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div className="flex gap-2">
-                <input
-                  list="lista-organismos"
-                  value={orgInput}
-                  onChange={e => setOrgInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); agregarOrganismo(); } }}
-                  placeholder="Escribí o elegí de la lista y presioná Agregar"
-                  className="flex-1 text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800"
-                />
-                <datalist id="lista-organismos">
-                  {ORGANISMOS.map(o => <option key={o} value={o} />)}
-                </datalist>
-                <button type="button" onClick={agregarOrganismo} className="px-3 py-2 rounded-md border border-slate-300 text-xs font-medium hover:bg-slate-50 shrink-0">
-                  Agregar
-                </button>
-              </div>
+              <SelectorOrganismos organismos={f.organismos} onChange={v => set("organismos", v)} />
             </div>
             <Campo_Input label="Sector actual" value={f.sector} onChange={v => set("sector", v)} />
+            <Campo_Select label="Zona" value={f.zona} onChange={v => set("zona", v)} opciones={ZONAS} />
             {esServicios && (
               <>
-                <Campo_Select label="Zona" value={f.zona} onChange={v => set("zona", v)} opciones={ZONAS_SERVICIOS} />
                 <Campo_Input label="Fuero" value={f.fuero} onChange={v => set("fuero", v)} placeholder="Ej: Cámara Federal de Apelaciones de Córdoba" />
                 <Campo_Input label="Código interno (planilla)" value={f.codigoInterno} onChange={v => set("codigoInterno", v)} placeholder="Ej: 02ID" />
-                <Campo_Input label="Estado de convocatoria" value={f.estadoConvocatoria} onChange={v => set("estadoConvocatoria", v)} placeholder="Ej: Estimación de Costos" />
-                <div className="col-span-2 border border-slate-200 rounded-md p-3 bg-slate-50">
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={f.legitimoAbono}
-                      onChange={e => set("legitimoAbono", e.target.checked)}
-                      className="w-4 h-4 mt-0.5 rounded border-slate-300 text-slate-800 focus:ring-slate-800"
-                    />
-                    <span className="text-xs font-medium text-slate-700">Legítimo abono</span>
-                  </label>
-                  {f.legitimoAbono && (
-                    <input
-                      value={f.legitimoAbonoDetalle}
-                      onChange={e => set("legitimoAbonoDetalle", e.target.value)}
-                      placeholder="Ej: Sep y Octubre/26 - Notificada el 22/6/26"
-                      className="w-full mt-2 text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
-                    />
-                  )}
-                </div>
+                <Campo_Select label="Estado de convocatoria" value={f.estadoConvocatoria} onChange={v => set("estadoConvocatoria", v)} opciones={ESTADOS_CONVOCATORIA} />
               </>
             )}
+            <div className="col-span-2 border border-slate-200 rounded-md p-3 bg-slate-50">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={f.tieneProrroga}
+                  onChange={e => set("tieneProrroga", e.target.checked)}
+                  className="w-4 h-4 mt-0.5 rounded border-slate-300 text-slate-800 focus:ring-slate-800"
+                />
+                <span>
+                  <span className="text-xs font-medium text-slate-700">Tiene opción de prórroga</span>
+                  <span className="block text-[11px] text-slate-500 mt-0.5">
+                    El contrato prevé una prórroga. Se podrá activar más adelante desde la ficha del
+                    expediente si la renovación se atrasa, sin necesidad de un expediente nuevo.
+                  </span>
+                </span>
+              </label>
+            </div>
             {esNuevo && (
               <div className="col-span-2 bg-slate-50 border border-slate-200 rounded-md p-3">
                 <label className="block text-xs font-medium text-slate-600 mb-1">
@@ -180,13 +145,23 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
                 />
                 <p className="text-[11px] text-slate-500 mt-1.5">
                   Si el número que cargás corresponde a un expediente <strong>Vigente</strong>, este nuevo
-                  expediente entra como su <strong>Renovación / Prórroga en trámite</strong> — el vigente
+                  expediente entra como su <strong>Renovación en trámite</strong> — el vigente
                   sigue en ejecución hasta su vencimiento, no se reemplaza todavía. Si corresponde a un
                   expediente ya archivado o finalizado, este pasa a ser el <strong>Vigente</strong> de esa cadena.
                 </p>
                 {f.antecedenteExp && (
                   coincidenciaAntecedente
-                    ? <p className="text-[11px] text-emerald-700 mt-1">✓ Encontrado: {coincidenciaAntecedente.objeto}</p>
+                    ? (
+                      <>
+                        <p className="text-[11px] text-emerald-700 mt-1">✓ Encontrado: {coincidenciaAntecedente.objeto}</p>
+                        {fechaMinima && (
+                          <p className="text-[11px] text-amber-700 mt-1">
+                            La fecha de inicio de la renovación no puede ser anterior al {fmtFecha(fechaMinima)}
+                            {" "}(cuando termina la cobertura vigente{coincidenciaAntecedente.rol === "vigente" && coincidenciaAntecedente.tieneProrroga && coincidenciaAntecedente.prorrogaActivada ? ", ya extendida por la prórroga activada" : ""}).
+                          </p>
+                        )}
+                      </>
+                    )
                     : <p className="text-[11px] text-amber-700 mt-1">No se encontró ese número entre los expedientes cargados. Se guardará solo como referencia.</p>
                 )}
               </div>
@@ -195,6 +170,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
               <Campo_Input label="Objeto" value={f.objeto} onChange={v => set("objeto", v)} />
             </div>
 
+            {!esServicios && (
             <div className="col-span-2 border border-slate-200 rounded-md p-3 bg-slate-50">
               <label className="flex items-start gap-2.5 cursor-pointer">
                 <input
@@ -225,6 +201,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
                 </div>
               )}
             </div>
+            )}
 
             <Campo_Select
               label="Encuadre / modalidad de contratación"
@@ -266,24 +243,3 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
   );
 }
 
-function Campo_Input({ label, value, onChange, type = "text", placeholder }) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
-      <input type={type} value={value ?? ""} placeholder={placeholder} onChange={e => onChange(e.target.value)}
-        className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
-    </div>
-  );
-}
-
-function Campo_Select({ label, value, onChange, opciones, labels, disabled }) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
-      <select value={value} onChange={e => onChange(e.target.value)} disabled={disabled}
-        className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800 disabled:bg-slate-100 disabled:text-slate-500">
-        {opciones.map(o => <option key={o} value={o}>{labels && labels[o] != null ? labels[o] : o}</option>)}
-      </select>
-    </div>
-  );
-}

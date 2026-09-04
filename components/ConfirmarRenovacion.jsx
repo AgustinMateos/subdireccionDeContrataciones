@@ -7,7 +7,7 @@ export default function ConfirmarRenovacion({ exp, onCerrar, onConfirmar }) {
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
         <h2 className="text-base font-semibold text-slate-900 mb-2">Crear renovación vinculada</h2>
         <p className="text-sm text-slate-600 mb-4">
-          Se generará un nuevo expediente de renovación / prórroga vinculado al vigente
+          Se generará un nuevo expediente de renovación vinculado al vigente
           <span className="font-mono font-medium text-slate-900"> {exp.exp}</span>, y ese expediente pasará a estado
           <span className="font-medium"> "En trámite de renovación"</span>.
         </p>

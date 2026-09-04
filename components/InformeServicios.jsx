@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ClipboardList } from "lucide-react";
-import { TIPOS_SERVICIOS, ZONAS_SERVICIOS, ALERTA_ESTILO } from "@/lib/constants";
+import { TIPOS_SERVICIOS, ZONAS, ALERTA_ESTILO } from "@/lib/constants";
 import { diasRestantes, alerta, diasFrenado, fmtFecha } from "@/lib/utils";
 
 export default function InformeServicios({ expedientes }) {
@@ -58,7 +58,7 @@ export default function InformeServicios({ expedientes }) {
             <select value={zonaFiltro} onChange={e => setZonaFiltro(e.target.value)}
               className="text-sm border border-slate-300 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800">
               <option value="Todas">Todas las zonas</option>
-              {ZONAS_SERVICIOS.map(z => <option key={z} value={z}>{z}</option>)}
+              {ZONAS.map(z => <option key={z} value={z}>{z}</option>)}
             </select>
           </div>
         </div>

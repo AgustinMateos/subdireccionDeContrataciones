@@ -24,6 +24,36 @@ function normalizarExpediente(e) {
   };
 }
 
+// Resuelve a qué cadena entra un expediente nuevo según el N° de expediente
+// antecedente que se haya cargado (usado tanto por "Cargar expediente" como
+// por "Caratular"): si referencia a un Vigente, este pasa a ser su
+// Renovación en trámite; si referencia a algo ya cerrado, pasa a ser el
+// nuevo Vigente de esa cadena.
+function resolverCadena(antecedenteExp, expedientes) {
+  let cadenaId = "c" + Date.now();
+  let rolNuevo = "vigente";
+  let idVigenteAActualizar = null;
+  let mensaje = "Expediente creado";
+
+  if (antecedenteExp && antecedenteExp.trim()) {
+    const match = expedientes.find(
+      e => e.exp.trim().toLowerCase() === antecedenteExp.trim().toLowerCase()
+    );
+    if (match) {
+      cadenaId = match.cadenaId;
+      if (match.rol === "vigente") {
+        rolNuevo = "renovacion";
+        idVigenteAActualizar = match.id;
+        mensaje = "Renovación creada y vinculada al vigente " + match.exp + " (que continúa en ejecución)";
+      } else {
+        rolNuevo = "vigente";
+        mensaje = "Expediente creado y concatenado como Vigente de la cadena de " + match.exp;
+      }
+    }
+  }
+  return { cadenaId, rolNuevo, idVigenteAActualizar, mensaje };
+}
+
 import Login from "./Login";
 import TopBar from "./TopBar";
 import Resumen from "./Resumen";
@@ -31,7 +61,10 @@ import FiltroBar from "./FiltroBar";
 import TarjetaExpediente from "./TarjetaExpediente";
 import PaginaExpediente from "./PaginaExpediente";
 import FormularioExpediente from "./FormularioExpediente";
+import CaratularExpediente from "./CaratularExpediente";
 import ConfirmarRenovacion from "./ConfirmarRenovacion";
+import ActivarProrroga from "./ActivarProrroga";
+import GenerarParche from "./GenerarParche";
 import CotizadorTaquigrafico from "./CotizadorTaquigrafico";
 import CotizadorPolicia from "./CotizadorPolicia";
 import CotizadorAvisos from "./CotizadorAvisos";
@@ -369,6 +402,31 @@ export default function App() {
     );
   }
 
+  async function activarProrroga(exp, datos) {
+    const res = await fetch(`/api/expedientes/${exp.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ activarProrroga: datos }),
+    });
+    if (!res.ok) { mostrarToast("No se pudo activar la prórroga"); return; }
+    await refrescar(exp.id);
+    setFormAbierto(null);
+    mostrarToast("Prórroga activada, vencimiento extendido");
+  }
+
+  async function crearParche(origen, datos) {
+    const res = await fetch("/api/expedientes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ parcheDeId: origen.id, ...datos }),
+    });
+    if (!res.ok) { mostrarToast("No se pudo generar el parche"); return; }
+    const data = await res.json();
+    await refrescar(data.expediente?.id);
+    setFormAbierto(null);
+    mostrarToast("Parche generado y vinculado a " + origen.exp);
+  }
+
   if (status === "loading") {
     return <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">Cargando...</div>;
   }
@@ -438,6 +496,8 @@ export default function App() {
             onEditar={() => setFormAbierto("editar")}
             onRenovar={() => setFormAbierto("renovacion")}
             onActivar={() => activarRenovacion(seleccionado)}
+            onActivarProrroga={() => setFormAbierto("activarProrroga")}
+            onGenerarParche={() => setFormAbierto("generarParche")}
             puedeEditar={puedeEditar}
             puedeEliminar={puedeEliminar}
             esJefe={esJefe}
@@ -458,6 +518,7 @@ export default function App() {
               total={filtrados.length}
               puedeEditar={puedeEditar}
               onNuevo={() => setFormAbierto("nuevo")}
+              onCaratular={() => setFormAbierto("caratular")}
               departamentoSlug={sesion.departamentoSlug}
             />
 
@@ -496,32 +557,7 @@ export default function App() {
           onCerrar={() => setFormAbierto(null)}
           onGuardar={async (datos) => {
             const { antecedenteExp, ...resto } = datos;
-            let cadenaId = "c" + Date.now();
-            let rolNuevo = "vigente";
-            let idVigenteAActualizar = null;
-            let mensaje = "Expediente creado";
-
-            if (antecedenteExp && antecedenteExp.trim()) {
-              const match = expedientes.find(
-                e => e.exp.trim().toLowerCase() === antecedenteExp.trim().toLowerCase()
-              );
-              if (match) {
-                cadenaId = match.cadenaId;
-                if (match.rol === "vigente") {
-                  // El expediente referenciado sigue vigente y en ejecución: lo que se
-                  // carga ahora es su renovación/prórroga en trámite, para tenerla lista
-                  // antes de que venza el servicio contratado.
-                  rolNuevo = "renovacion";
-                  idVigenteAActualizar = match.id;
-                  mensaje = "Renovación creada y vinculada al vigente " + match.exp + " (que continúa en ejecución)";
-                } else {
-                  // El expediente referenciado ya es antecedente/archivado/finalizado:
-                  // no hay un vigente activo en esa cadena, así que este pasa a serlo.
-                  rolNuevo = "vigente";
-                  mensaje = "Expediente creado y concatenado como Vigente de la cadena de " + match.exp;
-                }
-              }
-            }
+            const { cadenaId, rolNuevo, idVigenteAActualizar, mensaje } = resolverCadena(antecedenteExp, expedientes);
 
             const res = await fetch("/api/expedientes", {
               method: "POST",
@@ -540,6 +576,36 @@ export default function App() {
             await refrescar();
             setFormAbierto(null);
             mostrarToast(mensaje);
+          }}
+        />
+      )}
+
+      {formAbierto === "caratular" && (
+        <CaratularExpediente
+          departamentoSlug={sesion.departamentoSlug}
+          expedientes={expedientes}
+          onCerrar={() => setFormAbierto(null)}
+          onGuardar={async (datos) => {
+            const { antecedenteExp, ...resto } = datos;
+            const { cadenaId, rolNuevo, idVigenteAActualizar, mensaje } = resolverCadena(antecedenteExp, expedientes);
+
+            const res = await fetch("/api/expedientes", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...resto,
+                cadenaId,
+                rol: rolNuevo,
+                estadoGeneral: rolNuevo === "renovacion" ? "En trámite de renovación" : resto.estadoGeneral,
+                idVigenteAActualizar,
+              }),
+            });
+            if (!res.ok) { mostrarToast("No se pudo caratular el expediente"); return; }
+            const data = await res.json();
+            await refrescar(data.expediente?.id);
+            setFormAbierto(null);
+            setVista("expedienteDetalle");
+            mostrarToast(rolNuevo === "renovacion" ? mensaje : "Expediente caratulado. Completá el resto desde \"Editar expediente\" en su ficha.");
           }}
         />
       )}
@@ -570,6 +636,22 @@ export default function App() {
           exp={seleccionado}
           onCerrar={() => setFormAbierto(null)}
           onConfirmar={() => crearRenovacion(seleccionado)}
+        />
+      )}
+
+      {formAbierto === "activarProrroga" && seleccionado && (
+        <ActivarProrroga
+          exp={seleccionado}
+          onCerrar={() => setFormAbierto(null)}
+          onConfirmar={(datos) => activarProrroga(seleccionado, datos)}
+        />
+      )}
+
+      {formAbierto === "generarParche" && seleccionado && (
+        <GenerarParche
+          exp={seleccionado}
+          onCerrar={() => setFormAbierto(null)}
+          onConfirmar={(datos) => crearParche(seleccionado, datos)}
         />
       )}
     </div>

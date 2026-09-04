@@ -1,8 +1,8 @@
 "use client";
 
-import { Plus, Filter } from "lucide-react";
-import { ORGANISMOS, AREA_LABEL, TIPOS_SERVICIOS, ZONAS_SERVICIOS } from "@/lib/constants";
-export default function FiltroBar({ areaFiltro, setAreaFiltro, tipoFiltro, setTipoFiltro, estadoFiltro, setEstadoFiltro, organismoFiltro, setOrganismoFiltro, vencimientoFiltro, setVencimientoFiltro, nombreCortoFiltro, setNombreCortoFiltro, zonaFiltro, setZonaFiltro, total, puedeEditar, onNuevo, departamentoSlug }) {
+import { Plus, Filter, FilePlus2 } from "lucide-react";
+import { ORGANISMOS, AREA_LABEL, TIPOS_SERVICIOS, ZONAS } from "@/lib/constants";
+export default function FiltroBar({ areaFiltro, setAreaFiltro, tipoFiltro, setTipoFiltro, estadoFiltro, setEstadoFiltro, organismoFiltro, setOrganismoFiltro, vencimientoFiltro, setVencimientoFiltro, nombreCortoFiltro, setNombreCortoFiltro, zonaFiltro, setZonaFiltro, total, puedeEditar, onNuevo, onCaratular, departamentoSlug }) {
   const esServicios = departamentoSlug === "servicios";
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
@@ -20,9 +20,14 @@ export default function FiltroBar({ areaFiltro, setAreaFiltro, tipoFiltro, setTi
           </>
         )}
         {puedeEditar && (
-          <button onClick={onNuevo} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800">
-            <Plus size={14} /> Nuevo expediente
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button onClick={onCaratular} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-xs font-medium hover:bg-slate-50">
+              <FilePlus2 size={14} /> Caratular
+            </button>
+            <button onClick={onNuevo} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800">
+              <Plus size={14} /> Cargar expediente
+            </button>
+          </div>
         )}
       </div>
 
@@ -42,12 +47,10 @@ export default function FiltroBar({ areaFiltro, setAreaFiltro, tipoFiltro, setTi
               </>
             )}
         </select>
-        {esServicios && (
-          <select value={zonaFiltro} onChange={e => setZonaFiltro(e.target.value)} className="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
-            <option value="Todas">Todas las zonas</option>
-            {ZONAS_SERVICIOS.map(z => <option key={z} value={z}>{z}</option>)}
-          </select>
-        )}
+        <select value={zonaFiltro} onChange={e => setZonaFiltro(e.target.value)} className="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
+          <option value="Todas">Todas las zonas</option>
+          {ZONAS.map(z => <option key={z} value={z}>{z}</option>)}
+        </select>
         <select value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value)} className="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
           <option value="Todos">Todos los estados</option>
           <option value="Vigente">Vigente</option>

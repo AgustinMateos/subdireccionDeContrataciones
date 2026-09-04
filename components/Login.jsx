@@ -6,10 +6,14 @@ import { signIn } from "next-auth/react";
 // Solo para autocompletar el formulario más rápido en desarrollo/demo.
 // La autenticación real la valida el servidor contra la tabla Usuario (ver prisma/seed.js).
 const USUARIOS_DEMO = [
-  { email: "admin@pj.gob.ar", clave: "admin123", rolLabel: "Jefe de Departamento" },
-  { email: "operador@pj.gob.ar", clave: "operador123", rolLabel: "Operador" },
-  { email: "lector@pj.gob.ar", clave: "lector123", rolLabel: "Solo Lectura" },
-  { email: "soporte@pj.gob.ar", clave: "soporte123", rolLabel: "Soporte" },
+  { email: "admin@pj.gob.ar", clave: "admin123", rolLabel: "Jefe de Departamento", depto: "Informática y Varios" },
+  { email: "operador@pj.gob.ar", clave: "operador123", rolLabel: "Operador", depto: "Informática y Varios" },
+  { email: "lector@pj.gob.ar", clave: "lector123", rolLabel: "Solo Lectura", depto: "Informática y Varios" },
+  { email: "soporte@pj.gob.ar", clave: "soporte123", rolLabel: "Soporte", depto: "Informática y Varios" },
+  { email: "admin.servicios@pj.gob.ar", clave: "admin123", rolLabel: "Jefe de Departamento", depto: "Servicios" },
+  { email: "operador.servicios@pj.gob.ar", clave: "operador123", rolLabel: "Operador", depto: "Servicios" },
+  { email: "lector.servicios@pj.gob.ar", clave: "lector123", rolLabel: "Solo Lectura", depto: "Servicios" },
+  { email: "soporte.servicios@pj.gob.ar", clave: "soporte123", rolLabel: "Soporte", depto: "Servicios" },
 ];
 
 export default function Login() {
@@ -46,7 +50,7 @@ export default function Login() {
     <div className="min-h-screen grid lg:grid-cols-[1.1fr_1fr] bg-slate-50">
       <div className="hidden lg:flex flex-col justify-between bg-slate-900 text-slate-50 p-14">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 border-2 border-blue-400 rounded flex items-center justify-center font-semibold text-sm">IV</div>
+          <div className="w-9 h-9 border-2 border-blue-400 rounded flex items-center justify-center font-semibold text-sm">SC</div>
           <span className="text-xs tracking-[0.2em] uppercase text-slate-400">Poder Judicial · Consejo de la Magistratura</span>
         </div>
         <div>
@@ -54,10 +58,11 @@ export default function Login() {
             Expediente 01 Antecedente — 02 Vigente — 03 Renovación
           </p>
           <h1 className="text-4xl font-semibold leading-tight mb-6">
-            Autogestión de expedientes de contrataciones del Departamento de Informática y Varios.
+            Subdirección de Contrataciones
           </h1>
           <p className="text-slate-300 text-base leading-relaxed max-w-md">
-            Seguimiento centralizado de servicios, provisiones y servicios temporales, con trazabilidad completa desde el antecedente hasta la renovación en trámite.
+            Autogestión de expedientes de contrataciones de los departamentos de Informática y Varios,
+            y de Servicios, con trazabilidad completa desde el antecedente hasta la renovación en trámite.
           </p>
         </div>
         {/* <div className="flex gap-10 pt-8 border-t border-slate-700 text-sm">
@@ -92,13 +97,20 @@ export default function Login() {
 
           <div className="mt-8 pt-6 border-t border-slate-200">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-600 mb-3">Usuarios de prueba (clic para autocompletar)</p>
-            <div className="space-y-2">
-              {USUARIOS_DEMO.map(u => (
-                <button key={u.email} type="button" onClick={() => autocompletar(u)}
-                  className="w-full flex items-center justify-between text-left rounded-md border border-slate-200 bg-white px-3 py-2 text-xs hover:border-slate-400 hover:bg-slate-50 transition-colors">
-                  <span className="font-mono text-slate-700">{u.email}</span>
-                  <span className="text-slate-500 uppercase tracking-wide">{u.rolLabel}</span>
-                </button>
+            <div className="space-y-4">
+              {["Informática y Varios", "Servicios"].map(depto => (
+                <div key={depto}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">{depto}</p>
+                  <div className="space-y-2">
+                    {USUARIOS_DEMO.filter(u => u.depto === depto).map(u => (
+                      <button key={u.email} type="button" onClick={() => autocompletar(u)}
+                        className="w-full flex items-center justify-between text-left rounded-md border border-slate-200 bg-white px-3 py-2 text-xs hover:border-slate-400 hover:bg-slate-50 transition-colors">
+                        <span className="font-mono text-slate-700">{u.email}</span>
+                        <span className="text-slate-500 uppercase tracking-wide">{u.rolLabel}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>

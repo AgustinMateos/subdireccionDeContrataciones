@@ -93,13 +93,23 @@ model Expediente {
   creadoEn           DateTime  @default(now())
   actualizadoEn      DateTime  @updatedAt
 
+  // Prórroga: opción del propio contrato vigente, no genera un expediente nuevo.
+  // Se carga al crear el vigente; se activa después desde la ficha si la
+  // renovación se atrasa (extiende fechaVencimiento del mismo registro).
+  tieneProrroga    Boolean @default(false)
+  prorrogaActivada Boolean @default(false)
+
+  // Parche: contratación puente propia (rol "parche" en la cadena) que cubre
+  // el período mientras no hay vigente ni renovación lista. Puede repetirse
+  // más de una vez en la misma cadena.
+  tipoParche    String? // "Contratación descentralizada" | "Contratación directa por trámite simplificado" | "Legítimo abono"
+  detalleParche String?
+
   // --- Campos exclusivos del departamento Servicios (nullable, sin uso en Informática y Varios) ---
-  fuero                String? // ej "Cámara Federal de Apelaciones de Córdoba"
-  zona                 String? // "CABA" | "Interior"
-  codigoInterno        String? // código corto de la planilla, ej "02ID", "01LA"
-  legitimoAbono        Boolean @default(false) // "LA" en la planilla
-  legitimoAbonoDetalle String?
-  estadoConvocatoria   String? // vocabulario propio de Servicios (string libre, la lista puede crecer)
+  fuero              String? // ej "Cámara Federal de Apelaciones de Córdoba"
+  zona               String? // "CABA" | "Interior"
+  codigoInterno      String? // código corto de la planilla, ej "02ID", "01LA"
+  estadoConvocatoria String? // vocabulario propio de Servicios (string libre, la lista puede crecer)
 
   observaciones Observacion[]
   documentacion DocumentacionItem[]

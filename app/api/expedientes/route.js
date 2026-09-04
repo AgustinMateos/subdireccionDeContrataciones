@@ -61,6 +61,8 @@ export async function POST(request) {
   }
 
   const body = await request.json();
+  // La contratación de policía adicional es exclusiva de Informática y Varios.
+  const puedePoliciaAdicional = session.user.departamentoSlug === "informatica-y-varios";
 
   // ---------- Crear renovación vinculada a un expediente vigente ----------
   // Genera un expediente nuevo con el mismo cadenaId y rol "renovacion" copiando
@@ -126,7 +128,69 @@ export async function POST(request) {
     return NextResponse.json({ expediente: nuevo }, { status: 201 });
   }
 
+  // ---------- Generar un parche (contratación puente) vinculado a la cadena ----------
+  // A diferencia de la renovación, el parche no copia fechas/monto del origen:
+  // es una contratación corta con sus propios términos. Puede haber más de uno
+  // sucesivo en la misma cadena (ej. un trámite simplificado y después, si la
+  // renovación sigue sin salir, un legítimo abono).
+  if (body.parcheDeId) {
+    const origen = await prisma.expediente.findUnique({ where: { id: body.parcheDeId } });
+    if (!origen || origen.departamentoId !== session.user.departamentoId) {
+      return NextResponse.json({ error: "Expediente de origen no encontrado" }, { status: 404 });
+    }
+
+    const nuevoParche = await prisma.expediente.create({
+      data: {
+        cadenaId: origen.cadenaId,
+        rol: "parche",
+        exp: body.exp,
+        departamentoId: session.user.departamentoId,
+        area: origen.area,
+        tipo: origen.tipo,
+        agente: origen.agente,
+        organismos: origen.organismos,
+        destinatario: origen.destinatario,
+        domicilio: origen.domicilio,
+        objeto: body.objeto || origen.objeto,
+        presupuestoOficial: 0,
+        montoARS: Number(body.montoARS) || 0,
+        montoUSD: 0,
+        fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
+        fechaVencimiento: new Date(body.fechaVencimiento),
+        sector: origen.sector,
+        estadoGeneral: "Vigente",
+        tipoParche: body.tipoParche || null,
+        detalleParche: body.detalleParche || null,
+        zona: origen.zona,
+        fuero: origen.fuero,
+      },
+      include: INCLUDE_EXPEDIENTE,
+    });
+
+    return NextResponse.json({ expediente: nuevoParche }, { status: 201 });
+  }
+
   // ---------- Alta normal de expediente ----------
+  // Si esto va a ser la renovación de un vigente, no puede empezar antes de
+  // que termine la cobertura actual (el vencimiento del vigente, ya extendido
+  // si tiene la prórroga activada, o el del parche más tardío de la cadena).
+  if (body.idVigenteAActualizar && body.fechaInicio) {
+    const vigente = await prisma.expediente.findUnique({ where: { id: body.idVigenteAActualizar } });
+    if (!vigente || vigente.departamentoId !== session.user.departamentoId) {
+      return NextResponse.json({ error: "Expediente vigente no encontrado" }, { status: 404 });
+    }
+    const parches = await prisma.expediente.findMany({ where: { cadenaId: vigente.cadenaId, rol: "parche" } });
+    const fechaMinima = [vigente, ...parches].reduce(
+      (max, e) => (!max || e.fechaVencimiento > max ? e.fechaVencimiento : max),
+      null
+    );
+    if (fechaMinima && new Date(body.fechaInicio) < fechaMinima) {
+      return NextResponse.json({
+        error: "La fecha de inicio de la renovación no puede ser anterior a " + fechaMinima.toISOString().slice(0, 10),
+      }, { status: 400 });
+    }
+  }
+
   const nuevo = await prisma.expediente.create({
     data: {
       cadenaId: body.cadenaId || "c" + Date.now(),
@@ -141,12 +205,12 @@ export async function POST(request) {
       agente: body.agente,
       organismos: normalizarOrganismos(body),
       objeto: body.objeto,
-      encuadre: body.esPoliciaAdicional ? ENCUADRE_INTERADMINISTRATIVO : (body.encuadre || null),
+      encuadre: puedePoliciaAdicional && body.esPoliciaAdicional ? ENCUADRE_INTERADMINISTRATIVO : (body.encuadre || null),
       presupuestoOficial: Number(body.presupuestoOficial) || 0,
       montoARS: Number(body.montoARS) || 0,
       montoUSD: Number(body.montoUSD) || 0,
-      esPoliciaAdicional: !!body.esPoliciaAdicional,
-      fuerzaSeguridad: body.esPoliciaAdicional ? (body.fuerzaSeguridad || null) : null,
+      esPoliciaAdicional: puedePoliciaAdicional && !!body.esPoliciaAdicional,
+      fuerzaSeguridad: puedePoliciaAdicional && body.esPoliciaAdicional ? (body.fuerzaSeguridad || null) : null,
       fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
       fechaVencimiento: new Date(body.fechaVencimiento),
       ocResolucion: body.ocResolucion || null,
@@ -157,9 +221,8 @@ export async function POST(request) {
       fuero: body.fuero || null,
       zona: body.zona || null,
       codigoInterno: body.codigoInterno || null,
-      legitimoAbono: !!body.legitimoAbono,
-      legitimoAbonoDetalle: body.legitimoAbonoDetalle || null,
       estadoConvocatoria: body.estadoConvocatoria || null,
+      tieneProrroga: !!body.tieneProrroga,
     },
     include: INCLUDE_EXPEDIENTE,
   });

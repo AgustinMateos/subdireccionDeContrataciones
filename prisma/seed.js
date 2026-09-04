@@ -137,7 +137,6 @@ async function main() {
         fechaInicio: new Date("2022-06-01"),
         fechaVencimiento: new Date("2024-05-31"),
         sector: "Contable",
-        estadoConvocatoria: "Finalizado",
         estadoGeneral: "Finalizado",
       },
     });
@@ -161,6 +160,7 @@ async function main() {
         sector: "Contrataciones",
         estadoConvocatoria: "Control",
         estadoGeneral: "En trámite de renovación",
+        tieneProrroga: true,
         observaciones: {
           create: [
             { usuario: "seed", tipo: "movimiento", texto: "Pase a Contrataciones para control previo a vencimiento.", sectorAnterior: "Contable", sectorNuevo: "Contrataciones" },
@@ -187,8 +187,8 @@ async function main() {
         fechaVencimiento: new Date("2026-08-31"),
         sector: "Contrataciones",
         estadoConvocatoria: "Publicación",
-        legitimoAbono: true,
-        legitimoAbonoDetalle: "Jun y Jul/26 - Notificada el 15/5/26",
+        tipoParche: "Legítimo abono",
+        detalleParche: "Jun y Jul/26 - Notificada el 15/5/26",
         estadoGeneral: "Vigente",
       },
     });
@@ -255,7 +255,7 @@ async function main() {
         fechaInicio: new Date("2025-03-01"),
         fechaVencimiento: new Date("2026-11-30"),
         sector: "Contable",
-        estadoConvocatoria: "Inicio/Confección de Pliego",
+        estadoConvocatoria: "Inicio / Confección de Pliego",
         estadoGeneral: "Vigente",
       },
     });

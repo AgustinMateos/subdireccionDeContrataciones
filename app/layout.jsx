@@ -2,7 +2,7 @@ import "./globals.css";
 import Providers from "@/components/Providers";
 
 export const metadata = {
-  title: "Dashboard de Autogestión - Informática y Varios",
+  title: "Subdirección de Contrataciones",
   description: "Subdirección de Contrataciones - Consejo de la Magistratura",
 };
 

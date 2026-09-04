@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO } from "@/lib/constants";
+import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
 
 const ITEM_COTIZADOR_POLICIA = CHECKLIST_POLICIA_ADICIONAL[3]; // "Control con el cotizador de módulos (aprobado y vinculado)"
 
@@ -62,6 +62,9 @@ export async function PUT(request, { params }) {
   // guarda el snapshot de la cotización, deja una observación y tilda el paso
   // "Control con el cotizador de módulos" del circuito de legalidad.
   if (body.vincularCotizacionPolicia) {
+    if (session.user.departamentoSlug !== "informatica-y-varios") {
+      return NextResponse.json({ error: "La policía adicional es exclusiva de Informática y Varios" }, { status: 403 });
+    }
     const c = body.vincularCotizacionPolicia;
     await prisma.expediente.update({
       where: { id },
@@ -204,6 +207,40 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ expediente: actualizado });
   }
 
+  // ---------- Activar la prórroga del vigente ----------
+  // Extiende fechaVencimiento del mismo expediente (no crea uno nuevo) y deja
+  // una observación con el detalle del cambio.
+  if (body.activarProrroga) {
+    const exp = await prisma.expediente.findUnique({ where: { id } });
+    if (!exp) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    if (exp.rol !== "vigente" || !exp.tieneProrroga || exp.prorrogaActivada) {
+      return NextResponse.json({ error: "Este expediente no tiene una prórroga disponible para activar" }, { status: 400 });
+    }
+    const nuevaFecha = new Date(body.activarProrroga.nuevaFechaVencimiento);
+    const maxFecha = new Date(exp.fechaVencimiento);
+    maxFecha.setMonth(maxFecha.getMonth() + Math.max(...PRORROGA_MESES_OPCIONES));
+    if (!(nuevaFecha > exp.fechaVencimiento) || nuevaFecha > maxFecha) {
+      return NextResponse.json({ error: "La prórroga no puede superar los " + Math.max(...PRORROGA_MESES_OPCIONES) + " meses" }, { status: 400 });
+    }
+    const actualizado = await prisma.expediente.update({
+      where: { id },
+      data: {
+        prorrogaActivada: true,
+        fechaVencimiento: nuevaFecha,
+        observaciones: {
+          create: {
+            usuario: session.user.name,
+            tipo: "general",
+            texto: "Prórroga activada: vencimiento extendido de " + exp.fechaVencimiento.toISOString().slice(0, 10) +
+              " a " + nuevaFecha.toISOString().slice(0, 10) + ".",
+          },
+        },
+      },
+      include: INCLUDE_EXPEDIENTE,
+    });
+    return NextResponse.json({ expediente: actualizado });
+  }
+
   // ---------- Toggle de un ítem de la checklist de documentación ----------
   // El cliente identifica el ítem por su índice en la lista que muestra. Si el
   // expediente todavía no tiene ítems persistidos, se crean todos a partir de
@@ -238,6 +275,10 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ expediente: actualizado });
   }
 
+  // La contratación de policía adicional es exclusiva de Informática y Varios.
+  const puedePoliciaAdicional = session.user.departamentoSlug === "informatica-y-varios";
+  const esPoliciaAdicionalPedido = puedePoliciaAdicional && body.esPoliciaAdicional === true;
+
   // ---------- Edición normal de campos del expediente ----------
   const actualizado = await prisma.expediente.update({
     where: { id },
@@ -253,12 +294,12 @@ export async function PUT(request, { params }) {
         ? body.organismos.map((o) => String(o).trim()).filter(Boolean)
         : undefined,
       objeto: body.objeto,
-      encuadre: body.esPoliciaAdicional ? ENCUADRE_INTERADMINISTRATIVO : (body.encuadre ?? undefined),
+      encuadre: esPoliciaAdicionalPedido ? ENCUADRE_INTERADMINISTRATIVO : (body.encuadre ?? undefined),
       presupuestoOficial: body.presupuestoOficial != null ? Number(body.presupuestoOficial) || 0 : undefined,
       montoARS: Number(body.montoARS) || 0,
       montoUSD: Number(body.montoUSD) || 0,
-      esPoliciaAdicional: typeof body.esPoliciaAdicional === "boolean" ? body.esPoliciaAdicional : undefined,
-      fuerzaSeguridad: body.esPoliciaAdicional === true
+      esPoliciaAdicional: typeof body.esPoliciaAdicional === "boolean" ? (puedePoliciaAdicional && body.esPoliciaAdicional) : undefined,
+      fuerzaSeguridad: esPoliciaAdicionalPedido
         ? (body.fuerzaSeguridad || null)
         : body.esPoliciaAdicional === false ? null : undefined,
       fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
@@ -271,9 +312,10 @@ export async function PUT(request, { params }) {
       fuero: body.fuero ?? undefined,
       zona: body.zona ?? undefined,
       codigoInterno: body.codigoInterno ?? undefined,
-      legitimoAbono: typeof body.legitimoAbono === "boolean" ? body.legitimoAbono : undefined,
-      legitimoAbonoDetalle: body.legitimoAbonoDetalle ?? undefined,
       estadoConvocatoria: body.estadoConvocatoria ?? undefined,
+      tieneProrroga: typeof body.tieneProrroga === "boolean" ? body.tieneProrroga : undefined,
+      tipoParche: body.tipoParche ?? undefined,
+      detalleParche: body.detalleParche ?? undefined,
     },
     include: INCLUDE_EXPEDIENTE,
   });
