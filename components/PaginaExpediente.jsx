@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil, Trash2, Shield, Clock } from "lucide-react";
-import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL } from "@/lib/constants";
+import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, ESTADOS_CONVOCATORIA_FALLIDOS } from "@/lib/constants";
 import { diasRestantes, alerta, fmtFecha, fmtMoneda, documentacionDeExpediente, diasFrenado } from "@/lib/utils";
 export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onActivarProrroga, onGenerarParche, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
   const [verMasAntecedentes, setVerMasAntecedentes] = useState(false);
@@ -12,18 +12,24 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   const antecedente = antecedentes[0];
   const antecedentesAnteriores = antecedentes.slice(1);
   const vigente = cadena.find(e => e.rol === "vigente");
-  // Todos los parches se muestran en la línea de tiempo, en orden cronológico
-  // — a diferencia de los antecedentes, nunca quedan ocultos detrás de un
-  // "ver más": si hubo que cubrir el período varias veces, se tiene que ver.
-  const parches = cadena.filter(e => e.rol === "parche")
-    .sort((a, b) => new Date(a.fechaInicio || a.fechaVencimiento) - new Date(b.fechaInicio || b.fechaVencimiento));
+  // Todos los parches se muestran en la línea de tiempo — a diferencia de los
+  // antecedentes, nunca quedan ocultos detrás de un "ver más": si hubo que
+  // cubrir el período varias veces, se tiene que ver.
+  const parches = cadena.filter(e => e.rol === "parche");
   const renovacion = cadena.find(e => e.rol === "renovacion");
+  // El orden de las tarjetas es siempre por fecha real, no por rol: un parche
+  // cargado con fechas anteriores al vigente (o lo que sea) tiene que
+  // aparecer antes en la línea, no fijo al final.
   const nodos = [
-    { key: "antecedente", label: ROL_LABEL.antecedente, item: antecedente },
-    { key: "vigente", label: ROL_LABEL.vigente, item: vigente },
+    antecedente && { key: "antecedente", label: ROL_LABEL.antecedente, item: antecedente },
+    vigente && { key: "vigente", label: ROL_LABEL.vigente, item: vigente },
     ...parches.map(p => ({ key: p.id, label: p.tipoParche || ROL_LABEL.parche, item: p })),
-    { key: "renovacion", label: ROL_LABEL.renovacion, item: renovacion },
-  ];
+    renovacion && { key: "renovacion", label: ROL_LABEL.renovacion, item: renovacion },
+  ].filter(Boolean).sort((a, b) => {
+    const fa = new Date(a.item.fechaInicio || a.item.fechaVencimiento);
+    const fb = new Date(b.item.fechaInicio || b.item.fechaVencimiento);
+    return fa - fb;
+  });
   const dias = diasRestantes(exp.fechaVencimiento);
   const niv = alerta(dias);
   const frenado = diasFrenado(exp.observaciones);
@@ -93,6 +99,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
               {nodos.map((nodo, idx) => {
                 const item = nodo.item;
                 const activo = item && item.id === exp.id;
+                const fallido = item && ESTADOS_CONVOCATORIA_FALLIDOS.includes(item.estadoConvocatoria);
                 return (
                   <div key={nodo.key} className="flex items-center" style={{ minWidth: "9rem", flex: "1 1 9rem" }}>
                     <button
@@ -100,13 +107,20 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                       onClick={() => item && onNavegar(item.id)}
                       className={"flex-1 text-left rounded-lg border px-3 py-2.5 transition-colors " +
                         (!item ? "border-dashed border-slate-200 text-slate-300 cursor-default" :
-                          activo ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-400 text-slate-700")}
+                          fallido
+                            ? (activo ? "border-red-900 bg-red-900 text-white" : "border-red-300 bg-red-50 text-red-800 hover:border-red-400")
+                            : (activo ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-400 text-slate-700"))}
                     >
-                      <div className="text-[10px] uppercase tracking-wide opacity-70">{nodo.label}</div>
+                      <div className={"text-[10px] uppercase tracking-wide " + (fallido && !activo ? "text-red-500" : "opacity-70")}>{nodo.label}</div>
                       <div className="text-xs font-mono mt-0.5">{item ? item.exp : "No registrado"}</div>
                       {item && (
-                        <div className={"text-[10px] mt-0.5 " + (activo ? "text-slate-300" : "text-slate-400")}>
+                        <div className={"text-[10px] mt-0.5 " + (activo ? (fallido ? "text-red-200" : "text-slate-300") : (fallido ? "text-red-500" : "text-slate-400"))}>
                           {fmtFecha(item.fechaInicio)} — {fmtFecha(item.fechaVencimiento)}
+                        </div>
+                      )}
+                      {fallido && (
+                        <div className={"text-[10px] font-semibold mt-0.5 " + (activo ? "text-red-100" : "text-red-700")}>
+                          {item.estadoConvocatoria}
                         </div>
                       )}
                     </button>
@@ -143,7 +157,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
 
           </div>
 
-          {exp.rol === "vigente" && exp.tieneProrroga && (
+          {(exp.rol === "vigente" || exp.rol === "parche") && exp.tieneProrroga && (
             <div className="flex items-center gap-2 text-xs">
               <span className={"font-medium px-2 py-1 rounded border flex items-center gap-1 " +
                 (exp.prorrogaActivada ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800")}>

@@ -3,19 +3,23 @@
 import { useState } from "react";
 import { PRORROGA_MESES_OPCIONES } from "@/lib/constants";
 import { fmtFecha, sumarMesesISO } from "@/lib/utils";
+import BotonAccion from "./BotonAccion";
 
 export default function ActivarProrroga({ exp, onCerrar, onConfirmar }) {
   const [meses, setMeses] = useState(null);
   const [error, setError] = useState("");
+  const [cargando, setCargando] = useState(false);
 
   const nuevaFechaVencimiento = meses ? sumarMesesISO(exp.fechaVencimiento, meses) : null;
 
-  function confirmar() {
+  async function confirmar() {
     if (!meses) {
       setError("Elegí cuántos meses de prórroga vas a usar.");
       return;
     }
-    onConfirmar({ nuevaFechaVencimiento });
+    setCargando(true);
+    await onConfirmar({ nuevaFechaVencimiento });
+    setCargando(false);
   }
 
   return (
@@ -55,10 +59,10 @@ export default function ActivarProrroga({ exp, onCerrar, onConfirmar }) {
         {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2 mt-3">{error}</p>}
 
         <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onCerrar} className="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50">Cancelar</button>
-          <button onClick={confirmar} className="px-4 py-2 rounded-md bg-slate-900 text-white text-sm font-medium hover:bg-slate-800">
+          <button onClick={onCerrar} disabled={cargando} className="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50 disabled:opacity-50">Cancelar</button>
+          <BotonAccion onClick={confirmar} cargando={cargando} cargandoTexto="Activando..." className="px-4 py-2 rounded-md bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-60">
             Activar prórroga
-          </button>
+          </BotonAccion>
         </div>
       </div>
     </div>

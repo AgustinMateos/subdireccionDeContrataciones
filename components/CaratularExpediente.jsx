@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
+import BotonAccion from "./BotonAccion";
 import { fechaMinimaRenovacion, fmtFecha, sumarDiasISO } from "@/lib/utils";
 
 function formVacio(esServicios) {
@@ -33,6 +34,7 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
   const esServicios = departamentoSlug === "servicios";
   const [f, setF] = useState(() => formVacio(esServicios));
   const [error, setError] = useState("");
+  const [guardando, setGuardando] = useState(false);
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
 
@@ -44,13 +46,13 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
   function handleAntecedenteExpChange(valor) {
     set("antecedenteExp", valor);
     const match = expedientes?.find(e => e.exp.trim().toLowerCase() === valor.trim().toLowerCase());
-    if (match && match.rol === "vigente") {
+    if (match && (match.rol === "vigente" || match.rol === "parche")) {
       const minima = fechaMinimaRenovacion(match, expedientes);
       if (minima) set("fechaInicio", sumarDiasISO(minima, 1));
     }
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     if (!f.exp || !f.objeto || !f.fechaVencimiento) {
       setError("Completá al menos N° de expediente, objeto y fecha de vencimiento.");
@@ -64,7 +66,9 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
       setError("La fecha de inicio de la renovación no puede ser anterior al " + fmtFecha(fechaMinima) + " (cuando termina la cobertura vigente).");
       return;
     }
-    onGuardar(f);
+    setGuardando(true);
+    await onGuardar(f);
+    setGuardando(false);
   }
 
   return (
@@ -80,8 +84,8 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-           <div className="col-span-2">
-              <Campo_Input label="Objeto" value={f.objeto} onChange={v => set("objeto", v)} />
+           <div className="col-span-2 ">
+              <Campo_Input label="Objeto"  value={f.objeto} onChange={v => set("objeto", v)} />
             </div>
           <div className="grid grid-cols-3 gap-4">
             <Campo_Input label="N° de expediente" value={f.exp} onChange={v => set("exp", v)} placeholder="13-00000/26" />
@@ -147,12 +151,12 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
           {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>}
 
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onCerrar} className="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50">
+            <button type="button" onClick={onCerrar} disabled={guardando} className="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50 disabled:opacity-50">
               Cancelar
             </button>
-            <button type="submit" className="px-4 py-2 rounded-md bg-slate-900 text-white text-sm font-medium hover:bg-slate-800">
+            <BotonAccion type="submit" cargando={guardando} cargandoTexto="Caratulando..." className="px-4 py-2 rounded-md bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-60">
               Caratular expediente
-            </button>
+            </BotonAccion>
           </div>
         </form>
       </div>

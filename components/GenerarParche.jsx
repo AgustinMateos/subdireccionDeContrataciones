@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { TIPOS_PARCHE } from "@/lib/constants";
+import BotonAccion from "./BotonAccion";
+import { fmtFecha } from "@/lib/utils";
 
 export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
   const [f, setF] = useState({
@@ -14,18 +16,27 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
     montoARS: "",
     detalleParche: "",
     ocResolucion: "",
+    tieneProrroga: false,
   });
   const [error, setError] = useState("");
+  const [cargando, setCargando] = useState(false);
   const esLegitimoAbono = f.tipoParche === "Legítimo abono";
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
 
-  function confirmar() {
+  async function confirmar() {
     if (!f.exp || !f.objeto || !f.fechaVencimiento) {
       setError("Completá al menos N° de expediente, objeto y fecha de vencimiento.");
       return;
     }
-    onConfirmar({ ...f, montoARS: Number(f.montoARS) || 0, ocResolucion: esLegitimoAbono ? "" : f.ocResolucion });
+    setCargando(true);
+    await onConfirmar({
+      ...f,
+      montoARS: Number(f.montoARS) || 0,
+      ocResolucion: esLegitimoAbono ? "" : f.ocResolucion,
+      tieneProrroga: esLegitimoAbono ? false : f.tieneProrroga,
+    });
+    setCargando(false);
   }
 
   return (
@@ -63,16 +74,38 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
               </select>
             </div>
             {!esLegitimoAbono && (
-              <div className="col-span-2">
-                <label className="block text-xs font-medium text-slate-600 mb-1">OC / Resolución</label>
-                <input value={f.ocResolucion} onChange={e => set("ocResolucion", e.target.value)}
-                  className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
-              </div>
+              <>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">OC / Resolución</label>
+                  <input value={f.ocResolucion} onChange={e => set("ocResolucion", e.target.value)}
+                    className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+                </div>
+                <div className="col-span-2 border border-slate-200 rounded-md p-3 bg-slate-50">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={f.tieneProrroga}
+                      onChange={e => set("tieneProrroga", e.target.checked)}
+                      className="w-4 h-4 mt-0.5 rounded border-slate-300 text-slate-800 focus:ring-slate-800"
+                    />
+                    <span>
+                      <span className="text-xs font-medium text-slate-700">Tiene opción de prórroga</span>
+                      <span className="block text-[11px] text-slate-500 mt-0.5">
+                        Hasta 3 meses, activable después desde la ficha si hace falta.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </>
             )}
             <div className="col-span-2">
               <label className="block text-xs font-medium text-slate-600 mb-1">Objeto</label>
               <input value={f.objeto} onChange={e => set("objeto", e.target.value)}
                 className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+            </div>
+            <div className="col-span-2 text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
+              Período anterior ({exp.tipoParche || (exp.rol === "vigente" ? "Vigente" : exp.rol)}): {" "}
+              <span className="font-medium text-slate-700">{fmtFecha(exp.fechaInicio)} — {fmtFecha(exp.fechaVencimiento)}</span>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Fecha de inicio</label>
@@ -100,10 +133,10 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
           {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>}
 
           <div className="flex justify-end gap-2 pt-2">
-            <button onClick={onCerrar} className="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50">Cancelar</button>
-            <button onClick={confirmar} className="px-4 py-2 rounded-md bg-slate-900 text-white text-sm font-medium hover:bg-slate-800">
+            <button onClick={onCerrar} disabled={cargando} className="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50 disabled:opacity-50">Cancelar</button>
+            <BotonAccion onClick={confirmar} cargando={cargando} cargandoTexto="Generando..." className="px-4 py-2 rounded-md bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-60">
               Generar parche
-            </button>
+            </BotonAccion>
           </div>
         </div>
       </div>

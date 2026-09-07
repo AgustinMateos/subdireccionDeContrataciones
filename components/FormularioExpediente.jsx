@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
+import BotonAccion from "./BotonAccion";
 import { fechaMinimaRenovacion, fmtFecha, sumarDiasISO } from "@/lib/utils";
 function formVacio(esServicios) {
   return {
@@ -39,6 +40,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
   const esServicios = departamentoSlug === "servicios";
   const [f, setF] = useState(() => normalizarInicial(inicial, esServicios));
   const [error, setError] = useState("");
+  const [guardando, setGuardando] = useState(false);
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
 
@@ -55,18 +57,18 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
     ? expedientes.find(e => e.exp.trim().toLowerCase() === f.antecedenteExp.trim().toLowerCase())
     : null;
   const fechaMinima = coincidenciaAntecedente ? fechaMinimaRenovacion(coincidenciaAntecedente, expedientes) : null;
-  const esVinculoAVigente = coincidenciaAntecedente?.rol === "vigente";
+  const esVinculoAVigente = coincidenciaAntecedente?.rol === "vigente" || coincidenciaAntecedente?.rol === "parche";
 
   function handleAntecedenteExpChange(valor) {
     set("antecedenteExp", valor);
     const match = expedientes?.find(e => e.exp.trim().toLowerCase() === valor.trim().toLowerCase());
-    if (match && match.rol === "vigente") {
+    if (match && (match.rol === "vigente" || match.rol === "parche")) {
       const minima = fechaMinimaRenovacion(match, expedientes);
       if (minima) set("fechaInicio", sumarDiasISO(minima, 1));
     }
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     if (!f.exp || !f.objeto || !f.fechaVencimiento) {
       setError("Completá al menos N° de expediente, objeto y fecha de vencimiento.");
@@ -84,12 +86,14 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
       setError("La fecha de inicio de la renovación no puede ser anterior al " + fmtFecha(fechaMinima) + " (cuando termina la cobertura vigente).");
       return;
     }
-    onGuardar({
+    setGuardando(true);
+    await onGuardar({
       ...f,
       presupuestoOficial: Number(f.presupuestoOficial) || 0,
       montoARS: Number(f.montoARS) || 0,
       montoUSD: Number(f.montoUSD) || 0,
     });
+    setGuardando(false);
   }
 
   return (
@@ -122,26 +126,29 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
               <>
                 <Campo_Input label="Fuero" value={f.fuero} onChange={v => set("fuero", v)} placeholder="Ej: Cámara Federal de Apelaciones de Córdoba" />
                 <Campo_Input label="Código interno (planilla)" value={f.codigoInterno} onChange={v => set("codigoInterno", v)} placeholder="Ej: 02ID" />
-                <Campo_Select label="Estado de convocatoria" value={f.estadoConvocatoria} onChange={v => set("estadoConvocatoria", v)} opciones={ESTADOS_CONVOCATORIA} />
+                <Campo_Select label="Estado de convocatoria" value={f.estadoConvocatoria} onChange={v => set("estadoConvocatoria", v)}
+                  opciones={["", ...ESTADOS_CONVOCATORIA]} labels={{ "": "— Sin definir —" }} />
               </>
             )}
-            <div className="col-span-2 border border-slate-200 rounded-md p-3 bg-slate-50">
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={f.tieneProrroga}
-                  onChange={e => set("tieneProrroga", e.target.checked)}
-                  className="w-4 h-4 mt-0.5 rounded border-slate-300 text-slate-800 focus:ring-slate-800"
-                />
-                <span>
-                  <span className="text-xs font-medium text-slate-700">Tiene opción de prórroga</span>
-                  <span className="block text-[11px] text-slate-500 mt-0.5">
-                    El contrato prevé una prórroga. Se podrá activar más adelante desde la ficha del
-                    expediente si la renovación se atrasa, sin necesidad de un expediente nuevo.
+            {f.tipoParche !== "Legítimo abono" && (
+              <div className="col-span-2 border border-slate-200 rounded-md p-3 bg-slate-50">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={f.tieneProrroga}
+                    onChange={e => set("tieneProrroga", e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded border-slate-300 text-slate-800 focus:ring-slate-800"
+                  />
+                  <span>
+                    <span className="text-xs font-medium text-slate-700">Tiene opción de prórroga</span>
+                    <span className="block text-[11px] text-slate-500 mt-0.5">
+                      Hasta 3 meses. Se podrá activar más adelante desde la ficha del expediente si la
+                      renovación se atrasa, sin necesidad de un expediente nuevo.
+                    </span>
                   </span>
-                </span>
-              </label>
-            </div>
+                </label>
+              </div>
+            )}
             {esNuevo && (
               <div className="col-span-2 bg-slate-50 border border-slate-200 rounded-md p-3">
                 <label className="block text-xs font-medium text-slate-600 mb-1">
@@ -244,12 +251,12 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
           {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>}
 
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onCerrar} className="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50">
+            <button type="button" onClick={onCerrar} disabled={guardando} className="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50 disabled:opacity-50">
               Cancelar
             </button>
-            <button type="submit" className="px-4 py-2 rounded-md bg-slate-900 text-white text-sm font-medium hover:bg-slate-800">
+            <BotonAccion type="submit" cargando={guardando} className="px-4 py-2 rounded-md bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-60">
               Guardar expediente
-            </button>
+            </BotonAccion>
           </div>
         </form>
       </div>

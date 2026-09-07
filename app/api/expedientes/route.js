@@ -70,6 +70,9 @@ export async function POST(request) {
   // adjudicado y sigue en ejecución tal cual — es la renovación la que entra
   // "En trámite de renovación", no él.
   if (body.renovarDeId) {
+    if (!body.exp || !body.exp.trim()) {
+      return NextResponse.json({ error: "Cargá el N° de expediente de la renovación" }, { status: 400 });
+    }
     const vigente = await prisma.expediente.findUnique({ where: { id: body.renovarDeId } });
     if (!vigente || vigente.departamentoId !== session.user.departamentoId) {
       return NextResponse.json({ error: "Expediente de origen no encontrado" }, { status: 404 });
@@ -88,52 +91,49 @@ export async function POST(request) {
     const duracionMs = vigente.fechaInicio ? new Date(vigente.fechaVencimiento) - new Date(vigente.fechaInicio) : 0;
     const nuevaFechaVencimiento = new Date(nuevaFechaInicio.getTime() + duracionMs);
 
-    let nuevo = null;
-    for (let intento = 0; intento < 6 && !nuevo; intento++) {
-      const expTentativo = "13-0" + (Math.floor(Math.random() * 9000) + 1000) + "/26";
-      try {
-        nuevo = await prisma.expediente.create({
-          data: {
-            cadenaId: vigente.cadenaId,
-            rol: "renovacion",
-            exp: expTentativo,
-            nombreCorto: vigente.nombreCorto,
-            // La renovación arranca su propio trámite: sin N° de contratación,
-            // presupuesto ni monto adjudicado todavía (se cargan al adjudicarla).
-            nroContratacion: null,
-            nroResolucion: vigente.nroResolucion,
-            departamentoId: session.user.departamentoId,
-            area: vigente.area,
-            tipo: vigente.tipo,
-            agente: vigente.agente,
-            organismos: vigente.organismos,
-            destinatario: vigente.destinatario,
-            domicilio: vigente.domicilio,
-            objeto: vigente.objeto,
-            encuadre: vigente.encuadre,
-            presupuestoOficial: 0,
-            montoARS: 0,
-            montoUSD: 0,
-            esPoliciaAdicional: vigente.esPoliciaAdicional,
-            fuerzaSeguridad: vigente.fuerzaSeguridad,
-            cotizacionPolicia: vigente.cotizacionPolicia ?? undefined,
-            fechaInicio: nuevaFechaInicio,
-            fechaVencimiento: nuevaFechaVencimiento,
-            ocResolucion: vigente.ocResolucion,
-            adjudicatario: vigente.adjudicatario,
-            sector: vigente.sector,
-            etapa: "En trámite - carátula inicial",
-            estadoGeneral: "En trámite de renovación",
-          },
-          include: INCLUDE_EXPEDIENTE,
-        });
-      } catch (e) {
-        // P2002 = colisión del campo único "exp": reintenta con otro número.
-        if (e.code !== "P2002") throw e;
+    let nuevo;
+    try {
+      nuevo = await prisma.expediente.create({
+        data: {
+          cadenaId: vigente.cadenaId,
+          rol: "renovacion",
+          exp: body.exp.trim(),
+          nombreCorto: vigente.nombreCorto,
+          // La renovación arranca su propio trámite: sin N° de contratación,
+          // presupuesto ni monto adjudicado todavía (se cargan al adjudicarla).
+          nroContratacion: null,
+          nroResolucion: vigente.nroResolucion,
+          departamentoId: session.user.departamentoId,
+          area: vigente.area,
+          tipo: vigente.tipo,
+          agente: vigente.agente,
+          organismos: vigente.organismos,
+          destinatario: vigente.destinatario,
+          domicilio: vigente.domicilio,
+          objeto: vigente.objeto,
+          encuadre: vigente.encuadre,
+          presupuestoOficial: 0,
+          montoARS: 0,
+          montoUSD: 0,
+          esPoliciaAdicional: vigente.esPoliciaAdicional,
+          fuerzaSeguridad: vigente.fuerzaSeguridad,
+          cotizacionPolicia: vigente.cotizacionPolicia ?? undefined,
+          fechaInicio: nuevaFechaInicio,
+          fechaVencimiento: nuevaFechaVencimiento,
+          ocResolucion: vigente.ocResolucion,
+          adjudicatario: vigente.adjudicatario,
+          sector: vigente.sector,
+          etapa: "En trámite - carátula inicial",
+          estadoGeneral: "En trámite de renovación",
+        },
+        include: INCLUDE_EXPEDIENTE,
+      });
+    } catch (e) {
+      // P2002 = colisión del campo único "exp": ya existe un expediente con ese número.
+      if (e.code === "P2002") {
+        return NextResponse.json({ error: "Ya existe un expediente con ese número" }, { status: 409 });
       }
-    }
-    if (!nuevo) {
-      return NextResponse.json({ error: "No se pudo generar el número de expediente" }, { status: 500 });
+      throw e;
     }
 
     return NextResponse.json({ expediente: nuevo }, { status: 201 });
@@ -150,8 +150,8 @@ export async function POST(request) {
       return NextResponse.json({ error: "Expediente de origen no encontrado" }, { status: 404 });
     }
 
-    // El legítimo abono nunca lleva orden de compra; descentralizada y
-    // trámite simplificado sí pueden tenerla.
+    // El legítimo abono nunca lleva orden de compra ni prórroga; descentralizada
+    // y trámite simplificado sí pueden tenerlas.
     const esLegitimoAbono = body.tipoParche === "Legítimo abono";
 
     const nuevoParche = await prisma.expediente.create({
@@ -177,6 +177,7 @@ export async function POST(request) {
         estadoGeneral: "Vigente",
         tipoParche: body.tipoParche || null,
         detalleParche: body.detalleParche || null,
+        tieneProrroga: esLegitimoAbono ? false : !!body.tieneProrroga,
         zona: origen.zona,
         fuero: origen.fuero,
       },
@@ -209,19 +210,20 @@ export async function POST(request) {
   }
 
   // ---------- Alta normal de expediente ----------
-  // Si esto va a ser la renovación de un vigente, no puede empezar antes de
-  // que termine la cobertura actual (el vencimiento del vigente, ya extendido
-  // si tiene la prórroga activada, o el del parche más tardío de la cadena).
+  // Si esto va a ser la renovación de una cadena, no puede empezar antes de
+  // que termine la cobertura actual: el vencimiento del vigente (ya extendido
+  // si tiene la prórroga activada) o el del parche más tardío — el que sea
+  // más tarde. Se mira TODA la cadena, sin importar si lo que se referenció
+  // como antecedente fue el propio vigente o uno de sus parches.
   if (body.idVigenteAActualizar && body.fechaInicio) {
-    const vigente = await prisma.expediente.findUnique({ where: { id: body.idVigenteAActualizar } });
-    if (!vigente || vigente.departamentoId !== session.user.departamentoId) {
-      return NextResponse.json({ error: "Expediente vigente no encontrado" }, { status: 404 });
+    const referencia = await prisma.expediente.findUnique({ where: { id: body.idVigenteAActualizar } });
+    if (!referencia || referencia.departamentoId !== session.user.departamentoId) {
+      return NextResponse.json({ error: "Expediente de referencia no encontrado" }, { status: 404 });
     }
-    const parches = await prisma.expediente.findMany({ where: { cadenaId: vigente.cadenaId, rol: "parche" } });
-    const fechaMinima = [vigente, ...parches].reduce(
-      (max, e) => (!max || e.fechaVencimiento > max ? e.fechaVencimiento : max),
-      null
-    );
+    const cadenaCompleta = await prisma.expediente.findMany({ where: { cadenaId: referencia.cadenaId } });
+    const fechaMinima = cadenaCompleta
+      .filter(e => e.rol === "vigente" || e.rol === "parche")
+      .reduce((max, e) => (!max || e.fechaVencimiento > max ? e.fechaVencimiento : max), null);
     if (fechaMinima && new Date(body.fechaInicio) < fechaMinima) {
       return NextResponse.json({
         error: "La fecha de inicio de la renovación no puede ser anterior a " + fechaMinima.toISOString().slice(0, 10),

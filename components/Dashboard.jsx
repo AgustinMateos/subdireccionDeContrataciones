@@ -26,7 +26,8 @@ function normalizarExpediente(e) {
 
 // Resuelve a qué cadena entra un expediente nuevo según el N° de expediente
 // antecedente que se haya cargado (usado tanto por "Cargar expediente" como
-// por "Caratular"): si referencia a un Vigente, este pasa a ser su
+// por "Caratular"): si referencia a un Vigente O a un Parche (ambos son
+// cobertura activa de la cadena, no algo ya cerrado), este pasa a ser su
 // Renovación en trámite; si referencia a algo ya cerrado, pasa a ser el
 // nuevo Vigente de esa cadena.
 function resolverCadena(antecedenteExp, expedientes) {
@@ -41,10 +42,10 @@ function resolverCadena(antecedenteExp, expedientes) {
     );
     if (match) {
       cadenaId = match.cadenaId;
-      if (match.rol === "vigente") {
+      if (match.rol === "vigente" || match.rol === "parche") {
         rolNuevo = "renovacion";
         idVigenteAActualizar = match.id;
-        mensaje = "Renovación creada y vinculada al vigente " + match.exp + " (que continúa en ejecución)";
+        mensaje = "Renovación creada y vinculada a " + match.exp + " (que continúa en ejecución)";
       } else {
         rolNuevo = "vigente";
         mensaje = "Expediente creado y concatenado como Vigente de la cadena de " + match.exp;
@@ -372,13 +373,17 @@ export default function App() {
     return true;
   }
 
-  async function crearRenovacion(vigente) {
+  async function crearRenovacion(vigente, exp) {
     const res = await fetch("/api/expedientes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ renovarDeId: vigente.id }),
+      body: JSON.stringify({ renovarDeId: vigente.id, exp }),
     });
-    if (!res.ok) { mostrarToast("No se pudo crear la renovación"); return; }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      mostrarToast(data.error || "No se pudo crear la renovación");
+      return;
+    }
     const data = await res.json();
     await refrescar(data.expediente?.id);
     setFormAbierto(null);
@@ -408,7 +413,11 @@ export default function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ activarProrroga: datos }),
     });
-    if (!res.ok) { mostrarToast("No se pudo activar la prórroga"); return; }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      mostrarToast(data.error || "No se pudo activar la prórroga");
+      return;
+    }
     await refrescar(exp.id);
     setFormAbierto(null);
     mostrarToast("Prórroga activada, vencimiento extendido");
@@ -420,7 +429,11 @@ export default function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ parcheDeId: origen.id, ...datos }),
     });
-    if (!res.ok) { mostrarToast("No se pudo generar el parche"); return; }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      mostrarToast(data.error || "No se pudo generar el parche");
+      return;
+    }
     const data = await res.json();
     await refrescar(data.expediente?.id);
     setFormAbierto(null);
@@ -572,7 +585,11 @@ export default function App() {
                 idVigenteAActualizar,
               }),
             });
-            if (!res.ok) { mostrarToast("No se pudo crear el expediente"); return; }
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              mostrarToast(data.error || "No se pudo crear el expediente");
+              return;
+            }
             await refrescar();
             setFormAbierto(null);
             mostrarToast(mensaje);
@@ -600,7 +617,11 @@ export default function App() {
                 idVigenteAActualizar,
               }),
             });
-            if (!res.ok) { mostrarToast("No se pudo caratular el expediente"); return; }
+            if (!res.ok) {
+              const dataErr = await res.json().catch(() => ({}));
+              mostrarToast(dataErr.error || "No se pudo caratular el expediente");
+              return;
+            }
             const data = await res.json();
             await refrescar(data.expediente?.id);
             setFormAbierto(null);
@@ -635,7 +656,7 @@ export default function App() {
         <ConfirmarRenovacion
           exp={seleccionado}
           onCerrar={() => setFormAbierto(null)}
-          onConfirmar={() => crearRenovacion(seleccionado)}
+          onConfirmar={(expNuevo) => crearRenovacion(seleccionado, expNuevo)}
         />
       )}
 

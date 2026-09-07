@@ -207,13 +207,16 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ expediente: actualizado });
   }
 
-  // ---------- Activar la prórroga del vigente ----------
+  // ---------- Activar la prórroga del vigente o de un parche ----------
   // Extiende fechaVencimiento del mismo expediente (no crea uno nuevo) y deja
-  // una observación con el detalle del cambio.
+  // una observación con el detalle del cambio. El legítimo abono nunca tiene
+  // prórroga (ya viene forzado a false al crearlo/editarlo, pero se valida
+  // de nuevo acá por las dudas).
   if (body.activarProrroga) {
     const exp = await prisma.expediente.findUnique({ where: { id } });
     if (!exp) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-    if (exp.rol !== "vigente" || !exp.tieneProrroga || exp.prorrogaActivada) {
+    const puedeTenerProrroga = exp.rol === "vigente" || (exp.rol === "parche" && exp.tipoParche !== "Legítimo abono");
+    if (!puedeTenerProrroga || !exp.tieneProrroga || exp.prorrogaActivada) {
       return NextResponse.json({ error: "Este expediente no tiene una prórroga disponible para activar" }, { status: 400 });
     }
     const nuevaFecha = new Date(body.activarProrroga.nuevaFechaVencimiento);
@@ -315,7 +318,7 @@ export async function PUT(request, { params }) {
       zona: body.zona ?? undefined,
       codigoInterno: body.codigoInterno ?? undefined,
       estadoConvocatoria: body.estadoConvocatoria ?? undefined,
-      tieneProrroga: typeof body.tieneProrroga === "boolean" ? body.tieneProrroga : undefined,
+      tieneProrroga: esLegitimoAbono ? false : (typeof body.tieneProrroga === "boolean" ? body.tieneProrroga : undefined),
       tipoParche: body.tipoParche ?? undefined,
       detalleParche: body.detalleParche ?? undefined,
     },
