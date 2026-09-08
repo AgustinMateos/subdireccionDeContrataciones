@@ -60,6 +60,7 @@ import TopBar from "./TopBar";
 import Resumen from "./Resumen";
 import FiltroBar from "./FiltroBar";
 import TarjetaExpediente from "./TarjetaExpediente";
+import TarjetaGrupoServicios from "./TarjetaGrupoServicios";
 import PaginaExpediente from "./PaginaExpediente";
 import FormularioExpediente from "./FormularioExpediente";
 import CaratularExpediente from "./CaratularExpediente";
@@ -185,6 +186,27 @@ export default function App() {
       return true;
     }).sort((a, b) => new Date(b.fechaVencimiento) - new Date(a.fechaVencimiento));
   }, [expedientes, areaFiltro, tipoFiltro, estadoFiltro, organismoFiltro, zonaFiltro, vencimientoFiltro, nombreCortoFiltro, busqueda]);
+
+  // En Servicios, varios expedientes con el mismo tipo de servicio, fuero y
+  // zona son la misma prestación repetida con distinto N° de expediente —
+  // se agrupan en una sola card en vez de repetir tarjetas casi idénticas.
+  const itemsListado = useMemo(() => {
+    if (sesion?.departamentoSlug !== "servicios") {
+      return filtrados.map(e => ({ tipo: "individual", exp: e }));
+    }
+    const grupos = new Map();
+    const orden = [];
+    for (const e of filtrados) {
+      const clave = e.tipo + "||" + (e.zona || "") + "||" + [...(e.fuero || [])].sort().join(",");
+      if (!grupos.has(clave)) { grupos.set(clave, []); orden.push(clave); }
+      grupos.get(clave).push(e);
+    }
+    return orden.map(clave => {
+      const items = grupos.get(clave);
+      if (items.length === 1) return { tipo: "individual", exp: items[0] };
+      return { tipo: "grupo", clave, grupo: { tipo: items[0].tipo, zona: items[0].zona, fuero: items[0].fuero || [], items } };
+    });
+  }, [filtrados, sesion?.departamentoSlug]);
 
   const resumen = useMemo(() => {
     const anioActual = HOY.getFullYear();
@@ -536,9 +558,11 @@ export default function App() {
             />
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filtrados.slice(0, visibles).map(e => (
-                <TarjetaExpediente key={e.id} exp={e} onVer={() => verExpediente(e.id)} />
-              ))}
+              {itemsListado.slice(0, visibles).map(item =>
+                item.tipo === "grupo"
+                  ? <TarjetaGrupoServicios key={item.clave} grupo={item.grupo} onVer={verExpediente} />
+                  : <TarjetaExpediente key={item.exp.id} exp={item.exp} onVer={() => verExpediente(item.exp.id)} />
+              )}
             </div>
 
             {filtrados.length === 0 && (
@@ -547,13 +571,13 @@ export default function App() {
               </div>
             )}
 
-            {visibles < filtrados.length && (
+            {visibles < itemsListado.length && (
               <div className="flex justify-center pt-2">
                 <button
                   onClick={() => setVisibles(v => v + 6)}
                   className="px-5 py-2.5 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:border-slate-500 transition-colors"
                 >
-                  Ver más expedientes ({filtrados.length - visibles} restantes)
+                  Ver más expedientes ({itemsListado.length - visibles} restantes)
                 </button>
               </div>
             )}

@@ -243,11 +243,11 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
                 <Campo_Input label="Resolución de adjudicación" value={f.resolucionAdjudicacion} onChange={v => set("resolucionAdjudicacion", v)} />
               </>
             )}
-            <Campo_Input label="Adjudicatario" value={f.adjudicatario} onChange={v => set("adjudicatario", v)} />
+            <Campo_Input label="Adjudicatario" value={esVinculoAVigente ? "" : f.adjudicatario} onChange={v => set("adjudicatario", v)} placeholder={esVinculoAVigente ? "Se completa al adjudicar" : ""} disabled={esVinculoAVigente} />
             <Campo_Input label="Etapa" value={f.etapa} onChange={v => set("etapa", v)} />
             <Campo_Input label="Presupuesto oficial (ARS)" type="number" value={esVinculoAVigente ? "" : f.presupuestoOficial} onChange={v => set("presupuestoOficial", v)} disabled={esVinculoAVigente} />
             <Campo_Input label="Monto adjudicado (ARS)" type="number" value={esVinculoAVigente ? "" : f.montoARS} onChange={v => set("montoARS", v)} disabled={esVinculoAVigente} />
-            <Campo_Input label="Monto adjudicado (USD)" type="number" value={f.montoUSD} onChange={v => set("montoUSD", v)} />
+            <Campo_Input label="Monto adjudicado (USD)" type="number" value={esVinculoAVigente ? "" : f.montoUSD} onChange={v => set("montoUSD", v)} disabled={esVinculoAVigente} />
             <Campo_Input label="Fecha de inicio" type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
             <Campo_Input label="Fecha de vencimiento" type="date" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
             <Campo_Select label="Estado general" value={f.estadoGeneral} onChange={v => set("estadoGeneral", v)}
