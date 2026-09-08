@@ -17,6 +17,13 @@ function normalizarOrganismos(body) {
   return body.organismo ? [String(body.organismo).trim()].filter(Boolean) : [];
 }
 
+function normalizarFuero(body) {
+  if (Array.isArray(body.fuero)) {
+    return body.fuero.map((f) => String(f).trim()).filter(Boolean);
+  }
+  return body.fuero ? [String(body.fuero).trim()].filter(Boolean) : [];
+}
+
 export async function GET(request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -68,28 +75,34 @@ export async function POST(request) {
   // Genera un expediente nuevo con el mismo cadenaId y rol "renovacion" copiando
   // los datos del vigente de origen. El vigente NO cambia de estado: ya fue
   // adjudicado y sigue en ejecución tal cual — es la renovación la que entra
-  // "En trámite de renovación", no él.
+  // "En trámite de renovación", no él. Las fechas las carga el usuario (no se
+  // adivinan): solo se valida que no arranquen antes de que termine la
+  // cobertura actual de la cadena.
   if (body.renovarDeId) {
     if (!body.exp || !body.exp.trim()) {
       return NextResponse.json({ error: "Cargá el N° de expediente de la renovación" }, { status: 400 });
+    }
+    if (!body.fechaInicio || !body.fechaVencimiento) {
+      return NextResponse.json({ error: "Cargá la fecha de inicio y de vencimiento de la renovación" }, { status: 400 });
     }
     const vigente = await prisma.expediente.findUnique({ where: { id: body.renovarDeId } });
     if (!vigente || vigente.departamentoId !== session.user.departamentoId) {
       return NextResponse.json({ error: "Expediente de origen no encontrado" }, { status: 404 });
     }
 
-    // El período de la renovación es correlativo al que cubre hoy la cadena:
-    // arranca al día siguiente del vencimiento del vigente, o del parche más
-    // tardío si hay alguno cubriendo más adelante.
+    // No puede empezar antes de que termine la cobertura actual: el
+    // vencimiento del vigente (ya extendido si tiene prórroga activada) o el
+    // del parche más tardío de la cadena, el que sea más tarde.
     const parchesOrigen = await prisma.expediente.findMany({ where: { cadenaId: vigente.cadenaId, rol: "parche" } });
-    const finCobertura = [vigente, ...parchesOrigen].reduce(
+    const fechaMinima = [vigente, ...parchesOrigen].reduce(
       (max, e) => (!max || e.fechaVencimiento > max ? e.fechaVencimiento : max),
       null
     );
-    const nuevaFechaInicio = new Date(finCobertura);
-    nuevaFechaInicio.setDate(nuevaFechaInicio.getDate() + 1);
-    const duracionMs = vigente.fechaInicio ? new Date(vigente.fechaVencimiento) - new Date(vigente.fechaInicio) : 0;
-    const nuevaFechaVencimiento = new Date(nuevaFechaInicio.getTime() + duracionMs);
+    if (fechaMinima && new Date(body.fechaInicio) < fechaMinima) {
+      return NextResponse.json({
+        error: "La fecha de inicio de la renovación no puede ser anterior a " + fechaMinima.toISOString().slice(0, 10),
+      }, { status: 400 });
+    }
 
     let nuevo;
     try {
@@ -100,7 +113,8 @@ export async function POST(request) {
           exp: body.exp.trim(),
           nombreCorto: vigente.nombreCorto,
           // La renovación arranca su propio trámite: sin N° de contratación,
-          // presupuesto ni monto adjudicado todavía (se cargan al adjudicarla).
+          // presupuesto, monto adjudicado, OC ni resoluciones todavía (se
+          // cargan a medida que avanza, hasta adjudicarla).
           nroContratacion: null,
           nroResolucion: vigente.nroResolucion,
           departamentoId: session.user.departamentoId,
@@ -118,9 +132,11 @@ export async function POST(request) {
           esPoliciaAdicional: vigente.esPoliciaAdicional,
           fuerzaSeguridad: vigente.fuerzaSeguridad,
           cotizacionPolicia: vigente.cotizacionPolicia ?? undefined,
-          fechaInicio: nuevaFechaInicio,
-          fechaVencimiento: nuevaFechaVencimiento,
-          ocResolucion: vigente.ocResolucion,
+          fechaInicio: new Date(body.fechaInicio),
+          fechaVencimiento: new Date(body.fechaVencimiento),
+          ocResolucion: null,
+          resolucionLlamado: null,
+          resolucionAdjudicacion: null,
           adjudicatario: vigente.adjudicatario,
           sector: vigente.sector,
           etapa: "En trámite - carátula inicial",
@@ -173,6 +189,8 @@ export async function POST(request) {
         fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
         fechaVencimiento: new Date(body.fechaVencimiento),
         ocResolucion: esLegitimoAbono ? null : (body.ocResolucion || null),
+        resolucionLlamado: esLegitimoAbono ? null : (body.resolucionLlamado || null),
+        resolucionAdjudicacion: esLegitimoAbono ? null : (body.resolucionAdjudicacion || null),
         sector: origen.sector,
         estadoGeneral: "Vigente",
         tipoParche: body.tipoParche || null,
@@ -258,12 +276,14 @@ export async function POST(request) {
       fuerzaSeguridad: puedePoliciaAdicional && body.esPoliciaAdicional ? (body.fuerzaSeguridad || null) : null,
       fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
       fechaVencimiento: new Date(body.fechaVencimiento),
-      ocResolucion: body.ocResolucion || null,
+      ocResolucion: esRenovacionVinculada ? null : (body.ocResolucion || null),
+      resolucionLlamado: esRenovacionVinculada ? null : (body.resolucionLlamado || null),
+      resolucionAdjudicacion: esRenovacionVinculada ? null : (body.resolucionAdjudicacion || null),
       adjudicatario: body.adjudicatario || null,
       sector: body.sector || null,
       etapa: body.etapa || null,
       estadoGeneral: body.estadoGeneral || "Vigente",
-      fuero: body.fuero || null,
+      fuero: normalizarFuero(body),
       zona: body.zona || null,
       codigoInterno: body.codigoInterno || null,
       estadoConvocatoria: body.estadoConvocatoria || null,

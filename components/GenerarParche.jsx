@@ -16,6 +16,8 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
     montoARS: "",
     detalleParche: "",
     ocResolucion: "",
+    resolucionLlamado: "",
+    resolucionAdjudicacion: "",
     tieneProrroga: false,
   });
   const [error, setError] = useState("");
@@ -34,6 +36,8 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
       ...f,
       montoARS: Number(f.montoARS) || 0,
       ocResolucion: esLegitimoAbono ? "" : f.ocResolucion,
+      resolucionLlamado: esLegitimoAbono ? "" : f.resolucionLlamado,
+      resolucionAdjudicacion: esLegitimoAbono ? "" : f.resolucionAdjudicacion,
       tieneProrroga: esLegitimoAbono ? false : f.tieneProrroga,
     });
     setCargando(false);
@@ -56,7 +60,7 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
           </p>
           {esLegitimoAbono && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-              El legítimo abono no lleva orden de compra.
+              El legítimo abono no lleva OC ni resoluciones de llamado/adjudicación.
             </p>
           )}
 
@@ -76,8 +80,18 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
             {!esLegitimoAbono && (
               <>
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-slate-600 mb-1">OC / Resolución</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">OC</label>
                   <input value={f.ocResolucion} onChange={e => set("ocResolucion", e.target.value)}
+                    className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Resolución de llamado</label>
+                  <input value={f.resolucionLlamado} onChange={e => set("resolucionLlamado", e.target.value)}
+                    className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Resolución de adjudicación</label>
+                  <input value={f.resolucionAdjudicacion} onChange={e => set("resolucionAdjudicacion", e.target.value)}
                     className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
                 </div>
                 <div className="col-span-2 border border-slate-200 rounded-md p-3 bg-slate-50">

@@ -2,21 +2,22 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA } from "@/lib/constants";
+import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTORES } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
+import CampoFuero from "./CampoFuero";
 import BotonAccion from "./BotonAccion";
-import { fechaMinimaRenovacion, fmtFecha, sumarDiasISO } from "@/lib/utils";
+import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
 
-function formVacio(esServicios) {
+function formVacio(esServicios, esJefe) {
   return {
     exp: "",
     tipo: esServicios ? TIPOS_SERVICIOS[0] : "Servicios",
     agente: "",
     organismos: [],
-    sector: "",
+    sector: esServicios ? (esJefe ? "Servicios Jefatura" : "Servicios Empleados") : "",
     zona: ZONAS[0],
-    fuero: "",
+    fuero: [],
     estadoConvocatoria: esServicios ? ESTADOS_CONVOCATORIA[0] : "",
     objeto: "",
     etapa: "En ejecución",
@@ -30,9 +31,9 @@ function formVacio(esServicios) {
 // Carátula: alta rápida de un expediente con lo mínimo para abrirlo. El resto
 // de los campos (N° de contratación, encuadre, montos, policía adicional,
 // prórroga, etc.) se completan después desde "Editar expediente" en la ficha.
-export default function CaratularExpediente({ departamentoSlug, expedientes, onCerrar, onGuardar }) {
+export default function CaratularExpediente({ departamentoSlug, esJefe, expedientes, onCerrar, onGuardar }) {
   const esServicios = departamentoSlug === "servicios";
-  const [f, setF] = useState(() => formVacio(esServicios));
+  const [f, setF] = useState(() => formVacio(esServicios, esJefe));
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
 
@@ -45,11 +46,6 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
 
   function handleAntecedenteExpChange(valor) {
     set("antecedenteExp", valor);
-    const match = expedientes?.find(e => e.exp.trim().toLowerCase() === valor.trim().toLowerCase());
-    if (match && (match.rol === "vigente" || match.rol === "parche")) {
-      const minima = fechaMinimaRenovacion(match, expedientes);
-      if (minima) set("fechaInicio", sumarDiasISO(minima, 1));
-    }
   }
 
   async function handleSubmit(e) {
@@ -84,9 +80,9 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-           <div className="col-span-2 ">
-              <Campo_Input label="Objeto"  value={f.objeto} onChange={v => set("objeto", v)} />
-            </div>
+          <div className="col-span-2 ">
+            <Campo_Input label="Objeto" value={f.objeto} onChange={v => set("objeto", v)} />
+          </div>
           <div className="grid grid-cols-3 gap-4">
             <Campo_Input label="N° de expediente" value={f.exp} onChange={v => set("exp", v)} placeholder="13-00000/26" />
             <Campo_Select label="Tipo" value={f.tipo} onChange={v => set("tipo", v)}
@@ -98,16 +94,17 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
               <SelectorOrganismos organismos={f.organismos} onChange={v => set("organismos", v)} />
             </div>
 
-            <Campo_Input label="Sector actual" value={f.sector} onChange={v => set("sector", v)} />
+            <Campo_Select label="Sector actual" value={f.sector} onChange={v => set("sector", v)}
+              opciones={["", ...SECTORES]} labels={{ "": "— Sin definir —" }} />
             <Campo_Input label="Etapa" value={f.etapa} onChange={v => set("etapa", v)} />
             {esServicios && (
               <>
-                <Campo_Input label="Fuero" value={f.fuero} onChange={v => set("fuero", v)} placeholder="Ej: Cámara Federal de Apelaciones de Córdoba" />
+                <CampoFuero id="lista-fueros-caratular" organismos={f.organismos} fueros={f.fuero} onChange={v => set("fuero", v)} />
                 <Campo_Select label="Estado de convocatoria" value={f.estadoConvocatoria} onChange={v => set("estadoConvocatoria", v)} opciones={ESTADOS_CONVOCATORIA} />
               </>
             )}
 
-           
+
 
             <Campo_Input label="Fecha de inicio" type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
             <Campo_Input label="Fecha de vencimiento" type="date" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
@@ -136,8 +133,8 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
                       <p className="text-[11px] text-emerald-700 mt-1">✓ Encontrado: {coincidenciaAntecedente.objeto}</p>
                       {fechaMinima && (
                         <p className="text-[11px] text-amber-700 mt-1">
-                          Fecha de inicio precargada en el {fmtFecha(sumarDiasISO(fechaMinima, 1))}, correlativa al
-                          {" "}{fmtFecha(fechaMinima)} en que termina la cobertura vigente. N° de contratación,
+                          La fecha de inicio no puede ser anterior al {fmtFecha(fechaMinima)}, cuando termina la
+                          cobertura vigente. Dejá las fechas vacías y completalas vos mismo. N° de contratación,
                           presupuesto y monto adjudicado quedan vacíos hasta adjudicar la renovación.
                         </p>
                       )}

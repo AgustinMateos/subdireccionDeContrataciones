@@ -2,21 +2,23 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA } from "@/lib/constants";
+import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTORES } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
+import CampoFuero from "./CampoFuero";
 import BotonAccion from "./BotonAccion";
-import { fechaMinimaRenovacion, fmtFecha, sumarDiasISO } from "@/lib/utils";
+import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
 function formVacio(esServicios) {
   return {
     exp: "", nombreCorto: "", nroContratacion: "", nroResolucion: "",
     area: esServicios ? "" : "Informatica", tipo: esServicios ? TIPOS_SERVICIOS[0] : "Servicios",
     agente: "", organismos: [], objeto: "",
     encuadre: "", presupuestoOficial: "", montoARS: "", montoUSD: "", fechaInicio: "", fechaVencimiento: "",
-    ocResolucion: "", adjudicatario: "", sector: "", etapa: "En ejecución", estadoGeneral: "Vigente",
+    ocResolucion: "", resolucionLlamado: "", resolucionAdjudicacion: "",
+    adjudicatario: "", sector: "", etapa: "En ejecución", estadoGeneral: "Vigente",
     esPoliciaAdicional: false, fuerzaSeguridad: "",
     antecedenteExp: "",
-    fuero: "", zona: ZONAS[0], codigoInterno: "",
+    fuero: [], zona: ZONAS[0], codigoInterno: "",
     estadoConvocatoria: esServicios ? ESTADOS_CONVOCATORIA[0] : "",
     tieneProrroga: false,
   };
@@ -30,6 +32,9 @@ function normalizarInicial(inicial, esServicios) {
     organismos: Array.isArray(inicial.organismos)
       ? inicial.organismos
       : inicial.organismo ? [inicial.organismo] : [],
+    fuero: Array.isArray(inicial.fuero)
+      ? inicial.fuero
+      : inicial.fuero ? [inicial.fuero] : [],
     esPoliciaAdicional: !!inicial.esPoliciaAdicional,
     fuerzaSeguridad: inicial.fuerzaSeguridad || "",
     tieneProrroga: !!inicial.tieneProrroga,
@@ -61,11 +66,6 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
 
   function handleAntecedenteExpChange(valor) {
     set("antecedenteExp", valor);
-    const match = expedientes?.find(e => e.exp.trim().toLowerCase() === valor.trim().toLowerCase());
-    if (match && (match.rol === "vigente" || match.rol === "parche")) {
-      const minima = fechaMinimaRenovacion(match, expedientes);
-      if (minima) set("fechaInicio", sumarDiasISO(minima, 1));
-    }
   }
 
   async function handleSubmit(e) {
@@ -120,11 +120,12 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
             <div className="col-span-2">
               <SelectorOrganismos organismos={f.organismos} onChange={v => set("organismos", v)} />
             </div>
-            <Campo_Input label="Sector actual" value={f.sector} onChange={v => set("sector", v)} />
+            <Campo_Select label="Sector actual" value={f.sector} onChange={v => set("sector", v)}
+              opciones={["", ...SECTORES]} labels={{ "": "— Sin definir —" }} />
             <Campo_Select label="Zona" value={f.zona} onChange={v => set("zona", v)} opciones={ZONAS} />
             {esServicios && (
               <>
-                <Campo_Input label="Fuero" value={f.fuero} onChange={v => set("fuero", v)} placeholder="Ej: Cámara Federal de Apelaciones de Córdoba" />
+                <CampoFuero id="lista-fueros-form" organismos={f.organismos} fueros={f.fuero} onChange={v => set("fuero", v)} />
                 <Campo_Input label="Código interno (planilla)" value={f.codigoInterno} onChange={v => set("codigoInterno", v)} placeholder="Ej: 02ID" />
                 <Campo_Select label="Estado de convocatoria" value={f.estadoConvocatoria} onChange={v => set("estadoConvocatoria", v)}
                   opciones={["", ...ESTADOS_CONVOCATORIA]} labels={{ "": "— Sin definir —" }} />
@@ -173,10 +174,11 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
                         <p className="text-[11px] text-emerald-700 mt-1">✓ Encontrado: {coincidenciaAntecedente.objeto}</p>
                         {fechaMinima && (
                           <p className="text-[11px] text-amber-700 mt-1">
-                            Fecha de inicio precargada en el {fmtFecha(sumarDiasISO(fechaMinima, 1))}, correlativa al
-                            {" "}{fmtFecha(fechaMinima)} en que termina la cobertura vigente{coincidenciaAntecedente.tieneProrroga && coincidenciaAntecedente.prorrogaActivada ? " (ya extendida por la prórroga activada)" : ""}.
-                            El vigente no cambia de estado; N° de contratación, presupuesto y monto adjudicado quedan
-                            vacíos hasta que se adjudique esta renovación.
+                            La fecha de inicio no puede ser anterior al {fmtFecha(fechaMinima)}, cuando termina la
+                            cobertura vigente{coincidenciaAntecedente.tieneProrroga && coincidenciaAntecedente.prorrogaActivada ? " (ya extendida por la prórroga activada)" : ""}.
+                            Dejá las fechas vacías y completalas vos mismo. El vigente no cambia de estado;
+                            N° de contratación, presupuesto y monto adjudicado quedan vacíos hasta que se
+                            adjudique esta renovación.
                           </p>
                         )}
                       </>
@@ -235,7 +237,11 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
               labels={{ "": "— Seleccionar —" }}
             />
             {f.tipoParche !== "Legítimo abono" && (
-              <Campo_Input label="OC / Resolución" value={f.ocResolucion} onChange={v => set("ocResolucion", v)} />
+              <>
+                <Campo_Input label="OC" value={f.ocResolucion} onChange={v => set("ocResolucion", v)} />
+                <Campo_Input label="Resolución de llamado" value={f.resolucionLlamado} onChange={v => set("resolucionLlamado", v)} />
+                <Campo_Input label="Resolución de adjudicación" value={f.resolucionAdjudicacion} onChange={v => set("resolucionAdjudicacion", v)} />
+              </>
             )}
             <Campo_Input label="Adjudicatario" value={f.adjudicatario} onChange={v => set("adjudicatario", v)} />
             <Campo_Input label="Etapa" value={f.etapa} onChange={v => set("etapa", v)} />

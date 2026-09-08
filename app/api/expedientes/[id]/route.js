@@ -281,7 +281,7 @@ export async function PUT(request, { params }) {
   // La contratación de policía adicional es exclusiva de Informática y Varios.
   const puedePoliciaAdicional = session.user.departamentoSlug === "informatica-y-varios";
   const esPoliciaAdicionalPedido = puedePoliciaAdicional && body.esPoliciaAdicional === true;
-  // El legítimo abono nunca lleva orden de compra.
+  // El legítimo abono nunca lleva OC ni resoluciones de llamado/adjudicación.
   const esLegitimoAbono = body.tipoParche === "Legítimo abono";
 
   // ---------- Edición normal de campos del expediente ----------
@@ -310,11 +310,15 @@ export async function PUT(request, { params }) {
       fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
       fechaVencimiento: body.fechaVencimiento ? new Date(body.fechaVencimiento) : undefined,
       ocResolucion: esLegitimoAbono ? null : (body.ocResolucion ?? undefined),
+      resolucionLlamado: esLegitimoAbono ? null : (body.resolucionLlamado ?? undefined),
+      resolucionAdjudicacion: esLegitimoAbono ? null : (body.resolucionAdjudicacion ?? undefined),
       adjudicatario: body.adjudicatario ?? undefined,
       sector: body.sector ?? undefined,
       etapa: body.etapa ?? undefined,
       estadoGeneral: body.estadoGeneral,
-      fuero: body.fuero ?? undefined,
+      fuero: Array.isArray(body.fuero)
+        ? body.fuero.map((f) => String(f).trim()).filter(Boolean)
+        : undefined,
       zona: body.zona ?? undefined,
       codigoInterno: body.codigoInterno ?? undefined,
       estadoConvocatoria: body.estadoConvocatoria ?? undefined,

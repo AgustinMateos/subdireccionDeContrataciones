@@ -80,18 +80,20 @@ model Expediente {
   montoUSD           Float        @default(0)
 
   // Policía adicional (contratación interadministrativa con fuerzas de seguridad)
-  esPoliciaAdicional Boolean   @default(false)
-  fuerzaSeguridad    String? // PFA | GNA | PNA | PCABA
-  cotizacionPolicia  Json? // snapshot de la cotización aprobada y vinculada desde el cotizador
-  fechaInicio        DateTime?
-  fechaVencimiento   DateTime
-  ocResolucion       String?
-  adjudicatario      String?
-  sector             String?
-  etapa              String?
-  estadoGeneral      String // Vigente | En trámite de renovación | Finalizado | Archivado
-  creadoEn           DateTime  @default(now())
-  actualizadoEn      DateTime  @updatedAt
+  esPoliciaAdicional     Boolean   @default(false)
+  fuerzaSeguridad        String? // PFA | GNA | PNA | PCABA
+  cotizacionPolicia      Json? // snapshot de la cotización aprobada y vinculada desde el cotizador
+  fechaInicio            DateTime?
+  fechaVencimiento       DateTime
+  ocResolucion           String? // OC (orden de compra)
+  resolucionLlamado      String? // Resolución de llamado
+  resolucionAdjudicacion String? // Resolución de adjudicación
+  adjudicatario          String?
+  sector                 String?
+  etapa                  String?
+  estadoGeneral          String // Vigente | En trámite de renovación | Finalizado | Archivado
+  creadoEn               DateTime  @default(now())
+  actualizadoEn          DateTime  @updatedAt
 
   // Prórroga: opción del propio contrato vigente, no genera un expediente nuevo.
   // Se carga al crear el vigente; se activa después desde la ficha si la
@@ -106,7 +108,7 @@ model Expediente {
   detalleParche String?
 
   // --- Campos exclusivos del departamento Servicios (nullable, sin uso en Informática y Varios) ---
-  fuero              String? // ej "Cámara Federal de Apelaciones de Córdoba"
+  fuero              String[] @default([]) // ej ["Cámara Federal de Apelaciones de Córdoba"] — puede haber más de uno
   zona               String? // "CABA" | "Interior"
   codigoInterno      String? // código corto de la planilla, ej "02ID", "01LA"
   estadoConvocatoria String? // vocabulario propio de Servicios (string libre, la lista puede crecer)

@@ -1,0 +1,1341 @@
+{
+  "titulo": "Organismos y fueros unificados",
+  "fecha": "2026-09-04",
+  "total": 133,
+  "registros": [
+    {
+      "zona": "CABA",
+      "camara": "Cámara Nacional de Apelaciones en lo Comercial",
+      "dependencia": "Cámara y Juzgados Comerciales N° 3, 10, 11, 14, 15, 16, 25, 26 y 27 a 31",
+      "direcciones": [
+        "Montevideo 546",
+        "Diagonal / Av. Roque Sáenz Peña 1211",
+        "Callao 635"
+      ],
+      "direcciones_texto": "Montevideo 546; Diagonal / Av. Roque Sáenz Peña 1211; Callao 635"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Cámara Nacional de Apelaciones en lo Civil",
+      "dependencia": "Cámara",
+      "direcciones": [
+        "Talcahuano 490",
+        "Talcahuano 550, 6° piso",
+        "Uruguay 714",
+        "Uruguay 722 / Viamonte 1435",
+        "Lavalle 1220",
+        "Lavalle 1212",
+        "Carlos Pellegrini 685, 5° piso",
+        "Av. de los Inmigrantes 1950 (PB, entrepiso, 4°, 5° y 6°)"
+      ],
+      "direcciones_texto": "Talcahuano 490; Talcahuano 550, 6° piso; Uruguay 714; Uruguay 722 / Viamonte 1435; Lavalle 1220; Lavalle 1212; Carlos Pellegrini 685, 5° piso; Av. de los Inmigrantes 1950 (PB, entrepiso, 4°, 5° y 6°)"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Cámara Nacional de Apelaciones en lo Civil",
+      "dependencia": "Juzgados Civiles de 1° Instancia N° 11, 14, 19, 20, 22, 24, 95 y 105; Cuerpo Interdisciplinario Forense; Juzgado Comercial N° 16",
+      "direcciones": [
+        "Tucumán 348"
+      ],
+      "direcciones_texto": "Tucumán 348"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Cámara Nacional de Apelaciones en lo Criminal y Correccional",
+      "dependencia": "Cámara",
+      "direcciones": [
+        "Paraguay 1535/1536",
+        "Juncal 941",
+        "Viamonte 1147/53/55",
+        "Lavalle 1638/1640",
+        "Talcahuano 612/624",
+        "Lavalle 1169/1171"
+      ],
+      "direcciones_texto": "Paraguay 1535/1536; Juncal 941; Viamonte 1147/53/55; Lavalle 1638/1640; Talcahuano 612/624; Lavalle 1169/1171"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Cámara Nacional de Apelaciones en lo Criminal y Correccional",
+      "dependencia": "Sala de audiencias TOCC N° 12 y N° 17",
+      "direcciones": [
+        "Lavalle 1171"
+      ],
+      "direcciones_texto": "Lavalle 1171"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Cámara Nacional de Apelaciones en lo Criminal y Correccional",
+      "dependencia": "Cámara Nacional de Casación en lo Criminal y Correccional; JCC N° 50 a 59; TOCC N° 11 a 21 y N° 24 a 30 (mismos edificios de la Cámara)",
+      "direcciones": [
+        "Viamonte 1147",
+        "Talcahuano 612",
+        "Lavalle 1638",
+        "Juncal 941",
+        "Lavalle 1171",
+        "Paraguay 1536"
+      ],
+      "direcciones_texto": "Viamonte 1147; Talcahuano 612; Lavalle 1638; Juncal 941; Lavalle 1171; Paraguay 1536"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Cámara Nacional de Apelaciones en lo Criminal y Correccional",
+      "dependencia": "Juzgados Nacionales en lo Criminal y Correccional (JCC) y secretarías: JCC 1, 2, 3, 4, 5, 7, 8, 9, 10, 13, 15, 16, 20, 21, 22, 23, 24, 26, 28, 29, 35, 38, 40, 41, 42, 46, 47; Juzgado Nacional de Menores N° 1 — NO unificar con TOCC ni con edificios del Consejo (indicación de Campi)",
+      "direcciones": [
+        "Talcahuano 550"
+      ],
+      "direcciones_texto": "Talcahuano 550"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Dependencias en el edificio de la Corte",
+      "dependencia": "Tribunales Orales en lo Criminal y Correccional N° 1, 2, 3, 4, 5, 7, 8, 9 y 10 — NO unificar con los juzgados de Talcahuano ni con los edificios del Consejo (indicación de Campi)",
+      "direcciones": [
+        "Talcahuano 550"
+      ],
+      "direcciones_texto": "Talcahuano 550"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Cámara Nacional de Apelaciones en lo Contencioso Administrativo Federal",
+      "dependencia": "Cámara y Juzgados Federales de Ejecución Fiscal Tributaria",
+      "direcciones": [
+        "Paraguay 923",
+        "Tucumán 1381",
+        "Carlos Pellegrini 685, 3° y 4° piso"
+      ],
+      "direcciones_texto": "Paraguay 923; Tucumán 1381; Carlos Pellegrini 685, 3° y 4° piso"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Cámara Nacional de Apelaciones en lo Penal Económico",
+      "dependencia": "Cámara — solo espacios comunes compartidos con juzgados civiles (según origen)",
+      "direcciones": [
+        "Av. de los Inmigrantes 1950",
+        "Av. de los Inmigrantes 1951"
+      ],
+      "direcciones_texto": "Av. de los Inmigrantes 1950; Av. de los Inmigrantes 1951"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Cámara Nacional de Apelaciones del Trabajo",
+      "dependencia": "Cámara y Juzgados del Trabajo N° 1 a 80",
+      "direcciones": [
+        "Av. Roque Sáenz Peña 760",
+        "Teniente Juan D. Perón 990",
+        "Lavalle 1554",
+        "Paraná 520",
+        "Cerrito 246/264, pisos 6° y 7°",
+        "Sarmiento 1116"
+      ],
+      "direcciones_texto": "Av. Roque Sáenz Peña 760; Teniente Juan D. Perón 990; Lavalle 1554; Paraná 520; Cerrito 246/264, pisos 6° y 7°; Sarmiento 1116"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Cámara Nacional de Apelaciones del Trabajo",
+      "dependencia": "Juzgados Nacionales del Trabajo N° 18, 41, 42, 43, 44 y 45; Juzgados Nacionales en lo Penal Económico N° 9, 10 y 11",
+      "direcciones": [
+        "Paraná 520",
+        "Av. Roque Sáenz Peña 760",
+        "Perón 990",
+        "Lavalle 1554",
+        "Cerrito 264, pisos 6° y 7°",
+        "Sarmiento 1116"
+      ],
+      "direcciones_texto": "Paraná 520; Av. Roque Sáenz Peña 760; Perón 990; Lavalle 1554; Cerrito 264, pisos 6° y 7°; Sarmiento 1116"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Cámara Federal de Casación Penal",
+      "dependencia": "Cámara",
+      "direcciones": [
+        "Av. Comodoro Py 2002",
+        "Av. de los Inmigrantes 1901",
+        "Av. Antártida Argentina y Letonia"
+      ],
+      "direcciones_texto": "Av. Comodoro Py 2002; Av. de los Inmigrantes 1901; Av. Antártida Argentina y Letonia"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Cámara Federal de Casación Penal",
+      "dependencia": "Juzgados Nacionales de Ejecución Penal, DCAEP y Equipo Interdisciplinario",
+      "direcciones": [
+        "Alsina 1418"
+      ],
+      "direcciones_texto": "Alsina 1418"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Cámara Federal de Casación Penal",
+      "dependencia": "Módulos habitacionales de la Cámara",
+      "direcciones": [
+        "Av. de los Inmigrantes 1905"
+      ],
+      "direcciones_texto": "Av. de los Inmigrantes 1905"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Cámara Federal de la Seguridad Social",
+      "dependencia": "Cámara",
+      "direcciones": [
+        "Lavalle 1268",
+        "Lavalle 1441 (1° y 2° subsuelo)",
+        "Lavalle 1241",
+        "Marcelo T. de Alvear 1840"
+      ],
+      "direcciones_texto": "Lavalle 1268; Lavalle 1441 (1° y 2° subsuelo); Lavalle 1241; Marcelo T. de Alvear 1840"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Cámara Nacional Electoral",
+      "dependencia": "Cámara",
+      "direcciones": [
+        "25 de Mayo 245",
+        "Av. Leandro N. Alem 232"
+      ],
+      "direcciones_texto": "25 de Mayo 245; Av. Leandro N. Alem 232"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Consejo de la Magistratura",
+      "dependencia": "Sedes del Consejo",
+      "direcciones": [
+        "Paraná 386",
+        "Av. Corrientes 3047/3099",
+        "Villarino 2010",
+        "Sarmiento 868",
+        "Libertad 731 / Viamonte 1191",
+        "Av. Roque Sáenz Peña 1184/1190",
+        "Cerrito 536"
+      ],
+      "direcciones_texto": "Paraná 386; Av. Corrientes 3047/3099; Villarino 2010; Sarmiento 868; Libertad 731 / Viamonte 1191; Av. Roque Sáenz Peña 1184/1190; Cerrito 536"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Consejo de la Magistratura / DGIJ / Intendencia edificios CSJN",
+      "dependencia": "Dirección General de Infraestructura Judicial e Intendencia de edificios de la CSJN",
+      "direcciones": [
+        "Libertad 731 / Viamonte 1191",
+        "Lavalle 1240",
+        "Av. Corrientes 3047/3099",
+        "Sarmiento 877",
+        "Av. Roque Sáenz Peña 1184/1190",
+        "Cerrito 536",
+        "Marcelo T. de Alvear 1840 (planta principal y anexo)"
+      ],
+      "direcciones_texto": "Libertad 731 / Viamonte 1191; Lavalle 1240; Av. Corrientes 3047/3099; Sarmiento 877; Av. Roque Sáenz Peña 1184/1190; Cerrito 536; Marcelo T. de Alvear 1840 (planta principal y anexo)"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Corte / administración",
+      "dependencia": "D.G.A.F. y Centro de Cómputos",
+      "direcciones": [
+        "Sarmiento 877 (piso 13°)",
+        "Libertad 731 (pisos 11° y 12°)"
+      ],
+      "direcciones_texto": "Sarmiento 877 (piso 13°); Libertad 731 (pisos 11° y 12°)"
+    },
+    {
+      "zona": "CABA",
+      "camara": "Intendencia / edificio",
+      "dependencia": "Edificio Marcelo T. de Alvear y anexo — Juzgados Nacionales en lo Comercial N° 2, 9, 12, 13, 17 a 19 y 21 a 24",
+      "direcciones": [
+        "Marcelo T. de Alvear 1840 (planta principal y anexo)"
+      ],
+      "direcciones_texto": "Marcelo T. de Alvear 1840 (planta principal y anexo)"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "Cámara e Intendencia",
+      "direcciones": [
+        "Güemes / Calle 99 N° 3053 (San Andrés)",
+        "Moreno 3338 / Calle 48 Moreno 3324/38"
+      ],
+      "direcciones_texto": "Güemes / Calle 99 N° 3053 (San Andrés); Moreno 3338 / Calle 48 Moreno 3324/38"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "Juzgado Federal CyC N° 1 de San Martín",
+      "direcciones": [
+        "Calle 54 — Mitre 214",
+        "Calle 54 N° 3527"
+      ],
+      "direcciones_texto": "Calle 54 — Mitre 214; Calle 54 N° 3527"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "Juzgado Federal CyC N° 2 de San Martín",
+      "direcciones": [
+        "San Lorenzo 2374 (calle 91)",
+        "Bonifacini 164/166 (calle 85)",
+        "Pellegrini 121"
+      ],
+      "direcciones_texto": "San Lorenzo 2374 (calle 91); Bonifacini 164/166 (calle 85); Pellegrini 121"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "Juzgados Federales Civiles, Comerciales y Contencioso Administrativos N° 1 y 2 de San Martín y archivos",
+      "direcciones": [
+        "Belgrano 4367 (calle 52)",
+        "Calle 48 Moreno 3324/38",
+        "Calle 85 N° 1776",
+        "Calle 85 (ex Bonifacini 1170)"
+      ],
+      "direcciones_texto": "Belgrano 4367 (calle 52); Calle 48 Moreno 3324/38; Calle 85 N° 1776; Calle 85 (ex Bonifacini 1170)"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "TOF N° 1 de San Martín, archivo y oficinas",
+      "direcciones": [
+        "Carlos Villate 2119/2121"
+      ],
+      "direcciones_texto": "Carlos Villate 2119/2121"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "TOF N° 2 de San Martín (Olivos) y archivo",
+      "direcciones": [
+        "Gobernador Ugarte 1735/21 y 1792"
+      ],
+      "direcciones_texto": "Gobernador Ugarte 1735/21 y 1792"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "TOC / TOCF N° 3 de San Martín",
+      "direcciones": [
+        "Yapeyú 84/86 (calle 83)",
+        "Yapeyú 1912/1922"
+      ],
+      "direcciones_texto": "Yapeyú 84/86 (calle 83); Yapeyú 1912/1922"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "TOC N° 4 de San Martín",
+      "direcciones": [
+        "Diego Pombo 4183 (calle 72)"
+      ],
+      "direcciones_texto": "Diego Pombo 4183 (calle 72)"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "TOCF N° 5, archivo TOF 4 y 5 e Intendencia",
+      "direcciones": [
+        "Intendente Ballester 3853/3854 (calle 78)",
+        "Tucumán 3233 (calle 93)"
+      ],
+      "direcciones_texto": "Intendente Ballester 3853/3854 (calle 78); Tucumán 3233 (calle 93)"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "Sala de juicio de los TOF de San Martín",
+      "direcciones": [
+        "Pueyrredón 3728 (calle 58)"
+      ],
+      "direcciones_texto": "Pueyrredón 3728 (calle 58)"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "Juzgado Federal de Tres de Febrero",
+      "direcciones": [
+        "J.J. Urquiza 4968",
+        "Caseros, partido de Tres de Febrero"
+      ],
+      "direcciones_texto": "J.J. Urquiza 4968; Caseros, partido de Tres de Febrero"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "Juzgado Federal de Campana",
+      "direcciones": [
+        "San Martín 117/177, Campana"
+      ],
+      "direcciones_texto": "San Martín 117/177, Campana"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "Juzgado Federal de Mercedes",
+      "direcciones": [
+        "Calle 21 N° 621"
+      ],
+      "direcciones_texto": "Calle 21 N° 621"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "Juzgado Federal de Moreno",
+      "direcciones": [
+        "Av. Francisco Piovano 3129"
+      ],
+      "direcciones_texto": "Av. Francisco Piovano 3129"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "Juzgado Federal N° 3 de Morón",
+      "direcciones": [
+        "Crisólogo Larralde 673/675/677",
+        "Valentín Gómez 577, Haedo"
+      ],
+      "direcciones_texto": "Crisólogo Larralde 673/675/677; Valentín Gómez 577, Haedo"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "Juzgados Federales N° 1 y 2 de Morón",
+      "direcciones": [
+        "Valentín Gómez 577",
+        "Roque Sáenz Peña 3525"
+      ],
+      "direcciones_texto": "Valentín Gómez 577; Roque Sáenz Peña 3525"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "Archivo de los Juzgados Federales de Morón",
+      "direcciones": [
+        "Bartolomé Mitre 956/962"
+      ],
+      "direcciones_texto": "Bartolomé Mitre 956/962"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "Juzgado Federal N° 1 y archivo de los Juzgados Federales N° 1 y 2 de San Isidro",
+      "direcciones": [
+        "3 de Febrero 110 y 118"
+      ],
+      "direcciones_texto": "3 de Febrero 110 y 118"
+    },
+    {
+      "zona": "AMBA — San Martín",
+      "camara": "Cámara Federal de Apelaciones de San Martín",
+      "dependencia": "Juzgado Federal N° 2 de San Isidro",
+      "direcciones": [
+        "Gral. Paz 506"
+      ],
+      "direcciones_texto": "Gral. Paz 506"
+    },
+    {
+      "zona": "AMBA — La Plata",
+      "camara": "Cámara Federal de Apelaciones de La Plata",
+      "dependencia": "Tribunales federales / Cámara de La Plata",
+      "direcciones": [
+        "Calle 8 N° 925 e/ 50 y 51",
+        "Calle 47 N° 793",
+        "Calle 7 esq. 51 (of. 33)",
+        "Calle 49 e/ 20 y 21",
+        "Calle 54 N° 566/568",
+        "Calle 71 e/ 20 y 22",
+        "Calle 6 N° 822",
+        "Calle 40 N° 431",
+        "Calle 10 N° 1215"
+      ],
+      "direcciones_texto": "Calle 8 N° 925 e/ 50 y 51; Calle 47 N° 793; Calle 7 esq. 51 (of. 33); Calle 49 e/ 20 y 21; Calle 54 N° 566/568; Calle 71 e/ 20 y 22; Calle 6 N° 822; Calle 40 N° 431; Calle 10 N° 1215"
+    },
+    {
+      "zona": "AMBA — La Plata",
+      "camara": "Cámara Federal de Apelaciones de La Plata",
+      "dependencia": "Tribunal Oral en lo Criminal N° 1 de La Plata",
+      "direcciones": [
+        "Calle 47 N° 793"
+      ],
+      "direcciones_texto": "Calle 47 N° 793"
+    },
+    {
+      "zona": "AMBA — La Plata",
+      "camara": "Cámara Federal de Apelaciones de La Plata",
+      "dependencia": "Juzgado Federal N° 2 de La Plata",
+      "direcciones": [
+        "Calle 54 N° 566"
+      ],
+      "direcciones_texto": "Calle 54 N° 566"
+    },
+    {
+      "zona": "AMBA — La Plata",
+      "camara": "Cámara Federal de Apelaciones de La Plata",
+      "dependencia": "Juzgado Federal de Quilmes",
+      "direcciones": [
+        "12 de Octubre 3300, Quilmes"
+      ],
+      "direcciones_texto": "12 de Octubre 3300, Quilmes"
+    },
+    {
+      "zona": "AMBA — La Plata",
+      "camara": "Cámara Federal de Apelaciones de La Plata",
+      "dependencia": "Juzgado Federal de Junín",
+      "direcciones": [
+        "Rector Álvarez Rodríguez 59/21 y 59/61",
+        "Cabrera 222, Junín"
+      ],
+      "direcciones_texto": "Rector Álvarez Rodríguez 59/21 y 59/61; Cabrera 222, Junín"
+    },
+    {
+      "zona": "AMBA — La Plata",
+      "camara": "Cámara Federal de Apelaciones de La Plata",
+      "dependencia": "Juzgado Federal de Primera Instancia de Pehuajó",
+      "direcciones": [
+        "Papa Pío XI N° 68, Pehuajó"
+      ],
+      "direcciones_texto": "Papa Pío XI N° 68, Pehuajó"
+    },
+    {
+      "zona": "AMBA — La Plata",
+      "camara": "Cámara Federal de Apelaciones de La Plata",
+      "dependencia": "Juzgado Federal N° 1 de Lomas de Zamora",
+      "direcciones": [
+        "Alem 180, Lomas de Zamora"
+      ],
+      "direcciones_texto": "Alem 180, Lomas de Zamora"
+    },
+    {
+      "zona": "AMBA — La Plata",
+      "camara": "Cámara Federal de Apelaciones de La Plata",
+      "dependencia": "Juzgado Federal N° 2 de Lomas de Zamora",
+      "direcciones": [
+        "Laprida 662, Lomas de Zamora"
+      ],
+      "direcciones_texto": "Laprida 662, Lomas de Zamora"
+    },
+    {
+      "zona": "AMBA — La Plata",
+      "camara": "Cámara Federal de Apelaciones de La Plata",
+      "dependencia": "Juzgado Federal N° 3 de Lomas de Zamora",
+      "direcciones": [
+        "Alem 168, Lomas de Zamora"
+      ],
+      "direcciones_texto": "Alem 168, Lomas de Zamora"
+    },
+    {
+      "zona": "AMBA — La Plata",
+      "camara": "Cámara Federal de Apelaciones de La Plata",
+      "dependencia": "Juzgado Federal N° 3 de Lomas de Zamora (Secretaría N° 8)",
+      "direcciones": [
+        "Gorriti 40, Lomas de Zamora"
+      ],
+      "direcciones_texto": "Gorriti 40, Lomas de Zamora"
+    },
+    {
+      "zona": "Bahía Blanca",
+      "camara": "Cámara Federal de Apelaciones de Bahía Blanca",
+      "dependencia": "Cámara",
+      "direcciones": [
+        "Mitre 60/65"
+      ],
+      "direcciones_texto": "Mitre 60/65"
+    },
+    {
+      "zona": "Bahía Blanca",
+      "camara": "Cámara Federal de Apelaciones de Bahía Blanca",
+      "dependencia": "Juzgado Federal N° 1 y oficinas de DD.HH.",
+      "direcciones": [
+        "Alsina 317",
+        "Lamadrid 62"
+      ],
+      "direcciones_texto": "Alsina 317; Lamadrid 62"
+    },
+    {
+      "zona": "Bahía Blanca",
+      "camara": "Cámara Federal de Apelaciones de Bahía Blanca",
+      "dependencia": "Juzgado Federal N° 2 y archivo",
+      "direcciones": [
+        "Belgrano 274",
+        "Soler 232"
+      ],
+      "direcciones_texto": "Belgrano 274; Soler 232"
+    },
+    {
+      "zona": "Bahía Blanca",
+      "camara": "Cámara Federal de Apelaciones de Bahía Blanca",
+      "dependencia": "TOCF de Bahía Blanca",
+      "direcciones": [
+        "Chiclana 402/408"
+      ],
+      "direcciones_texto": "Chiclana 402/408"
+    },
+    {
+      "zona": "Bahía Blanca",
+      "camara": "Cámara Federal de Apelaciones de Bahía Blanca",
+      "dependencia": "Juzgado Federal de General Pico",
+      "direcciones": [
+        "Calle 18 N° 845, General Pico"
+      ],
+      "direcciones_texto": "Calle 18 N° 845, General Pico"
+    },
+    {
+      "zona": "Bahía Blanca",
+      "camara": "Cámara Federal de Apelaciones de Bahía Blanca",
+      "dependencia": "Juzgado Federal de Santa Rosa, anexo (UF 8 a 33) y Tribunal Oral de Santa Rosa",
+      "direcciones": [
+        "Av. San Martín (Oeste) 153",
+        "Raúl B. Díaz 1366/68",
+        "25 de Mayo 385, 2° piso"
+      ],
+      "direcciones_texto": "Av. San Martín (Oeste) 153; Raúl B. Díaz 1366/68; 25 de Mayo 385, 2° piso"
+    },
+    {
+      "zona": "Resistencia",
+      "camara": "Cámara Federal de Apelaciones de Resistencia",
+      "dependencia": "Cámara y Juzgado Federal N° 1",
+      "direcciones": [
+        "Hipólito Yrigoyen 65"
+      ],
+      "direcciones_texto": "Hipólito Yrigoyen 65"
+    },
+    {
+      "zona": "Resistencia",
+      "camara": "Cámara Federal de Apelaciones de Resistencia",
+      "dependencia": "TOCF Resistencia",
+      "direcciones": [
+        "Hipólito Yrigoyen 33 esq. Sarmiento"
+      ],
+      "direcciones_texto": "Hipólito Yrigoyen 33 esq. Sarmiento"
+    },
+    {
+      "zona": "Resistencia",
+      "camara": "Cámara Federal de Apelaciones de Resistencia",
+      "dependencia": "Juzgado Federal N° 2 de Resistencia",
+      "direcciones": [
+        "Hipólito Yrigoyen 49"
+      ],
+      "direcciones_texto": "Hipólito Yrigoyen 49"
+    },
+    {
+      "zona": "Resistencia",
+      "camara": "Cámara Federal de Apelaciones de Resistencia",
+      "dependencia": "Archivo de la jurisdicción Resistencia",
+      "direcciones": [
+        "Sargento Cabral 846"
+      ],
+      "direcciones_texto": "Sargento Cabral 846"
+    },
+    {
+      "zona": "Resistencia",
+      "camara": "Cámara Federal de Apelaciones de Resistencia",
+      "dependencia": "Juzgados Federales de Formosa N° 1 y 2",
+      "direcciones": [
+        "Mitre 689",
+        "Mitre 839"
+      ],
+      "direcciones_texto": "Mitre 689; Mitre 839"
+    },
+    {
+      "zona": "Resistencia",
+      "camara": "Cámara Federal de Apelaciones de Resistencia",
+      "dependencia": "TOCF de Formosa y archivo",
+      "direcciones": [
+        "Maipú 262",
+        "Corrientes 830/832/834/838"
+      ],
+      "direcciones_texto": "Maipú 262; Corrientes 830/832/834/838"
+    },
+    {
+      "zona": "Resistencia",
+      "camara": "Cámara Federal de Apelaciones de Resistencia",
+      "dependencia": "Juzgado Federal de Presidencia Roque Sáenz Peña",
+      "direcciones": [
+        "Mitre 369"
+      ],
+      "direcciones_texto": "Mitre 369"
+    },
+    {
+      "zona": "General Roca",
+      "camara": "Cámara Federal de Apelaciones de General Roca",
+      "dependencia": "Cámara",
+      "direcciones": [
+        "España 1690"
+      ],
+      "direcciones_texto": "España 1690"
+    },
+    {
+      "zona": "General Roca",
+      "camara": "Cámara Federal de Apelaciones de General Roca",
+      "dependencia": "Juzgado Federal de Viedma",
+      "direcciones": [
+        "San Martín 189"
+      ],
+      "direcciones_texto": "San Martín 189"
+    },
+    {
+      "zona": "General Roca",
+      "camara": "Cámara Federal de Apelaciones de General Roca",
+      "dependencia": "Juzgado Federal de San Carlos de Bariloche",
+      "direcciones": [
+        "Av. San Martín 425"
+      ],
+      "direcciones_texto": "Av. San Martín 425"
+    },
+    {
+      "zona": "General Roca",
+      "camara": "Cámara Federal de Apelaciones de General Roca",
+      "dependencia": "Juzgado Federal N° 1 de Neuquén (Civil) y Secretaría Electoral",
+      "direcciones": [
+        "Illia 1001/1011"
+      ],
+      "direcciones_texto": "Illia 1001/1011"
+    },
+    {
+      "zona": "General Roca",
+      "camara": "Cámara Federal de Apelaciones de General Roca",
+      "dependencia": "Juzgado Federal N° 2 de Neuquén, TOCF Neuquén y AMUC, Secretaría Electoral y archivo",
+      "direcciones": [
+        "Carlos H. Rodríguez 264",
+        "Carlos H. Rodríguez 46 (PB y SS)",
+        "El Ceibo 441",
+        "Av. Argentina 1637"
+      ],
+      "direcciones_texto": "Carlos H. Rodríguez 264; Carlos H. Rodríguez 46 (PB y SS); El Ceibo 441; Av. Argentina 1637"
+    },
+    {
+      "zona": "General Roca",
+      "camara": "Cámara Federal de Apelaciones de General Roca",
+      "dependencia": "Juzgado Federal de Zapala",
+      "direcciones": [
+        "Zeballos 104/116"
+      ],
+      "direcciones_texto": "Zeballos 104/116"
+    },
+    {
+      "zona": "Salta",
+      "camara": "Cámara Federal de Apelaciones de Salta",
+      "dependencia": "Cámara y TOCF N° 1 de Salta",
+      "direcciones": [
+        "Av. España 394 esq. Dean Funes",
+        "Dean Funes 140, PB"
+      ],
+      "direcciones_texto": "Av. España 394 esq. Dean Funes; Dean Funes 140, PB"
+    },
+    {
+      "zona": "Salta",
+      "camara": "Cámara Federal de Apelaciones de Salta",
+      "dependencia": "TOCF N° 2 de Salta",
+      "direcciones": [
+        "Francisco de Gurruchaga 297/397"
+      ],
+      "direcciones_texto": "Francisco de Gurruchaga 297/397"
+    },
+    {
+      "zona": "Salta",
+      "camara": "Cámara Federal de Apelaciones de Salta",
+      "dependencia": "Juzgado Federal de San Ramón de la Nueva Orán",
+      "direcciones": [
+        "Lamadrid 78"
+      ],
+      "direcciones_texto": "Lamadrid 78"
+    },
+    {
+      "zona": "Salta",
+      "camara": "Cámara Federal de Apelaciones de Salta",
+      "dependencia": "Juzgado Federal N° 1 de Jujuy, Secretaría Electoral y Juzgado Federal N° 2 de Jujuy",
+      "direcciones": [
+        "Belgrano 1252",
+        "San Martín 1190/96"
+      ],
+      "direcciones_texto": "Belgrano 1252; San Martín 1190/96"
+    },
+    {
+      "zona": "Salta",
+      "camara": "Cámara Federal de Apelaciones de Salta",
+      "dependencia": "TOCF de Jujuy y sala de audiencias",
+      "direcciones": [
+        "Senador Pérez 182/187",
+        "Senador Pérez 319"
+      ],
+      "direcciones_texto": "Senador Pérez 182/187; Senador Pérez 319"
+    },
+    {
+      "zona": "Posadas",
+      "camara": "Cámara Federal de Apelaciones de Posadas",
+      "dependencia": "Cámara, Juzgado Federal de Ejecución Penal, Centro Judicial, Secretaría Electoral, Secretaría de DD.HH., archivo y predio",
+      "direcciones": [
+        "Av. Mitre 2358",
+        "Colón 2520",
+        "Av. Santa Catalina esq. Centenario",
+        "Av. Uruguay 2354/2654"
+      ],
+      "direcciones_texto": "Av. Mitre 2358; Colón 2520; Av. Santa Catalina esq. Centenario; Av. Uruguay 2354/2654"
+    },
+    {
+      "zona": "Posadas",
+      "camara": "Cámara Federal de Apelaciones de Posadas",
+      "dependencia": "TOCF Posadas",
+      "direcciones": [
+        "Félix de Azara 2080",
+        "Félix de Azara 2118",
+        "Félix de Azara 2170/4 y 2180"
+      ],
+      "direcciones_texto": "Félix de Azara 2080; Félix de Azara 2118; Félix de Azara 2170/4 y 2180"
+    },
+    {
+      "zona": "Posadas",
+      "camara": "Cámara Federal de Apelaciones de Posadas",
+      "dependencia": "Juzgado Federal de Oberá",
+      "direcciones": [
+        "Larrea 974/984",
+        "San Juan 1791"
+      ],
+      "direcciones_texto": "Larrea 974/984; San Juan 1791"
+    },
+    {
+      "zona": "Posadas",
+      "camara": "Cámara Federal de Apelaciones de Posadas",
+      "dependencia": "Juzgado Federal de Eldorado",
+      "direcciones": [
+        "América 227",
+        "América 234",
+        "San Juan 1791/1794"
+      ],
+      "direcciones_texto": "América 227; América 234; San Juan 1791/1794"
+    },
+    {
+      "zona": "Posadas",
+      "camara": "Cámara Federal de Apelaciones de Posadas",
+      "dependencia": "Juzgado Federal de Puerto Iguazú",
+      "direcciones": [
+        "Correa Luna 250"
+      ],
+      "direcciones_texto": "Correa Luna 250"
+    },
+    {
+      "zona": "Rosario",
+      "camara": "Cámara Federal de Apelaciones de Rosario",
+      "dependencia": "Cámara",
+      "direcciones": [
+        "Entre Ríos 435"
+      ],
+      "direcciones_texto": "Entre Ríos 435"
+    },
+    {
+      "zona": "Rosario",
+      "camara": "Cámara Federal de Apelaciones de Rosario",
+      "dependencia": "Juzgados Federales N° 1 y 2 de Rosario / Juzgados Civiles N° 1 y 2",
+      "direcciones": [
+        "Entre Ríos 730/736"
+      ],
+      "direcciones_texto": "Entre Ríos 730/736"
+    },
+    {
+      "zona": "Rosario",
+      "camara": "Cámara Federal de Apelaciones de Rosario",
+      "dependencia": "TOCF N° 1, 2 y 3; Juzgados Federales N° 3 y 4",
+      "direcciones": [
+        "Bv. Oroño 940"
+      ],
+      "direcciones_texto": "Bv. Oroño 940"
+    },
+    {
+      "zona": "Rosario",
+      "camara": "Cámara Federal de Apelaciones de Rosario",
+      "dependencia": "TOF 3 Rosario / archivo",
+      "direcciones": [
+        "Santa Fe 1020"
+      ],
+      "direcciones_texto": "Santa Fe 1020"
+    },
+    {
+      "zona": "Rosario",
+      "camara": "Cámara Federal de Apelaciones de Rosario",
+      "dependencia": "Predio Canning — TOCF N° 1, 2 y 3, Juzgados Federales N° 1 a 4, Cámara y archivo",
+      "direcciones": [
+        "Canning 120/142 bis"
+      ],
+      "direcciones_texto": "Canning 120/142 bis"
+    },
+    {
+      "zona": "Rosario",
+      "camara": "Cámara Federal de Apelaciones de Rosario",
+      "dependencia": "Juzgado Federal de Venado Tuerto",
+      "direcciones": [
+        "Chacabuco 743"
+      ],
+      "direcciones_texto": "Chacabuco 743"
+    },
+    {
+      "zona": "Rosario",
+      "camara": "Cámara Federal de Apelaciones de Rosario",
+      "dependencia": "TOCF N° 1 de Santa Fe / Juzgados Federales N° 1 y 2 / Secretaría Electoral / Centro de Informática / Secretaría de Ejecución Fiscal",
+      "direcciones": [
+        "Primera Junta 2687/2688",
+        "9 de Julio 1693",
+        "Urquiza 3044/46/48",
+        "San Jerónimo 2024/2034/2044",
+        "Salguero 2024"
+      ],
+      "direcciones_texto": "Primera Junta 2687/2688; 9 de Julio 1693; Urquiza 3044/46/48; San Jerónimo 2024/2034/2044; Salguero 2024"
+    },
+    {
+      "zona": "Rosario",
+      "camara": "Cámara Federal de Apelaciones de Rosario",
+      "dependencia": "Juzgado Federal de Rafaela",
+      "direcciones": [
+        "25 de Mayo 121",
+        "25 de Mayo esq. Moreno 104"
+      ],
+      "direcciones_texto": "25 de Mayo 121; 25 de Mayo esq. Moreno 104"
+    },
+    {
+      "zona": "Rosario",
+      "camara": "Cámara Federal de Apelaciones de Rosario",
+      "dependencia": "Juzgado Federal de Reconquista",
+      "direcciones": [
+        "Belgrano 1170"
+      ],
+      "direcciones_texto": "Belgrano 1170"
+    },
+    {
+      "zona": "Rosario",
+      "camara": "Cámara Federal de Apelaciones de Rosario",
+      "dependencia": "Juzgados Federales N° 1 y 2 de San Nicolás",
+      "direcciones": [
+        "Garibaldi 208",
+        "Garibaldi 214/216",
+        "Ameghino 387"
+      ],
+      "direcciones_texto": "Garibaldi 208; Garibaldi 214/216; Ameghino 387"
+    },
+    {
+      "zona": "Córdoba",
+      "camara": "Cámara Federal de Apelaciones de Córdoba",
+      "dependencia": "Cámara",
+      "direcciones": [
+        "Av. Concepción Arenal 690",
+        "Av. Concepción Arenal y W. Paunero"
+      ],
+      "direcciones_texto": "Av. Concepción Arenal 690; Av. Concepción Arenal y W. Paunero"
+    },
+    {
+      "zona": "Córdoba",
+      "camara": "Cámara Federal de Apelaciones de Córdoba",
+      "dependencia": "TOCF N° 2 y depósito de vehículos (Barrio Dean Funes)",
+      "direcciones": [
+        "Av. Hipólito Yrigoyen 670",
+        "Av. Hipólito Yrigoyen 970",
+        "Antonio Sáenz 4836/38",
+        "Antonio Sáenz 5142"
+      ],
+      "direcciones_texto": "Av. Hipólito Yrigoyen 670; Av. Hipólito Yrigoyen 970; Antonio Sáenz 4836/38; Antonio Sáenz 5142"
+    },
+    {
+      "zona": "Córdoba",
+      "camara": "Cámara Federal de Apelaciones de Córdoba",
+      "dependencia": "TOCF N° 3",
+      "direcciones": [
+        "Faustino Allende 864/866"
+      ],
+      "direcciones_texto": "Faustino Allende 864/866"
+    },
+    {
+      "zona": "Córdoba",
+      "camara": "Cámara Federal de Apelaciones de Córdoba",
+      "dependencia": "Juzgado Federal de Río Cuarto, Secretaría de Ejecución Fiscales, Tributarias y Civiles, y anexo",
+      "direcciones": [
+        "Sobremonte 972",
+        "Dean Funes 663"
+      ],
+      "direcciones_texto": "Sobremonte 972; Dean Funes 663"
+    },
+    {
+      "zona": "Córdoba",
+      "camara": "Cámara Federal de Apelaciones de Córdoba",
+      "dependencia": "Juzgado Federal de Bell Ville y archivo",
+      "direcciones": [
+        "Córdoba 246",
+        "Rodríguez Peña 251"
+      ],
+      "direcciones_texto": "Córdoba 246; Rodríguez Peña 251"
+    },
+    {
+      "zona": "Córdoba",
+      "camara": "Cámara Federal de Apelaciones de Córdoba",
+      "dependencia": "Juzgado Federal y TOCF de La Rioja",
+      "direcciones": [
+        "Joaquín V. González 85",
+        "Av. Perón 258",
+        "Ortiz de Campo 1675"
+      ],
+      "direcciones_texto": "Joaquín V. González 85; Av. Perón 258; Ortiz de Campo 1675"
+    },
+    {
+      "zona": "Córdoba",
+      "camara": "Cámara Federal de Apelaciones de Córdoba",
+      "dependencia": "Juzgado Federal de San Francisco",
+      "direcciones": [
+        "Neuquén 2346",
+        "Pasaje Ciudad Neuquén 2350"
+      ],
+      "direcciones_texto": "Neuquén 2346; Pasaje Ciudad Neuquén 2350"
+    },
+    {
+      "zona": "Córdoba",
+      "camara": "Cámara Federal de Apelaciones de Córdoba",
+      "dependencia": "Juzgado Federal de Villa María",
+      "direcciones": [
+        "9 de Julio 39/43"
+      ],
+      "direcciones_texto": "9 de Julio 39/43"
+    },
+    {
+      "zona": "Mendoza",
+      "camara": "Cámara Federal de Apelaciones de Mendoza",
+      "dependencia": "Cámara, Secretaría Electoral, Secretaría de DD.HH. de TOC N° 1 y 2, Juzgado Federal N° 2",
+      "direcciones": [
+        "Av. España y Pedro Molina",
+        "Av. España 483/955",
+        "San Juan 247",
+        "Av. San Martín 678, 3° y 4° piso",
+        "Av. San Martín esq. Colón"
+      ],
+      "direcciones_texto": "Av. España y Pedro Molina; Av. España 483/955; San Juan 247; Av. San Martín 678, 3° y 4° piso; Av. San Martín esq. Colón"
+    },
+    {
+      "zona": "Mendoza",
+      "camara": "Cámara Federal de Apelaciones de Mendoza",
+      "dependencia": "Juzgado Federal N° 2 — secretarías penales, tributaria, contencioso administrativa y archivo (San Juan)",
+      "direcciones": [
+        "Mitre Oeste 15"
+      ],
+      "direcciones_texto": "Mitre Oeste 15"
+    },
+    {
+      "zona": "Mendoza",
+      "camara": "Cámara Federal de Apelaciones de Mendoza",
+      "dependencia": "TOCF de San Juan y Juzgado Federal N° 1",
+      "direcciones": [
+        "Av. Rioja Sur 280 esq. Mitre Este 330",
+        "Entre Ríos 282"
+      ],
+      "direcciones_texto": "Av. Rioja Sur 280 esq. Mitre Este 330; Entre Ríos 282"
+    },
+    {
+      "zona": "Mendoza",
+      "camara": "Cámara Federal de Apelaciones de Mendoza",
+      "dependencia": "TOCF de San Luis y Juzgado Federal de Villa Mercedes",
+      "direcciones": [
+        "Av. San Martín 801",
+        "Colón 654 (1° y 2°)",
+        "Mitre 559"
+      ],
+      "direcciones_texto": "Av. San Martín 801; Colón 654 (1° y 2°); Mitre 559"
+    },
+    {
+      "zona": "Mendoza",
+      "camara": "Cámara Federal de Apelaciones de Mendoza",
+      "dependencia": "Juzgado Federal de San Luis",
+      "direcciones": [
+        "Belgrano 1020",
+        "Av. Illia 36, 2° y 3° piso"
+      ],
+      "direcciones_texto": "Belgrano 1020; Av. Illia 36, 2° y 3° piso"
+    },
+    {
+      "zona": "Mendoza",
+      "camara": "Cámara Federal de Apelaciones de Mendoza",
+      "dependencia": "Juzgado Federal de San Rafael",
+      "direcciones": [
+        "San Lorenzo 89",
+        "San Lorenzo y Barcala"
+      ],
+      "direcciones_texto": "San Lorenzo 89; San Lorenzo y Barcala"
+    },
+    {
+      "zona": "Comodoro Rivadavia",
+      "camara": "Cámara Federal de Apelaciones de Comodoro Rivadavia",
+      "dependencia": "Cámara",
+      "direcciones": [
+        "25 de Mayo 401"
+      ],
+      "direcciones_texto": "25 de Mayo 401"
+    },
+    {
+      "zona": "Comodoro Rivadavia",
+      "camara": "Cámara Federal de Apelaciones de Comodoro Rivadavia",
+      "dependencia": "TOCF de Comodoro Rivadavia, anexo y sala de audiencias",
+      "direcciones": [
+        "Carlos Pellegrini 450, 1° piso y anexo"
+      ],
+      "direcciones_texto": "Carlos Pellegrini 450, 1° piso y anexo"
+    },
+    {
+      "zona": "Comodoro Rivadavia",
+      "camara": "Cámara Federal de Apelaciones de Comodoro Rivadavia",
+      "dependencia": "Juzgado Federal de Esquel",
+      "direcciones": [
+        "25 de Mayo 505"
+      ],
+      "direcciones_texto": "25 de Mayo 505"
+    },
+    {
+      "zona": "Comodoro Rivadavia",
+      "camara": "Cámara Federal de Apelaciones de Comodoro Rivadavia",
+      "dependencia": "Juzgado Federal de Caleta Olivia",
+      "direcciones": [
+        "Rivadavia 22"
+      ],
+      "direcciones_texto": "Rivadavia 22"
+    },
+    {
+      "zona": "Comodoro Rivadavia",
+      "camara": "Cámara Federal de Apelaciones de Comodoro Rivadavia",
+      "dependencia": "Juzgado Federal N° 1 de Rawson",
+      "direcciones": [
+        "9 de Julio 91 (esq. Rivadavia)"
+      ],
+      "direcciones_texto": "9 de Julio 91 (esq. Rivadavia)"
+    },
+    {
+      "zona": "Comodoro Rivadavia",
+      "camara": "Cámara Federal de Apelaciones de Comodoro Rivadavia",
+      "dependencia": "Juzgado Federal N° 2 de Rawson",
+      "direcciones": [
+        "Av. San Martín 606/666"
+      ],
+      "direcciones_texto": "Av. San Martín 606/666"
+    },
+    {
+      "zona": "Comodoro Rivadavia",
+      "camara": "Cámara Federal de Apelaciones de Comodoro Rivadavia",
+      "dependencia": "Juzgado Federal de Río Gallegos y Secretaría Electoral de Santa Cruz",
+      "direcciones": [
+        "San Martín 709/723",
+        "España 280",
+        "Carlos Pellegrini 106"
+      ],
+      "direcciones_texto": "San Martín 709/723; España 280; Carlos Pellegrini 106"
+    },
+    {
+      "zona": "Comodoro Rivadavia",
+      "camara": "Cámara Federal de Apelaciones de Comodoro Rivadavia",
+      "dependencia": "Juzgado Federal de Río Grande",
+      "direcciones": [
+        "Libertad 731",
+        "San Martín 69, Río Grande"
+      ],
+      "direcciones_texto": "Libertad 731; San Martín 69, Río Grande"
+    },
+    {
+      "zona": "Comodoro Rivadavia",
+      "camara": "Cámara Federal de Apelaciones de Comodoro Rivadavia",
+      "dependencia": "Secretaría Electoral (Comodoro)",
+      "direcciones": [
+        "España 280"
+      ],
+      "direcciones_texto": "España 280"
+    },
+    {
+      "zona": "Comodoro Rivadavia",
+      "camara": "Cámara Federal de Apelaciones de Comodoro Rivadavia",
+      "dependencia": "Juzgado Federal Ushuaia, Secretaría Electoral, TOF Tierra del Fuego, Barrio Empleados y ex viviendas",
+      "direcciones": [
+        "Av. Malvinas Argentinas 182",
+        "Goleta Florencia 1686",
+        "Jainén 66",
+        "casas 1, 2, 3 y 4 del Barrio Empleados",
+        "Av. Malvinas e/ Kayen, Kuanip y Fitz Roy"
+      ],
+      "direcciones_texto": "Av. Malvinas Argentinas 182; Goleta Florencia 1686; Jainén 66; casas 1, 2, 3 y 4 del Barrio Empleados; Av. Malvinas e/ Kayen, Kuanip y Fitz Roy"
+    },
+    {
+      "zona": "Paraná",
+      "camara": "Cámara Federal de Apelaciones de Paraná",
+      "dependencia": "Cámara, Secretaría Electoral y Centro de Cómputos",
+      "direcciones": [
+        "25 de Mayo 256",
+        "Urquiza 836/840"
+      ],
+      "direcciones_texto": "25 de Mayo 256; Urquiza 836/840"
+    },
+    {
+      "zona": "Paraná",
+      "camara": "Cámara Federal de Apelaciones de Paraná",
+      "dependencia": "Tribunal Oral de Paraná",
+      "direcciones": [
+        "Urquiza 868/872"
+      ],
+      "direcciones_texto": "Urquiza 868/872"
+    },
+    {
+      "zona": "Paraná",
+      "camara": "Cámara Federal de Apelaciones de Paraná",
+      "dependencia": "Juzgado Federal de Gualeguaychú",
+      "direcciones": [
+        "25 de Mayo 233",
+        "San Martín 877"
+      ],
+      "direcciones_texto": "25 de Mayo 233; San Martín 877"
+    },
+    {
+      "zona": "Paraná",
+      "camara": "Cámara Federal de Apelaciones de Paraná",
+      "dependencia": "Juzgado Federal de Concepción del Uruguay",
+      "direcciones": [
+        "Galarza 614"
+      ],
+      "direcciones_texto": "Galarza 614"
+    },
+    {
+      "zona": "Paraná",
+      "camara": "Cámara Federal de Apelaciones de Paraná",
+      "dependencia": "Juzgado Federal de Victoria",
+      "direcciones": [
+        "Sarmiento 631"
+      ],
+      "direcciones_texto": "Sarmiento 631"
+    },
+    {
+      "zona": "Paraná",
+      "camara": "Cámara Federal de Apelaciones de Paraná",
+      "dependencia": "Juzgado Federal de Concordia",
+      "direcciones": [
+        "Carriego 228"
+      ],
+      "direcciones_texto": "Carriego 228"
+    },
+    {
+      "zona": "Tucumán",
+      "camara": "Cámara Federal de Apelaciones de Tucumán",
+      "dependencia": "Cámara",
+      "direcciones": [
+        "Piedras / Las Piedras 418"
+      ],
+      "direcciones_texto": "Piedras / Las Piedras 418"
+    },
+    {
+      "zona": "Tucumán",
+      "camara": "Cámara Federal de Apelaciones de Tucumán",
+      "dependencia": "TOCF de Tucumán",
+      "direcciones": [
+        "Chacabuco 125/131"
+      ],
+      "direcciones_texto": "Chacabuco 125/131"
+    },
+    {
+      "zona": "Tucumán",
+      "camara": "Cámara Federal de Apelaciones de Tucumán",
+      "dependencia": "Juzgado Federal N° 3 de Tucumán",
+      "direcciones": [
+        "9 de Julio 142/942"
+      ],
+      "direcciones_texto": "9 de Julio 142/942"
+    },
+    {
+      "zona": "Tucumán",
+      "camara": "Cámara Federal de Apelaciones de Tucumán",
+      "dependencia": "Juzgado Federal de Santiago del Estero, TOCF y Secretaría Electoral",
+      "direcciones": [
+        "Av. Belgrano 510/515/525"
+      ],
+      "direcciones_texto": "Av. Belgrano 510/515/525"
+    },
+    {
+      "zona": "Tucumán",
+      "camara": "Cámara Federal de Apelaciones de Tucumán",
+      "dependencia": "TOF Catamarca / Juzgados Federales N° 1 y 2 de Catamarca",
+      "direcciones": [
+        "Sarmiento 695",
+        "República 323",
+        "Caseros 392"
+      ],
+      "direcciones_texto": "Sarmiento 695; República 323; Caseros 392"
+    },
+    {
+      "zona": "Mar del Plata",
+      "camara": "Cámara Federal de Apelaciones de Mar del Plata",
+      "dependencia": "Cámara, Juzgados Federales N° 1, 2, 3 y 4 y TOCF",
+      "direcciones": [
+        "Diagonal Pueyrredón 3138",
+        "Viamonte 2128",
+        "Bolívar 1052/1053",
+        "Av. Luro 2455",
+        "Av. Independencia 2024/32"
+      ],
+      "direcciones_texto": "Diagonal Pueyrredón 3138; Viamonte 2128; Bolívar 1052/1053; Av. Luro 2455; Av. Independencia 2024/32"
+    },
+    {
+      "zona": "Mar del Plata",
+      "camara": "Cámara Federal de Apelaciones de Mar del Plata",
+      "dependencia": "Juzgado Federal de Necochea",
+      "direcciones": [
+        "Calle 56 N° 3003",
+        "Calle 61 N° 7630"
+      ],
+      "direcciones_texto": "Calle 56 N° 3003; Calle 61 N° 7630"
+    },
+    {
+      "zona": "Mar del Plata",
+      "camara": "Cámara Federal de Apelaciones de Mar del Plata",
+      "dependencia": "Juzgados Federales N° 1 y 2 de Azul y archivo",
+      "direcciones": [
+        "De Paula 468/474",
+        "Burgos 475 (3 inmuebles contiguos con zonas comunes)",
+        "Av. 25 de Mayo 495"
+      ],
+      "direcciones_texto": "De Paula 468/474; Burgos 475 (3 inmuebles contiguos con zonas comunes); Av. 25 de Mayo 495"
+    },
+    {
+      "zona": "Mar del Plata",
+      "camara": "Cámara Federal de Apelaciones de Mar del Plata",
+      "dependencia": "Juzgado Federal de Dolores",
+      "direcciones": [
+        "Buenos Aires 127, 1° piso",
+        "Alem 584"
+      ],
+      "direcciones_texto": "Buenos Aires 127, 1° piso; Alem 584"
+    },
+    {
+      "zona": "Corrientes",
+      "camara": "Cámara Federal de Apelaciones de Corrientes",
+      "dependencia": "Cámara y TOF",
+      "direcciones": [
+        "Carlos Pellegrini 971/999",
+        "25 de Mayo 970"
+      ],
+      "direcciones_texto": "Carlos Pellegrini 971/999; 25 de Mayo 970"
+    },
+    {
+      "zona": "Corrientes",
+      "camara": "Cámara Federal de Apelaciones de Corrientes",
+      "dependencia": "Juzgado Federal N° 2 de Corrientes",
+      "direcciones": [
+        "Belgrano 1326"
+      ],
+      "direcciones_texto": "Belgrano 1326"
+    },
+    {
+      "zona": "Corrientes",
+      "camara": "Cámara Federal de Apelaciones de Corrientes",
+      "dependencia": "Oficina Judicial Federal — sede central",
+      "direcciones": [
+        "San Juan 1098"
+      ],
+      "direcciones_texto": "San Juan 1098"
+    },
+    {
+      "zona": "Corrientes",
+      "camara": "Cámara Federal de Apelaciones de Corrientes",
+      "dependencia": "Juzgado Federal de Goya",
+      "direcciones": [
+        "Belgrano 942"
+      ],
+      "direcciones_texto": "Belgrano 942"
+    },
+    {
+      "zona": "Corrientes",
+      "camara": "Cámara Federal de Apelaciones de Corrientes",
+      "dependencia": "Juzgado Federal de Primera Instancia de Paso de los Libres",
+      "direcciones": [
+        "Los 108 N° 83 / Calle de los 108 N° 837"
+      ],
+      "direcciones_texto": "Los 108 N° 83 / Calle de los 108 N° 837"
+    }
+  ]
+}

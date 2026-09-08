@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ClipboardList } from "lucide-react";
 import { TIPOS_SERVICIOS, ZONAS, ALERTA_ESTILO } from "@/lib/constants";
-import { diasRestantes, alerta, diasFrenado, fmtFecha } from "@/lib/utils";
+import { diasRestantes, alerta, alertaFrenado, diasFrenado, fmtFecha } from "@/lib/utils";
 
 export default function InformeServicios({ expedientes }) {
   const [tipoFiltro, setTipoFiltro] = useState("Todos");
@@ -150,7 +150,13 @@ export default function InformeServicios({ expedientes }) {
                               {dias >= 0 ? dias + " días" : Math.abs(dias) + " días vencido"}
                             </span>
                           </td>
-                          <td className="py-2.5 px-5 text-slate-600">{frenado != null ? frenado + " días" : "-"}</td>
+                          <td className="py-2.5 px-5">
+                            {frenado != null ? (
+                              <span className={"text-[11px] font-medium px-2 py-0.5 rounded border " + ALERTA_ESTILO[alertaFrenado(frenado)]}>
+                                {frenado + " días"}
+                              </span>
+                            ) : "-"}
+                          </td>
                           <td className="py-2.5 px-5 text-slate-500">{e.agente}</td>
                         </tr>
                       );

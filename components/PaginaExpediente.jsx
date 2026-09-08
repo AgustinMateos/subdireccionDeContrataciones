@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil, Trash2, Shield, Clock } from "lucide-react";
-import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, ESTADOS_CONVOCATORIA_FALLIDOS } from "@/lib/constants";
-import { diasRestantes, alerta, fmtFecha, fmtMoneda, documentacionDeExpediente, diasFrenado } from "@/lib/utils";
+import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, ESTADOS_CONVOCATORIA_FALLIDOS, SECTORES } from "@/lib/constants";
+import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtMoneda, documentacionDeExpediente, diasFrenado } from "@/lib/utils";
 export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onActivarProrroga, onGenerarParche, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
   const [verMasAntecedentes, setVerMasAntecedentes] = useState(false);
   const cadena = expedientes.filter(e => e.cadenaId === exp.cadenaId);
@@ -179,9 +179,17 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <Campo label="N° de resolución" valor={exp.nroResolucion} />
             <Campo label={(exp.organismos || []).length > 1 ? "Organismos" : "Organismo"} valor={(exp.organismos || []).join(", ")} />
             <Campo label="Sector actual" valor={exp.sector} />
-            {frenado != null && <Campo label="Días frenado" valor={frenado + " día" + (frenado !== 1 ? "s" : "")} />}
+            {frenado != null && (
+              <Campo label="Días frenado" valor={
+                <span className={"text-[11px] font-medium px-2 py-0.5 rounded border " + ALERTA_ESTILO[alertaFrenado(frenado)]}>
+                  {frenado + " día" + (frenado !== 1 ? "s" : "")}
+                </span>
+              } />
+            )}
             <Campo label="Encuadre" valor={exp.encuadre} />
-            <Campo label="OC / Resolución" valor={exp.ocResolucion} />
+            <Campo label="OC" valor={exp.ocResolucion} />
+            <Campo label="Resolución de llamado" valor={exp.resolucionLlamado} />
+            <Campo label="Resolución de adjudicación" valor={exp.resolucionAdjudicacion} />
             <Campo label="Adjudicatario" valor={exp.adjudicatario} />
             <Campo label="Etapa" valor={exp.etapa} />
             <Campo label="Fecha inicio" valor={fmtFecha(exp.fechaInicio)} />
@@ -192,10 +200,10 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             
           </div>
 
-          {(exp.fuero || exp.zona || exp.codigoInterno || exp.estadoConvocatoria || exp.tipoParche) && (
+          {((exp.fuero || []).length > 0 || exp.zona || exp.codigoInterno || exp.estadoConvocatoria || exp.tipoParche) && (
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm border-t border-slate-100 pt-4">
               {exp.zona && <Campo label="Zona" valor={exp.zona} />}
-              {exp.fuero && <Campo label="Fuero" valor={exp.fuero} />}
+              {(exp.fuero || []).length > 0 && <Campo label={exp.fuero.length > 1 ? "Fueros" : "Fuero"} valor={exp.fuero.join(", ")} />}
               {exp.codigoInterno && <Campo label="Código interno" valor={exp.codigoInterno} />}
               {exp.estadoConvocatoria && <Campo label="Estado de convocatoria" valor={exp.estadoConvocatoria} />}
               {exp.tipoParche && <Campo label="Tipo de parche" valor={exp.detalleParche ? exp.tipoParche + " — " + exp.detalleParche : exp.tipoParche} />}
@@ -406,11 +414,14 @@ function ItemObservacion({ obs, expId, esJefe, onEditar, onEliminar }) {
           {esMovimiento && (
             <div>
               <label className="block text-[11px] font-medium text-slate-500 mb-1">Sector destino</label>
-              <input
+              <select
                 value={sectorNuevo}
                 onChange={e => setSectorNuevo(e.target.value)}
-                className="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-700"
-              />
+                className="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-700"
+              >
+                <option value="">— Sin definir —</option>
+                {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
           )}
           <textarea
@@ -466,8 +477,11 @@ function FormObservacion({ exp, onObservacion }) {
           <label className="block text-[11px] font-medium text-slate-500 mb-1">
             Nuevo sector (actual: {exp.sector || "-"})
           </label>
-          <input value={sectorNuevo} onChange={e => setSectorNuevo(e.target.value)} placeholder="Ej: Contable, Asesoría Legal, Contrataciones..."
-            className="w-full text-xs border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+          <select value={sectorNuevo} onChange={e => setSectorNuevo(e.target.value)}
+            className="w-full text-xs border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-700">
+            <option value="">— Sin definir —</option>
+            {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
         </div>
       )}
 

@@ -373,11 +373,11 @@ export default function App() {
     return true;
   }
 
-  async function crearRenovacion(vigente, exp) {
+  async function crearRenovacion(vigente, datos) {
     const res = await fetch("/api/expedientes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ renovarDeId: vigente.id, exp }),
+      body: JSON.stringify({ renovarDeId: vigente.id, ...datos }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -600,6 +600,7 @@ export default function App() {
       {formAbierto === "caratular" && (
         <CaratularExpediente
           departamentoSlug={sesion.departamentoSlug}
+          esJefe={esJefe}
           expedientes={expedientes}
           onCerrar={() => setFormAbierto(null)}
           onGuardar={async (datos) => {
@@ -655,8 +656,9 @@ export default function App() {
       {formAbierto === "renovacion" && seleccionado && (
         <ConfirmarRenovacion
           exp={seleccionado}
+          expedientes={expedientes}
           onCerrar={() => setFormAbierto(null)}
-          onConfirmar={(expNuevo) => crearRenovacion(seleccionado, expNuevo)}
+          onConfirmar={(datos) => crearRenovacion(seleccionado, datos)}
         />
       )}
 
