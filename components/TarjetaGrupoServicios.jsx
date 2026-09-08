@@ -1,14 +1,17 @@
 "use client";
 
+import { MapPin } from "lucide-react";
 import { ALERTA_ESTILO, ESTADO_ESTILO } from "@/lib/constants";
 import { diasRestantes, alerta, fmtFecha } from "@/lib/utils";
+import { direccionesDe } from "@/lib/organismosFueros";
 
 // Varios expedientes de Servicios que son "la misma prestación" repetida
 // (mismo tipo de servicio, mismo fuero y misma zona) con distinto N° de
 // expediente se agrupan en una sola card, para no repetir la misma info una
 // y otra vez en el listado.
 export default function TarjetaGrupoServicios({ grupo, onVer }) {
-  const { tipo, zona, fuero, items } = grupo;
+  const { tipo, zona, fuero, organismos, items } = grupo;
+  const direcciones = direccionesDe(organismos, fuero);
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
@@ -19,8 +22,17 @@ export default function TarjetaGrupoServicios({ grupo, onVer }) {
           </span>
         )}
       </div>
+      {organismos.length > 0 && (
+        <div className="text-[11px] font-medium text-slate-700 -mt-1">{organismos.join(" · ")}</div>
+      )}
       {fuero.length > 0 && (
-        <div className="text-[11px] text-slate-500 -mt-1">{fuero.join(" · ")}</div>
+        <div className="text-[11px] text-slate-500">{fuero.join(" · ")}</div>
+      )}
+      {direcciones.length > 0 && (
+        <div className="flex items-start gap-1.5 text-[11px] text-slate-400">
+          <MapPin size={12} className="mt-0.5 shrink-0" />
+          <span>{direcciones.join(" · ")}</span>
+        </div>
       )}
 
       <div className="divide-y divide-slate-100 border-t border-slate-100">

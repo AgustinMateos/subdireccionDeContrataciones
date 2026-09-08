@@ -204,7 +204,8 @@ export default function App() {
     return orden.map(clave => {
       const items = grupos.get(clave);
       if (items.length === 1) return { tipo: "individual", exp: items[0] };
-      return { tipo: "grupo", clave, grupo: { tipo: items[0].tipo, zona: items[0].zona, fuero: items[0].fuero || [], items } };
+      const organismos = Array.from(new Set(items.flatMap(i => i.organismos || [])));
+      return { tipo: "grupo", clave, grupo: { tipo: items[0].tipo, zona: items[0].zona, fuero: items[0].fuero || [], organismos, items } };
     });
   }, [filtrados, sesion?.departamentoSlug]);
 

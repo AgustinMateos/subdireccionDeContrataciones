@@ -122,7 +122,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
             </div>
             <Campo_Select label="Sector actual" value={f.sector} onChange={v => set("sector", v)}
               opciones={["", ...SECTORES]} labels={{ "": "— Sin definir —" }} />
-            <Campo_Select label="Zona" value={f.zona} onChange={v => set("zona", v)} opciones={ZONAS} />
+            <Campo_Select label="Zona" value={esVinculoAVigente ? (coincidenciaAntecedente.zona || "") : f.zona} onChange={v => set("zona", v)} opciones={ZONAS} disabled={esVinculoAVigente} />
             {esServicios && (
               <>
                 <CampoFuero id="lista-fueros-form" organismos={f.organismos} fueros={f.fuero} onChange={v => set("fuero", v)} />

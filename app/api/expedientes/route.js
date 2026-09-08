@@ -233,25 +233,29 @@ export async function POST(request) {
   // si tiene la prórroga activada) o el del parche más tardío — el que sea
   // más tarde. Se mira TODA la cadena, sin importar si lo que se referenció
   // como antecedente fue el propio vigente o uno de sus parches.
-  if (body.idVigenteAActualizar && body.fechaInicio) {
-    const referencia = await prisma.expediente.findUnique({ where: { id: body.idVigenteAActualizar } });
-    if (!referencia || referencia.departamentoId !== session.user.departamentoId) {
+  let referenciaVigente = null;
+  if (body.idVigenteAActualizar) {
+    referenciaVigente = await prisma.expediente.findUnique({ where: { id: body.idVigenteAActualizar } });
+    if (!referenciaVigente || referenciaVigente.departamentoId !== session.user.departamentoId) {
       return NextResponse.json({ error: "Expediente de referencia no encontrado" }, { status: 404 });
     }
-    const cadenaCompleta = await prisma.expediente.findMany({ where: { cadenaId: referencia.cadenaId } });
-    const fechaMinima = cadenaCompleta
-      .filter(e => e.rol === "vigente" || e.rol === "parche")
-      .reduce((max, e) => (!max || e.fechaVencimiento > max ? e.fechaVencimiento : max), null);
-    if (fechaMinima && new Date(body.fechaInicio) < fechaMinima) {
-      return NextResponse.json({
-        error: "La fecha de inicio de la renovación no puede ser anterior a " + fechaMinima.toISOString().slice(0, 10),
-      }, { status: 400 });
+    if (body.fechaInicio) {
+      const cadenaCompleta = await prisma.expediente.findMany({ where: { cadenaId: referenciaVigente.cadenaId } });
+      const fechaMinima = cadenaCompleta
+        .filter(e => e.rol === "vigente" || e.rol === "parche")
+        .reduce((max, e) => (!max || e.fechaVencimiento > max ? e.fechaVencimiento : max), null);
+      if (fechaMinima && new Date(body.fechaInicio) < fechaMinima) {
+        return NextResponse.json({
+          error: "La fecha de inicio de la renovación no puede ser anterior a " + fechaMinima.toISOString().slice(0, 10),
+        }, { status: 400 });
+      }
     }
   }
 
   // La renovación de un vigente arranca su propio trámite: sin N° de
   // contratación, presupuesto ni monto adjudicado todavía, sin importar lo
-  // que se haya tipeado en el formulario.
+  // que se haya tipeado en el formulario. La zona es la misma de donde surge,
+  // no se puede elegir otra al vincular.
   const esRenovacionVinculada = !!body.idVigenteAActualizar;
 
   const nuevo = await prisma.expediente.create({
@@ -284,7 +288,7 @@ export async function POST(request) {
       etapa: body.etapa || null,
       estadoGeneral: body.estadoGeneral || "Vigente",
       fuero: normalizarFuero(body),
-      zona: body.zona || null,
+      zona: esRenovacionVinculada ? (referenciaVigente.zona || null) : (body.zona || null),
       codigoInterno: body.codigoInterno || null,
       estadoConvocatoria: body.estadoConvocatoria || null,
       tieneProrroga: !!body.tieneProrroga,
