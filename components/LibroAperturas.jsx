@@ -2,8 +2,11 @@
 
 import { useState, useMemo } from "react";
 import { Plus, X, BookOpen } from "lucide-react";
-import { TIPOS_CONTRATACION_LIBRO, TIPOS_SIN_APERTURA, HORARIOS_APERTURA, TOTAL_ANUAL_LIBRO, CONTRATACIONES_INICIALES, FERIADOS_2026 } from "@/lib/constants";
+import { TIPOS_CONTRATACION_LIBRO, TIPOS_SIN_APERTURA, HORARIOS_APERTURA, TOTAL_ANUAL_LIBRO, CONTRATACIONES_INICIALES, FERIADOS_2026, HOY } from "@/lib/constants";
 import { esDiaHabilLibro, horariosOcupadosEnFecha, proximaAperturaLibreLibro, proximosSlotsLibro, requiereApertura, fmtFecha } from "@/lib/utils";
+
+const HOY_ISO = HOY.getFullYear() + "-" + String(HOY.getMonth() + 1).padStart(2, "0") + "-" + String(HOY.getDate()).padStart(2, "0");
+
 export default function LibroAperturas({ sesion, mostrarToast }) {
   const [contrataciones, setContrataciones] = useState(CONTRATACIONES_INICIALES);
   const [busqueda, setBusqueda] = useState("");
@@ -29,7 +32,7 @@ export default function LibroAperturas({ sesion, mostrarToast }) {
   }, [contrataciones, organismoFiltro, tipoFiltro, busqueda]);
 
   const proximosSlots = useMemo(
-    () => proximosSlotsLibro(6, "2026-08-19", contrataciones, feriadosSet),
+    () => proximosSlotsLibro(6, HOY_ISO, contrataciones, feriadosSet),
     [contrataciones, feriadosSet]
   );
 
@@ -163,11 +166,11 @@ export default function LibroAperturas({ sesion, mostrarToast }) {
 
 function FormularioLibroAperturas({ contrataciones, feriadosSet, onCerrar, onGuardar }) {
   const sugerencia = useMemo(() => {
-    const anioActual = 2026;
+    const anioActual = HOY.getFullYear();
     const ultimo = contrataciones.filter(c => c.anio === anioActual).sort((a, b) => b.numeroOrden - a.numeroOrden)[0];
     const numeroOrden = (ultimo?.numeroOrden || 0) + 1;
     const totalAnual = ultimo?.totalAnual || TOTAL_ANUAL_LIBRO;
-    const slot = proximaAperturaLibreLibro("2026-08-19", contrataciones, feriadosSet);
+    const slot = proximaAperturaLibreLibro(HOY_ISO, contrataciones, feriadosSet);
     return { numeroOrden, totalAnual, fecha: slot?.fecha || "", hora: slot?.hora || null };
   }, [contrataciones, feriadosSet]);
 
