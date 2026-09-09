@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPin } from "lucide-react";
+import { MapPin, Clock } from "lucide-react";
 import { ALERTA_ESTILO, ESTADO_ESTILO } from "@/lib/constants";
 import { diasRestantes, alerta, fmtFecha } from "@/lib/utils";
 import { direccionesDe } from "@/lib/organismosFueros";
@@ -37,6 +37,7 @@ export default function TarjetaGrupoServicios({ grupo, onVer }) {
 
       <div className="divide-y divide-slate-100 border-t border-slate-100">
         {items.map(exp => {
+          const esRenovacion = exp.rol === "renovacion";
           const dias = diasRestantes(exp.fechaVencimiento);
           const niv = alerta(dias);
           return (
@@ -48,14 +49,31 @@ export default function TarjetaGrupoServicios({ grupo, onVer }) {
               <div className="min-w-0">
                 <div className="font-mono text-xs font-semibold text-slate-900">{exp.exp}</div>
                 <div className="text-[11px] text-slate-500 truncate">Agente {exp.agente}</div>
+                {esRenovacion && (
+                  <div className="text-[11px] text-slate-500 truncate">
+                    {exp.sector || "Sin sector"} · {exp.estadoConvocatoria || "Sin estado de convocatoria"}
+                  </div>
+                )}
               </div>
               <div className="flex flex-col items-end gap-1 shrink-0">
                 <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ESTADO_ESTILO[exp.estadoGeneral]}>
                   {exp.estadoGeneral}
                 </span>
-                <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[niv]}>
-                  {dias >= 0 ? "Vence " + fmtFecha(exp.fechaVencimiento) : Math.abs(dias) + " días vencido"}
-                </span>
+                {esRenovacion ? (
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-slate-300 text-slate-600">
+                    {exp.fechaInicio ? "Arranca " + fmtFecha(exp.fechaInicio) : "Sin fecha de inicio"}
+                  </span>
+                ) : (
+                  <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[niv]}>
+                    {dias >= 0 ? "Vence " + fmtFecha(exp.fechaVencimiento) : Math.abs(dias) + " días vencido"}
+                  </span>
+                )}
+                {!esRenovacion && exp.tieneProrroga && (
+                  <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border flex items-center gap-1 " +
+                    (exp.prorrogaActivada ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800")}>
+                    <Clock size={10} /> {exp.prorrogaActivada ? "Prórroga activada" : "Puede activar prórroga"}
+                  </span>
+                )}
               </div>
             </button>
           );
