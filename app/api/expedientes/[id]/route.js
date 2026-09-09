@@ -241,6 +241,29 @@ export async function PUT(request, { params }) {
       },
       include: INCLUDE_EXPEDIENTE,
     });
+
+    // Si ya hay una renovación en trámite en la misma cadena, su período deja
+    // de ser correlativo (la prórroga corrió la cobertura) — se corre para
+    // que arranque justo al día siguiente, conservando la duración que tenía
+    // planificada. Mismo ajuste que se hace al generar un parche nuevo.
+    const renovacionEnTramite = await prisma.expediente.findFirst({
+      where: { cadenaId: exp.cadenaId, rol: "renovacion", departamentoId: session.user.departamentoId },
+    });
+    if (renovacionEnTramite) {
+      const nuevaFechaInicio = new Date(nuevaFecha);
+      nuevaFechaInicio.setDate(nuevaFechaInicio.getDate() + 1);
+      const duracionMs = renovacionEnTramite.fechaInicio
+        ? new Date(renovacionEnTramite.fechaVencimiento) - new Date(renovacionEnTramite.fechaInicio)
+        : 0;
+      await prisma.expediente.update({
+        where: { id: renovacionEnTramite.id },
+        data: {
+          fechaInicio: nuevaFechaInicio,
+          fechaVencimiento: new Date(nuevaFechaInicio.getTime() + duracionMs),
+        },
+      });
+    }
+
     return NextResponse.json({ expediente: actualizado });
   }
 
