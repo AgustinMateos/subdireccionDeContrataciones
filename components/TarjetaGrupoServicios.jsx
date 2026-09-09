@@ -2,7 +2,7 @@
 
 import { MapPin, Clock } from "lucide-react";
 import { ALERTA_ESTILO, ESTADO_ESTILO } from "@/lib/constants";
-import { diasRestantes, alerta, fmtFecha } from "@/lib/utils";
+import { diasRestantes, alerta, fmtFecha, diasFrenado, alertaFrenado } from "@/lib/utils";
 import { direccionesDe } from "@/lib/organismosFueros";
 
 // Varios expedientes de Servicios que son "la misma prestación" repetida
@@ -40,6 +40,7 @@ export default function TarjetaGrupoServicios({ grupo, onVer }) {
           const esRenovacion = exp.rol === "renovacion";
           const dias = diasRestantes(exp.fechaVencimiento);
           const niv = alerta(dias);
+          const frenado = esRenovacion ? diasFrenado(exp.observaciones) : null;
           return (
             <button
               key={exp.id}
@@ -60,9 +61,16 @@ export default function TarjetaGrupoServicios({ grupo, onVer }) {
                   {exp.estadoGeneral}
                 </span>
                 {esRenovacion ? (
-                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-slate-300 text-slate-600">
-                    {exp.fechaInicio ? "Arranca " + fmtFecha(exp.fechaInicio) : "Sin fecha de inicio"}
-                  </span>
+                  <>
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-slate-300 text-slate-600">
+                      {exp.fechaInicio ? "Arranca " + fmtFecha(exp.fechaInicio) : "Sin fecha de inicio"}
+                    </span>
+                    {frenado != null && (
+                      <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[alertaFrenado(frenado)]}>
+                        Frenado hace {frenado} día{frenado !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </>
                 ) : (
                   <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[niv]}>
                     {dias >= 0 ? "Vence " + fmtFecha(exp.fechaVencimiento) : Math.abs(dias) + " días vencido"}
