@@ -113,8 +113,8 @@ export async function POST(request) {
           exp: body.exp.trim(),
           nombreCorto: vigente.nombreCorto,
           // La renovación arranca su propio trámite: sin N° de contratación,
-          // presupuesto, monto adjudicado, OC ni resoluciones todavía (se
-          // cargan a medida que avanza, hasta adjudicarla).
+          // presupuesto, monto adjudicado, adjudicatario, OC ni resoluciones
+          // todavía (se cargan a medida que avanza, hasta adjudicarla).
           nroContratacion: null,
           nroResolucion: vigente.nroResolucion,
           departamentoId: session.user.departamentoId,
@@ -137,8 +137,11 @@ export async function POST(request) {
           ocResolucion: null,
           resolucionLlamado: null,
           resolucionAdjudicacion: null,
-          adjudicatario: vigente.adjudicatario,
+          adjudicatario: null,
           sector: vigente.sector,
+          zona: vigente.zona,
+          fuero: vigente.fuero,
+          codigoInterno: vigente.codigoInterno,
           etapa: "En trámite - carátula inicial",
           estadoGeneral: "En trámite de renovación",
         },
