@@ -14,6 +14,7 @@ function normalizarExpediente(e) {
   return {
     ...e,
     organismos: Array.isArray(e.organismos) ? e.organismos : e.organismo ? [e.organismo] : [],
+    domiciliosRenglones: Array.isArray(e.domiciliosRenglones) ? e.domiciliosRenglones : [],
     fechaInicio: e.fechaInicio ? String(e.fechaInicio).slice(0, 10) : "",
     fechaVencimiento: e.fechaVencimiento ? String(e.fechaVencimiento).slice(0, 10) : "",
     fechaPublicacion: e.fechaPublicacion ? String(e.fechaPublicacion).slice(0, 10) : "",
@@ -70,6 +71,7 @@ import CaratularExpediente from "./CaratularExpediente";
 import ConfirmarRenovacion from "./ConfirmarRenovacion";
 import ActivarProrroga from "./ActivarProrroga";
 import GenerarParche from "./GenerarParche";
+import DividirExpediente from "./DividirExpediente";
 import CotizadorTaquigrafico from "./CotizadorTaquigrafico";
 import CotizadorPolicia from "./CotizadorPolicia";
 import CotizadorAvisos from "./CotizadorAvisos";
@@ -467,6 +469,38 @@ export default function App() {
     mostrarToast("Parche generado y vinculado a " + origen.exp);
   }
 
+  async function crearDivision(origen, datos) {
+    const res = await fetch("/api/expedientes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ divisionDeId: origen.id, ...datos }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      mostrarToast(data.error || "No se pudo dividir el expediente");
+      return;
+    }
+    const data = await res.json();
+    await refrescar(data.expediente?.id);
+    setFormAbierto(null);
+    mostrarToast("Expediente dividido — el resto queda vinculado a " + origen.exp);
+  }
+
+  async function reunificar(exp, unificado) {
+    const res = await fetch(`/api/expedientes/${exp.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reunificar: unificado }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      mostrarToast(data.error || "No se pudo actualizar la unificación");
+      return;
+    }
+    await refrescar(exp.id);
+    mostrarToast(unificado ? "Expedientes reunificados" : "Expedientes separados de nuevo");
+  }
+
   if (status === "loading") {
     return <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">Cargando...</div>;
   }
@@ -536,6 +570,8 @@ export default function App() {
             onActivar={() => activarRenovacion(seleccionado)}
             onActivarProrroga={() => setFormAbierto("activarProrroga")}
             onGenerarParche={() => setFormAbierto("generarParche")}
+            onDividir={() => setFormAbierto("dividir")}
+            onReunificar={(unificado) => reunificar(seleccionado, unificado)}
             puedeEditar={puedeEditar}
             puedeEliminar={puedeEliminar}
             esJefe={esJefe}
@@ -701,6 +737,14 @@ export default function App() {
           exp={seleccionado}
           onCerrar={() => setFormAbierto(null)}
           onConfirmar={(datos) => crearParche(seleccionado, datos)}
+        />
+      )}
+
+      {formAbierto === "dividir" && seleccionado && (
+        <DividirExpediente
+          exp={seleccionado}
+          onCerrar={() => setFormAbierto(null)}
+          onConfirmar={(datos) => crearDivision(seleccionado, datos)}
         />
       )}
     </div>

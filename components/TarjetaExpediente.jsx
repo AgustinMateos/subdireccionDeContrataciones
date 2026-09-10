@@ -1,7 +1,7 @@
 "use client";
 
 import { AREA_ESTILO, AREA_LABEL, ALERTA_ESTILO, ALERTA_LABEL, ESTADO_ESTILO, FUERZA_LABEL } from "@/lib/constants";
-import { diasRestantes, alerta, fmtFecha, fmtMoneda } from "@/lib/utils";
+import { diasRestantes, alerta, fmtFecha, fmtMoneda, estadoGeneralMostrado } from "@/lib/utils";
 export default function TarjetaExpediente({ exp, onVer }) {
   const dias = diasRestantes(exp.fechaVencimiento);
   const niv = alerta(dias);
@@ -39,8 +39,8 @@ export default function TarjetaExpediente({ exp, onVer }) {
         <span className="font-medium text-slate-900">{fmtMoneda(exp.montoARS)}</span>
       </div>
 
-      <span className={"text-[11px] font-medium px-2 py-1 rounded border self-start " + ESTADO_ESTILO[exp.estadoGeneral]}>
-        {exp.estadoGeneral}
+      <span className={"text-[11px] font-medium px-2 py-1 rounded border self-start " + ESTADO_ESTILO[estadoGeneralMostrado(exp)]}>
+        {estadoGeneralMostrado(exp)}
       </span>
     </button>
   );

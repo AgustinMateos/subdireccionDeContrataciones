@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE } from "@/lib/constants";
+import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA } from "@/lib/constants";
 
 const INCLUDE_EXPEDIENTE = {
   observaciones: { orderBy: { fecha: "asc" } },
@@ -22,6 +22,11 @@ function normalizarFuero(body) {
     return body.fuero.map((f) => String(f).trim()).filter(Boolean);
   }
   return body.fuero ? [String(body.fuero).trim()].filter(Boolean) : [];
+}
+
+function normalizarLista(valor) {
+  if (Array.isArray(valor)) return valor.map((v) => String(v).trim()).filter(Boolean);
+  return valor ? [String(valor).trim()].filter(Boolean) : [];
 }
 
 export async function GET(request) {
@@ -231,6 +236,72 @@ export async function POST(request) {
     return NextResponse.json({ expediente: nuevoParche }, { status: 201 });
   }
 
+  // ---------- Dividir expediente (adjudicación parcial) ----------
+  // Algunos domicilios/renglones de una convocatoria pueden no adjudicarse
+  // (quedan desiertos/fracasados) mientras el resto sigue su curso. Esa
+  // porción se separa en un expediente propio, con su propia cadena, pero
+  // conservando la relación con el expediente del que salió (divisionDeId)
+  // para poder "reunificarlos" más adelante si los períodos coinciden.
+  if (body.divisionDeId) {
+    if (!body.exp || !body.exp.trim()) {
+      return NextResponse.json({ error: "Cargá el N° de expediente de la división" }, { status: 400 });
+    }
+    if (!body.fechaVencimiento) {
+      return NextResponse.json({ error: "Cargá la fecha de vencimiento de la división" }, { status: 400 });
+    }
+    const origen = await prisma.expediente.findUnique({ where: { id: body.divisionDeId } });
+    if (!origen || origen.departamentoId !== session.user.departamentoId) {
+      return NextResponse.json({ error: "Expediente de origen no encontrado" }, { status: 404 });
+    }
+    const domiciliosMovidos = normalizarLista(body.domiciliosRenglones);
+    if (domiciliosMovidos.length === 0) {
+      return NextResponse.json({ error: "Elegí al menos un domicilio/renglón para dividir" }, { status: 400 });
+    }
+
+    let nuevaDivision;
+    try {
+      nuevaDivision = await prisma.expediente.create({
+        data: {
+          cadenaId: "c" + Date.now(),
+          rol: "vigente",
+          exp: body.exp.trim(),
+          departamentoId: session.user.departamentoId,
+          area: origen.area,
+          tipo: origen.tipo,
+          agente: origen.agente,
+          organismos: origen.organismos,
+          objeto: body.objeto || origen.objeto,
+          fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
+          fechaVencimiento: new Date(body.fechaVencimiento),
+          estadoGeneral: "En trámite de renovación",
+          sector: origen.sector,
+          zona: origen.zona,
+          fuero: origen.fuero,
+          estadoConvocatoria: session.user.departamentoSlug === "servicios" ? ESTADOS_CONVOCATORIA[0] : null,
+          domiciliosRenglones: domiciliosMovidos,
+          divisionDeId: origen.id,
+        },
+        include: INCLUDE_EXPEDIENTE,
+      });
+    } catch (e) {
+      if (e.code === "P2002") {
+        return NextResponse.json({ error: "Ya existe un expediente con ese número" }, { status: 409 });
+      }
+      throw e;
+    }
+
+    // Los domicilios/renglones divididos dejan de estar cubiertos por el
+    // expediente de origen.
+    await prisma.expediente.update({
+      where: { id: origen.id },
+      data: {
+        domiciliosRenglones: (origen.domiciliosRenglones || []).filter(v => !domiciliosMovidos.includes(v)),
+      },
+    });
+
+    return NextResponse.json({ expediente: nuevaDivision }, { status: 201 });
+  }
+
   // ---------- Alta normal de expediente ----------
   // Si esto va a ser la renovación de una cadena, no puede empezar antes de
   // que termine la cobertura actual: el vencimiento del vigente (ya extendido
@@ -298,6 +369,7 @@ export async function POST(request) {
       codigoInterno: body.codigoInterno || null,
       estadoConvocatoria: body.estadoConvocatoria || null,
       tieneProrroga: !!body.tieneProrroga,
+      domiciliosRenglones: normalizarLista(body.domiciliosRenglones),
     },
     include: INCLUDE_EXPEDIENTE,
   });

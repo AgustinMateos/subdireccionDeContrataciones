@@ -115,10 +115,23 @@ model Expediente {
   codigoInterno      String? // código corto de la planilla, ej "02ID", "01LA"
   estadoConvocatoria String? // vocabulario propio de Servicios (string libre, la lista puede crecer)
 
+  // Adjudicación parcial: cuando algunos domicilios/renglones de una
+  // convocatoria no se adjudican (quedan desiertos/fracasados), se separan en
+  // un expediente propio ("Dividir expediente") que referencia de dónde
+  // surgió (divisionDeId) sin perder esa relación. Si más adelante los
+  // períodos de ambos vuelven a coincidir, se marcan como `unificado` — solo
+  // se vinculan visualmente, no se fusionan las filas.
+  domiciliosRenglones String[]     @default([])
+  divisionDeId        String?
+  divisionDe          Expediente?  @relation("DivisionExpediente", fields: [divisionDeId], references: [id])
+  divisiones          Expediente[] @relation("DivisionExpediente")
+  unificado           Boolean      @default(false)
+
   observaciones Observacion[]
   documentacion DocumentacionItem[]
 
   @@index([cadenaId])
+  @@index([divisionDeId])
   @@index([departamentoId])
   @@index([area])
   @@index([estadoGeneral])

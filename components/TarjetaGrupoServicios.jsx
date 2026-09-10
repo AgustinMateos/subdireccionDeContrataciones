@@ -2,7 +2,7 @@
 
 import { MapPin, Clock } from "lucide-react";
 import { ALERTA_ESTILO, ESTADO_ESTILO } from "@/lib/constants";
-import { diasRestantes, alerta, fmtFecha, diasFrenado, alertaFrenado } from "@/lib/utils";
+import { diasRestantes, alerta, fmtFecha, diasFrenado, alertaFrenado, estadoGeneralMostrado, esConvocatoriaFracasada } from "@/lib/utils";
 import { direccionesDe } from "@/lib/organismosFueros";
 
 // Varios expedientes de Servicios que son "la misma prestación" repetida
@@ -57,14 +57,16 @@ export default function TarjetaGrupoServicios({ grupo, onVer }) {
                 )}
               </div>
               <div className="flex flex-col items-end gap-1 shrink-0">
-                <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ESTADO_ESTILO[exp.estadoGeneral]}>
-                  {exp.estadoGeneral}
+                <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ESTADO_ESTILO[estadoGeneralMostrado(exp)]}>
+                  {estadoGeneralMostrado(exp)}
                 </span>
                 {esRenovacion ? (
                   <>
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-slate-300 text-slate-600">
-                      {exp.fechaInicio ? "Arranca " + fmtFecha(exp.fechaInicio) : "Sin fecha de inicio"}
-                    </span>
+                    {!esConvocatoriaFracasada(exp) && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-slate-300 text-slate-600">
+                        {exp.fechaInicio ? "Arranca " + fmtFecha(exp.fechaInicio) : "Sin fecha de inicio"}
+                      </span>
+                    )}
                     {frenado != null && (
                       <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[alertaFrenado(frenado)]}>
                         Frenado hace {frenado} día{frenado !== 1 ? "s" : ""}

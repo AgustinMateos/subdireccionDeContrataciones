@@ -6,6 +6,7 @@ import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTOR_INICIAL_POR_DEPART
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
 import CampoFuero from "./CampoFuero";
+import CampoDomiciliosRenglones from "./CampoDomiciliosRenglones";
 import BotonAccion from "./BotonAccion";
 import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ function formVacio(esServicios, departamentoSlug) {
     fechaVencimiento: "",
     estadoGeneral: "En trámite de renovación",
     antecedenteExp: "",
+    domiciliosRenglones: [],
   };
 }
 
@@ -92,6 +94,10 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
 
             <div className="col-span-2">
               <SelectorOrganismos organismos={f.organismos} onChange={v => set("organismos", v)} />
+            </div>
+
+            <div className="col-span-2">
+              <CampoDomiciliosRenglones valores={f.domiciliosRenglones} onChange={v => set("domiciliosRenglones", v)} />
             </div>
 
             {esServicios && (

@@ -267,6 +267,33 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ expediente: actualizado });
   }
 
+  // ---------- Reunificar / separar una división ----------
+  // Solo aplica a un expediente que salió de otro por "Dividir expediente"
+  // (tiene divisionDeId). Reunificar no fusiona filas: solo marca que sus
+  // períodos ya coinciden con los del expediente de origen y por eso se
+  // muestran vinculados en la interfaz.
+  if (body.reunificar !== undefined) {
+    const exp = await prisma.expediente.findUnique({ where: { id } });
+    if (!exp) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    if (!exp.divisionDeId) {
+      return NextResponse.json({ error: "Este expediente no proviene de una división" }, { status: 400 });
+    }
+    if (body.reunificar) {
+      const origen = await prisma.expediente.findUnique({ where: { id: exp.divisionDeId } });
+      const fechaInicioIgual = (exp.fechaInicio?.getTime() ?? null) === (origen?.fechaInicio?.getTime() ?? null);
+      const fechaVencimientoIgual = exp.fechaVencimiento.getTime() === origen?.fechaVencimiento.getTime();
+      if (!origen || !fechaInicioIgual || !fechaVencimientoIgual) {
+        return NextResponse.json({ error: "Los períodos no coinciden todavía — no se puede reunificar" }, { status: 400 });
+      }
+    }
+    const actualizado = await prisma.expediente.update({
+      where: { id },
+      data: { unificado: !!body.reunificar },
+      include: INCLUDE_EXPEDIENTE,
+    });
+    return NextResponse.json({ expediente: actualizado });
+  }
+
   // ---------- Toggle de un ítem de la checklist de documentación ----------
   // El cliente identifica el ítem por su índice en la lista que muestra. Si el
   // expediente todavía no tiene ítems persistidos, se crean todos a partir de
@@ -350,6 +377,9 @@ export async function PUT(request, { params }) {
       tieneProrroga: esLegitimoAbono ? false : (typeof body.tieneProrroga === "boolean" ? body.tieneProrroga : undefined),
       tipoParche: body.tipoParche ?? undefined,
       detalleParche: body.detalleParche ?? undefined,
+      domiciliosRenglones: Array.isArray(body.domiciliosRenglones)
+        ? body.domiciliosRenglones.map((v) => String(v).trim()).filter(Boolean)
+        : undefined,
     },
     include: INCLUDE_EXPEDIENTE,
   });

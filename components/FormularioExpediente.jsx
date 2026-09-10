@@ -6,6 +6,7 @@ import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTER
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
 import CampoFuero from "./CampoFuero";
+import CampoDomiciliosRenglones from "./CampoDomiciliosRenglones";
 import BotonAccion from "./BotonAccion";
 import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
 function formVacio(esServicios) {
@@ -22,6 +23,7 @@ function formVacio(esServicios) {
     fuero: [], zona: ZONAS[0], codigoInterno: "",
     estadoConvocatoria: esServicios ? ESTADOS_CONVOCATORIA[0] : "",
     tieneProrroga: false,
+    domiciliosRenglones: [],
   };
 }
 
@@ -36,6 +38,7 @@ function normalizarInicial(inicial, esServicios) {
     fuero: Array.isArray(inicial.fuero)
       ? inicial.fuero
       : inicial.fuero ? [inicial.fuero] : [],
+    domiciliosRenglones: Array.isArray(inicial.domiciliosRenglones) ? inicial.domiciliosRenglones : [],
     esPoliciaAdicional: !!inicial.esPoliciaAdicional,
     fuerzaSeguridad: inicial.fuerzaSeguridad || "",
     tieneProrroga: !!inicial.tieneProrroga,
@@ -122,6 +125,9 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
             <Campo_Input label="Agente" value={f.agente} onChange={v => set("agente", v)} placeholder="CB" />
             <div className="col-span-2">
               <SelectorOrganismos organismos={f.organismos} onChange={v => set("organismos", v)} />
+            </div>
+            <div className="col-span-2">
+              <CampoDomiciliosRenglones valores={f.domiciliosRenglones} onChange={v => set("domiciliosRenglones", v)} />
             </div>
             <Campo_Select label="Sector actual" value={f.sector} onChange={v => set("sector", v)}
               opciones={["", ...SECTORES]} labels={{ "": "— Sin definir —" }} />
