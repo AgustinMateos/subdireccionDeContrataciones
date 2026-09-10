@@ -40,7 +40,7 @@ export default function TarjetaGrupoServicios({ grupo, onVer }) {
           const esRenovacion = exp.rol === "renovacion";
           const dias = diasRestantes(exp.fechaVencimiento);
           const niv = alerta(dias);
-          const frenado = esRenovacion ? diasFrenado(exp.observaciones) : null;
+          const frenado = esRenovacion ? diasFrenado(exp.observaciones, exp.creadoEn) : null;
           return (
             <button
               key={exp.id}

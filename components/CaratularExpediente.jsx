@@ -2,20 +2,20 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTORES } from "@/lib/constants";
+import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTORES, SECTOR_INICIAL_POR_DEPARTAMENTO } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
 import CampoFuero from "./CampoFuero";
 import BotonAccion from "./BotonAccion";
 import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
 
-function formVacio(esServicios, esJefe) {
+function formVacio(esServicios, departamentoSlug) {
   return {
     exp: "",
     tipo: esServicios ? TIPOS_SERVICIOS[0] : "Servicios",
     agente: "",
     organismos: [],
-    sector: esServicios ? (esJefe ? "Servicios Jefatura" : "Servicios Empleados") : "",
+    sector: SECTOR_INICIAL_POR_DEPARTAMENTO[departamentoSlug] || "",
     zona: ZONAS[0],
     fuero: [],
     estadoConvocatoria: esServicios ? ESTADOS_CONVOCATORIA[0] : "",
@@ -23,7 +23,7 @@ function formVacio(esServicios, esJefe) {
     etapa: "En ejecución",
     fechaInicio: "",
     fechaVencimiento: "",
-    estadoGeneral: "Vigente",
+    estadoGeneral: "En trámite de renovación",
     antecedenteExp: "",
   };
 }
@@ -31,9 +31,9 @@ function formVacio(esServicios, esJefe) {
 // Carátula: alta rápida de un expediente con lo mínimo para abrirlo. El resto
 // de los campos (N° de contratación, encuadre, montos, policía adicional,
 // prórroga, etc.) se completan después desde "Editar expediente" en la ficha.
-export default function CaratularExpediente({ departamentoSlug, esJefe, expedientes, onCerrar, onGuardar }) {
+export default function CaratularExpediente({ departamentoSlug, expedientes, onCerrar, onGuardar }) {
   const esServicios = departamentoSlug === "servicios";
-  const [f, setF] = useState(() => formVacio(esServicios, esJefe));
+  const [f, setF] = useState(() => formVacio(esServicios, departamentoSlug));
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
 
@@ -98,18 +98,11 @@ export default function CaratularExpediente({ departamentoSlug, esJefe, expedien
               opciones={["", ...SECTORES]} labels={{ "": "— Sin definir —" }} />
             <Campo_Input label="Etapa" value={f.etapa} onChange={v => set("etapa", v)} />
             {esServicios && (
-              <>
-                <CampoFuero id="lista-fueros-caratular" organismos={f.organismos} fueros={f.fuero} onChange={v => set("fuero", v)} />
-                <Campo_Select label="Estado de convocatoria" value={f.estadoConvocatoria} onChange={v => set("estadoConvocatoria", v)} opciones={ESTADOS_CONVOCATORIA} />
-              </>
+              <CampoFuero id="lista-fueros-caratular" organismos={f.organismos} fueros={f.fuero} onChange={v => set("fuero", v)} />
             )}
-
-
 
             <Campo_Input label="Fecha de inicio" type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
             <Campo_Input label="Fecha de vencimiento" type="date" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
-            <Campo_Select label="Estado general" value={f.estadoGeneral} onChange={v => set("estadoGeneral", v)}
-              opciones={["Vigente", "En trámite de renovación", "Finalizado", "Archivado"]} />
 
             <div className="col-span-3 bg-slate-50 border border-slate-200 rounded-md p-3">
               <label className="block text-xs font-medium text-slate-600 mb-1">

@@ -16,6 +16,7 @@ function normalizarExpediente(e) {
     organismos: Array.isArray(e.organismos) ? e.organismos : e.organismo ? [e.organismo] : [],
     fechaInicio: e.fechaInicio ? String(e.fechaInicio).slice(0, 10) : "",
     fechaVencimiento: e.fechaVencimiento ? String(e.fechaVencimiento).slice(0, 10) : "",
+    creadoEn: e.creadoEn ? String(e.creadoEn).slice(0, 10) : "",
     observaciones: Array.isArray(e.observaciones)
       ? e.observaciones.map((o) => ({ ...o, fecha: o.fecha ? String(o.fecha).slice(0, 10) : "" }))
       : [],
@@ -203,7 +204,9 @@ export default function App() {
     }
     return orden.map(clave => {
       const items = grupos.get(clave);
-      if (items.length === 1) return { tipo: "individual", exp: items[0] };
+      // Aunque sea un único expediente, en Servicios se muestra con la misma
+      // card "de grupo" (organismo, direcciones, sector/convocatoria,
+      // prórroga, días frenado) en vez de la card genérica simplificada.
       const organismos = Array.from(new Set(items.flatMap(i => i.organismos || [])));
       return { tipo: "grupo", clave, grupo: { tipo: items[0].tipo, zona: items[0].zona, fuero: items[0].fuero || [], organismos, items } };
     });
@@ -625,7 +628,6 @@ export default function App() {
       {formAbierto === "caratular" && (
         <CaratularExpediente
           departamentoSlug={sesion.departamentoSlug}
-          esJefe={esJefe}
           expedientes={expedientes}
           onCerrar={() => setFormAbierto(null)}
           onGuardar={async (datos) => {

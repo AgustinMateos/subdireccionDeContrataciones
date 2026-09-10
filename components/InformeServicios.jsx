@@ -33,7 +33,7 @@ export default function InformeServicios({ expedientes }) {
   }, [activos]);
 
   const proximosVencer = filtrados.filter(e => { const d = diasRestantes(e.fechaVencimiento); return d >= 0 && d < 90; }).length;
-  const frenados = filtrados.filter(e => { const d = diasFrenado(e.observaciones); return d != null && d > 30; }).length;
+  const frenados = filtrados.filter(e => { const d = diasFrenado(e.observaciones, e.creadoEn); return d != null && d > 30; }).length;
 
   return (
     <div className="space-y-6">
@@ -135,7 +135,7 @@ export default function InformeServicios({ expedientes }) {
                     .map(e => {
                       const dias = diasRestantes(e.fechaVencimiento);
                       const niv = alerta(dias);
-                      const frenado = diasFrenado(e.observaciones);
+                      const frenado = diasFrenado(e.observaciones, e.creadoEn);
                       return (
                         <tr key={e.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
                           <td className="py-2.5 px-5">

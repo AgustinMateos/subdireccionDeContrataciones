@@ -32,7 +32,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   });
   const dias = diasRestantes(exp.fechaVencimiento);
   const niv = alerta(dias);
-  const frenado = diasFrenado(exp.observaciones);
+  const frenado = diasFrenado(exp.observaciones, exp.creadoEn);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">

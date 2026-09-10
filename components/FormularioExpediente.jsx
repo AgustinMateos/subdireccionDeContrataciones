@@ -108,7 +108,9 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Campo_Input label="N° de expediente" value={f.exp} onChange={v => set("exp", v)} placeholder="13-00000/26" />
-            <Campo_Input label="Nombre corto" value={f.nombreCorto} onChange={v => set("nombreCorto", v)} placeholder="Ej: Limpieza edificio central" />
+            {!esServicios && (
+              <Campo_Input label="Nombre corto" value={f.nombreCorto} onChange={v => set("nombreCorto", v)} placeholder="Ej: Limpieza edificio central" />
+            )}
             <Campo_Input label="N° de contratación" value={esVinculoAVigente ? "" : f.nroContratacion} onChange={v => set("nroContratacion", v)} placeholder={esVinculoAVigente ? "Se completa al adjudicar" : "Ej: 45/2026"} disabled={esVinculoAVigente} />
             <Campo_Input label="N° de resolución" value={f.nroResolucion} onChange={v => set("nroResolucion", v)} placeholder="Ej: 1234/2026" />
             {!esServicios && (
