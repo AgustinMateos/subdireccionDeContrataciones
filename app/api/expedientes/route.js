@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ENCUADRE_INTERADMINISTRATIVO } from "@/lib/constants";
+import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE } from "@/lib/constants";
 
 const INCLUDE_EXPEDIENTE = {
   observaciones: { orderBy: { fecha: "asc" } },
@@ -186,6 +186,7 @@ export async function POST(request) {
         destinatario: origen.destinatario,
         domicilio: origen.domicilio,
         objeto: body.objeto || origen.objeto,
+        encuadre: ENCUADRE_POR_TIPO_PARCHE[body.tipoParche] || null,
         presupuestoOficial: 0,
         montoARS: Number(body.montoARS) || 0,
         montoUSD: 0,
