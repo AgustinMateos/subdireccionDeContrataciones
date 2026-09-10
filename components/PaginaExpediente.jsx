@@ -194,6 +194,8 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <Campo label="Etapa" valor={exp.etapa} />
             <Campo label="Fecha inicio" valor={fmtFecha(exp.fechaInicio)} />
             <Campo label="Fecha vencimiento" valor={fmtFecha(exp.fechaVencimiento)} />
+            <Campo label="Fecha de publicación" valor={fmtFecha(exp.fechaPublicacion)} />
+            <Campo label="Fecha de apertura" valor={fmtFecha(exp.fechaApertura)} />
             <Campo label="Presupuesto oficial" valor={exp.presupuestoOficial ? fmtMoneda(exp.presupuestoOficial) : "-"} />
             <Campo label="Monto adjudicado" valor={fmtMoneda(exp.montoARS)} />
             <Campo label="Monto adjudicado USD" valor={exp.montoUSD ? fmtMoneda(exp.montoUSD, "USD") : "-"} />

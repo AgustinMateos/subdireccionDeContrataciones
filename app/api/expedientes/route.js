@@ -284,6 +284,8 @@ export async function POST(request) {
       fuerzaSeguridad: puedePoliciaAdicional && body.esPoliciaAdicional ? (body.fuerzaSeguridad || null) : null,
       fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
       fechaVencimiento: new Date(body.fechaVencimiento),
+      fechaPublicacion: body.fechaPublicacion ? new Date(body.fechaPublicacion) : null,
+      fechaApertura: body.fechaApertura ? new Date(body.fechaApertura) : null,
       ocResolucion: esRenovacionVinculada ? null : (body.ocResolucion || null),
       resolucionLlamado: esRenovacionVinculada ? null : (body.resolucionLlamado || null),
       resolucionAdjudicacion: esRenovacionVinculada ? null : (body.resolucionAdjudicacion || null),

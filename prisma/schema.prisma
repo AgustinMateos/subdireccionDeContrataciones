@@ -85,6 +85,8 @@ model Expediente {
   cotizacionPolicia      Json? // snapshot de la cotización aprobada y vinculada desde el cotizador
   fechaInicio            DateTime?
   fechaVencimiento       DateTime
+  fechaPublicacion       DateTime? // publicación del llamado en la convocatoria
+  fechaApertura          DateTime? // acto de apertura de la convocatoria
   ocResolucion           String? // OC (orden de compra)
   resolucionLlamado      String? // Resolución de llamado
   resolucionAdjudicacion String? // Resolución de adjudicación
@@ -147,37 +149,6 @@ model DocumentacionItem {
   orden        Int        @default(0)
 
   @@index([expedienteId])
-}
-
-// ---------- Libro de Aperturas ----------
-
-model Contratacion {
-  id            String    @id @default(cuid())
-  anio          Int
-  numeroOrden   Int
-  totalAnual    Int
-  expte         String
-  organismo     String
-  objeto        String
-  tipo          String
-  fechaCarga    DateTime  @default(now())
-  fechaApertura DateTime? // null para tipos sin acto de apertura (Compra Directa, Anticipo de Fondos)
-  hora          Int?
-  creadoPor     String?
-  actualizadoEn DateTime  @updatedAt
-
-  @@unique([anio, numeroOrden])
-  @@unique([fechaApertura, hora])
-}
-
-model Feriado {
-  fecha  DateTime @id
-  motivo String
-}
-
-model ConfiguracionAnio {
-  anio       Int @id
-  totalAnual Int
 }
 
 // ---------- Valor Modular ----------

@@ -332,6 +332,8 @@ export async function PUT(request, { params }) {
         : body.esPoliciaAdicional === false ? null : undefined,
       fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
       fechaVencimiento: body.fechaVencimiento ? new Date(body.fechaVencimiento) : undefined,
+      fechaPublicacion: body.fechaPublicacion ? new Date(body.fechaPublicacion) : null,
+      fechaApertura: body.fechaApertura ? new Date(body.fechaApertura) : null,
       ocResolucion: esLegitimoAbono ? null : (body.ocResolucion ?? undefined),
       resolucionLlamado: esLegitimoAbono ? null : (body.resolucionLlamado ?? undefined),
       resolucionAdjudicacion: esLegitimoAbono ? null : (body.resolucionAdjudicacion ?? undefined),

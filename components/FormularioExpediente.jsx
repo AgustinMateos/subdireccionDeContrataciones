@@ -14,6 +14,7 @@ function formVacio(esServicios) {
     area: esServicios ? "" : "Informatica", tipo: esServicios ? TIPOS_SERVICIOS[0] : "Servicios",
     agente: "", organismos: [], objeto: "",
     encuadre: "", presupuestoOficial: "", montoARS: "", montoUSD: "", fechaInicio: "", fechaVencimiento: "",
+    fechaPublicacion: "", fechaApertura: "",
     ocResolucion: "", resolucionLlamado: "", resolucionAdjudicacion: "",
     adjudicatario: "", sector: "", etapa: "En ejecución", estadoGeneral: "Vigente",
     esPoliciaAdicional: false, fuerzaSeguridad: "",
@@ -252,6 +253,8 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
             <Campo_Input label="Monto adjudicado (USD)" type="number" value={esVinculoAVigente ? "" : f.montoUSD} onChange={v => set("montoUSD", v)} disabled={esVinculoAVigente} />
             <Campo_Input label="Fecha de inicio" type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
             <Campo_Input label="Fecha de vencimiento" type="date" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
+            <Campo_Input label="Fecha de publicación" type="date" value={f.fechaPublicacion} onChange={v => set("fechaPublicacion", v)} />
+            <Campo_Input label="Fecha de apertura" type="date" value={f.fechaApertura} onChange={v => set("fechaApertura", v)} />
             <Campo_Select label="Estado general" value={f.estadoGeneral} onChange={v => set("estadoGeneral", v)}
               opciones={["Vigente", "En trámite de renovación", "Finalizado", "Archivado"]} />
           </div>

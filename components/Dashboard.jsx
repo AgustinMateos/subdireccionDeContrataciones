@@ -16,6 +16,8 @@ function normalizarExpediente(e) {
     organismos: Array.isArray(e.organismos) ? e.organismos : e.organismo ? [e.organismo] : [],
     fechaInicio: e.fechaInicio ? String(e.fechaInicio).slice(0, 10) : "",
     fechaVencimiento: e.fechaVencimiento ? String(e.fechaVencimiento).slice(0, 10) : "",
+    fechaPublicacion: e.fechaPublicacion ? String(e.fechaPublicacion).slice(0, 10) : "",
+    fechaApertura: e.fechaApertura ? String(e.fechaApertura).slice(0, 10) : "",
     creadoEn: e.creadoEn ? String(e.creadoEn).slice(0, 10) : "",
     observaciones: Array.isArray(e.observaciones)
       ? e.observaciones.map((o) => ({ ...o, fecha: o.fecha ? String(o.fecha).slice(0, 10) : "" }))
@@ -71,7 +73,6 @@ import GenerarParche from "./GenerarParche";
 import CotizadorTaquigrafico from "./CotizadorTaquigrafico";
 import CotizadorPolicia from "./CotizadorPolicia";
 import CotizadorAvisos from "./CotizadorAvisos";
-import LibroAperturas from "./LibroAperturas";
 import ListadoTelefonos from "./ListadoTelefonos";
 import PlanillaCotizacion from "./PlanillaCotizacion";
 import ValorModular from "./ValorModular";
@@ -80,7 +81,7 @@ import InformeOrganismos from "./InformeOrganismos";
 import InformeServicios from "./InformeServicios";
 
 const VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS = [
-  "libroAperturas", "cotizadorTaquigrafico", "cotizadorPolicia", "cotizadorAvisos",
+  "cotizadorTaquigrafico", "cotizadorPolicia", "cotizadorAvisos",
   "informePoliciaAdicional", "informeOrganismos",
 ];
 
@@ -515,8 +516,6 @@ export default function App() {
           <InformeServicios expedientes={expedientes} />
         ) : vistaEfectiva === "cotizadorAvisos" ? (
           <CotizadorAvisos mostrarToast={mostrarToast} expedientes={expedientes} onVincular={vincularCotizacionAExpediente} />
-        ) : vistaEfectiva === "libroAperturas" ? (
-          <LibroAperturas sesion={sesion} mostrarToast={mostrarToast} />
         ) : vistaEfectiva === "listadoTelefonos" ? (
           <ListadoTelefonos sesion={sesion} mostrarToast={mostrarToast} seccionesIniciales={secciones} />
         ) : vistaEfectiva === "planillaCotizacion" ? (

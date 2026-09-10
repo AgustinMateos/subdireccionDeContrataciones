@@ -57,14 +57,6 @@ async function main() {
     console.log("Valor modular inicial: $300.000");
   }
 
-  // ---------- Configuración del Libro de Aperturas ----------
-  const anioActual = new Date().getFullYear();
-  await prisma.configuracionAnio.upsert({
-    where: { anio: anioActual },
-    update: {},
-    create: { anio: anioActual, totalAnual: 30 },
-  });
-
   // ---------- Expedientes de ejemplo: Informática y Varios ----------
   const yaHayExpedientes = await prisma.expediente.count();
   if (yaHayExpedientes === 0) {
