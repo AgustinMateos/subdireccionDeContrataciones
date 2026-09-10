@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTORES, SECTOR_INICIAL_POR_DEPARTAMENTO } from "@/lib/constants";
+import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTOR_INICIAL_POR_DEPARTAMENTO } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
 import CampoFuero from "./CampoFuero";
@@ -94,9 +94,6 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
               <SelectorOrganismos organismos={f.organismos} onChange={v => set("organismos", v)} />
             </div>
 
-            <Campo_Select label="Sector actual" value={f.sector} onChange={v => set("sector", v)}
-              opciones={["", ...SECTORES]} labels={{ "": "— Sin definir —" }} />
-            <Campo_Input label="Etapa" value={f.etapa} onChange={v => set("etapa", v)} />
             {esServicios && (
               <CampoFuero id="lista-fueros-caratular" organismos={f.organismos} fueros={f.fuero} onChange={v => set("fuero", v)} />
             )}
