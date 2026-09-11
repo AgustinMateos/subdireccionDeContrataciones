@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA, ESTADOS_CONVOCATORIA_FALLIDOS } from "@/lib/constants";
+import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA_FALLIDOS } from "@/lib/constants";
 
 const INCLUDE_EXPEDIENTE = {
   observaciones: { orderBy: { fecha: "asc" } },
@@ -236,53 +236,52 @@ export async function POST(request) {
     return NextResponse.json({ expediente: nuevoParche }, { status: 201 });
   }
 
-  // ---------- Dividir expediente (adjudicación parcial) ----------
-  // Algunos domicilios/renglones de una convocatoria pueden no adjudicarse
-  // (quedan desiertos/fracasados) mientras el resto sigue su curso. Esa
-  // porción se separa en un expediente propio, con su propia cadena, pero
-  // conservando la relación con el expediente del que salió (divisionDeId)
-  // para poder "reunificarlos" más adelante si los períodos coinciden.
-  if (body.divisionDeId) {
-    if (!body.exp || !body.exp.trim()) {
-      return NextResponse.json({ error: "Cargá el N° de expediente de la división" }, { status: 400 });
-    }
-    if (!body.fechaVencimiento) {
-      return NextResponse.json({ error: "Cargá la fecha de vencimiento de la división" }, { status: 400 });
-    }
-    const origen = await prisma.expediente.findUnique({ where: { id: body.divisionDeId } });
+  // ---------- Habilitar prórroga por el DEPARTAMENTO ----------
+  // A diferencia de la prórroga simple (que habilita el organismo, sin
+  // expediente nuevo) y del parche clásico, esta la habilita el propio
+  // departamento: lleva su propio N° de expediente, siempre N° de
+  // resolución, y orden de compra solo si la contratación no es
+  // descentralizada.
+  if (body.prorrogaDepartamentoDeId) {
+    const origen = await prisma.expediente.findUnique({ where: { id: body.prorrogaDepartamentoDeId } });
     if (!origen || origen.departamentoId !== session.user.departamentoId) {
       return NextResponse.json({ error: "Expediente de origen no encontrado" }, { status: 404 });
     }
-    if (origen.estadoGeneral !== "En trámite de renovación" || !ESTADOS_CONVOCATORIA_FALLIDOS.includes(origen.estadoConvocatoria)) {
-      return NextResponse.json({ error: "Solo se puede dividir cuando el estado de la convocatoria es fracasado" }, { status: 400 });
+    if (!body.nroResolucion) {
+      return NextResponse.json({ error: "Cargá el N° de resolución" }, { status: 400 });
     }
-    const domiciliosMovidos = normalizarLista(body.domiciliosRenglones);
-    if (domiciliosMovidos.length === 0) {
-      return NextResponse.json({ error: "Elegí al menos un domicilio/renglón para dividir" }, { status: 400 });
+    const esDescentralizada = body.tipoContratacionProrroga === "Contratación descentralizada";
+    if (!esDescentralizada && !body.ocResolucion) {
+      return NextResponse.json({ error: "Esta modalidad requiere N° de orden de compra" }, { status: 400 });
     }
 
-    let nuevaDivision;
+    let nuevaProrroga;
     try {
-      nuevaDivision = await prisma.expediente.create({
+      nuevaProrroga = await prisma.expediente.create({
         data: {
-          cadenaId: "c" + Date.now(),
-          rol: "vigente",
-          exp: body.exp.trim(),
+          cadenaId: origen.cadenaId,
+          rol: "parche",
+          exp: body.exp,
           departamentoId: session.user.departamentoId,
           area: origen.area,
           tipo: origen.tipo,
           agente: origen.agente,
           organismos: origen.organismos,
+          destinatario: origen.destinatario,
+          domicilio: origen.domicilio,
           objeto: body.objeto || origen.objeto,
+          presupuestoOficial: 0,
+          montoARS: Number(body.montoARS) || 0,
+          montoUSD: 0,
           fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
           fechaVencimiento: new Date(body.fechaVencimiento),
-          estadoGeneral: "En trámite de renovación",
+          nroResolucion: body.nroResolucion,
+          ocResolucion: esDescentralizada ? null : (body.ocResolucion || null),
           sector: origen.sector,
+          estadoGeneral: "Vigente",
+          tipoContratacionProrroga: body.tipoContratacionProrroga || null,
           zona: origen.zona,
           fuero: origen.fuero,
-          estadoConvocatoria: session.user.departamentoSlug === "servicios" ? ESTADOS_CONVOCATORIA[0] : null,
-          domiciliosRenglones: domiciliosMovidos,
-          divisionDeId: origen.id,
         },
         include: INCLUDE_EXPEDIENTE,
       });
@@ -293,16 +292,113 @@ export async function POST(request) {
       throw e;
     }
 
+    // Misma lógica de corrimiento que un parche clásico: si ya hay una
+    // renovación en trámite en la cadena, se corre para arrancar al día
+    // siguiente, conservando la duración planificada.
+    const renovacionEnTramite = await prisma.expediente.findFirst({
+      where: { cadenaId: origen.cadenaId, rol: "renovacion", departamentoId: session.user.departamentoId },
+    });
+    if (renovacionEnTramite) {
+      const nuevaFechaInicio = new Date(nuevaProrroga.fechaVencimiento);
+      nuevaFechaInicio.setDate(nuevaFechaInicio.getDate() + 1);
+      const duracionMs = renovacionEnTramite.fechaInicio
+        ? new Date(renovacionEnTramite.fechaVencimiento) - new Date(renovacionEnTramite.fechaInicio)
+        : 0;
+      await prisma.expediente.update({
+        where: { id: renovacionEnTramite.id },
+        data: {
+          fechaInicio: nuevaFechaInicio,
+          fechaVencimiento: new Date(nuevaFechaInicio.getTime() + duracionMs),
+        },
+      });
+    }
+
+    return NextResponse.json({ expediente: nuevaProrroga }, { status: 201 });
+  }
+
+  // ---------- Dividir expediente (adjudicación parcial) ----------
+  // Adjudicación parcial: algunos domicilios/renglones de la convocatoria no
+  // se adjudican (uno o varios grupos, cada uno con su propio destino —
+  // pueden ser 3 renglones fracasados repartidos en 2 expedientes nuevos, por
+  // ejemplo) mientras el resto sigue su curso en el expediente de origen. Cada
+  // división arranca su propia cadena, pero conserva la relación con el
+  // expediente del que salió (divisionDeId) para poder "reunificarlos" más
+  // adelante si los períodos coinciden.
+  if (body.divisionDeId) {
+    const grupos = Array.isArray(body.grupos) ? body.grupos : [];
+    if (grupos.length === 0) {
+      return NextResponse.json({ error: "Cargá al menos un expediente para la adjudicación parcial" }, { status: 400 });
+    }
+    const origen = await prisma.expediente.findUnique({ where: { id: body.divisionDeId } });
+    if (!origen || origen.departamentoId !== session.user.departamentoId) {
+      return NextResponse.json({ error: "Expediente de origen no encontrado" }, { status: 404 });
+    }
+    if (origen.rol !== "renovacion" || origen.estadoGeneral !== "En trámite de renovación") {
+      return NextResponse.json({ error: "Solo se puede dividir una renovación en trámite" }, { status: 400 });
+    }
+    for (const g of grupos) {
+      if (!g.exp || !String(g.exp).trim()) {
+        return NextResponse.json({ error: "Cargá el N° de expediente de cada división" }, { status: 400 });
+      }
+      if (!g.fechaVencimiento) {
+        return NextResponse.json({ error: "Cargá la fecha de vencimiento de cada división" }, { status: 400 });
+      }
+      if (normalizarLista(g.domiciliosRenglones).length === 0) {
+        return NextResponse.json({ error: "Elegí al menos un domicilio/renglón para cada división" }, { status: 400 });
+      }
+    }
+
+    const nuevasDivisiones = [];
+    const todosLosDomicilios = [];
+    try {
+      for (let i = 0; i < grupos.length; i++) {
+        const g = grupos[i];
+        const domicilios = normalizarLista(g.domiciliosRenglones);
+        todosLosDomicilios.push(...domicilios);
+        const nueva = await prisma.expediente.create({
+          data: {
+            cadenaId: "c" + Date.now() + "_" + i,
+            rol: "renovacion",
+            exp: g.exp.trim(),
+            departamentoId: session.user.departamentoId,
+            area: origen.area,
+            tipo: origen.tipo,
+            agente: origen.agente,
+            organismos: origen.organismos,
+            objeto: g.objeto || origen.objeto,
+            fechaInicio: g.fechaInicio ? new Date(g.fechaInicio) : null,
+            fechaVencimiento: new Date(g.fechaVencimiento),
+            estadoGeneral: "En trámite de renovación",
+            sector: origen.sector,
+            zona: origen.zona,
+            fuero: origen.fuero,
+            estadoConvocatoria: ESTADOS_CONVOCATORIA_FALLIDOS.includes(g.estadoConvocatoria)
+              ? g.estadoConvocatoria
+              : "Proyecto fracasado",
+            domiciliosRenglones: domicilios,
+            divisionDeId: origen.id,
+          },
+          include: INCLUDE_EXPEDIENTE,
+        });
+        nuevasDivisiones.push(nueva);
+      }
+    } catch (e) {
+      if (e.code === "P2002") {
+        return NextResponse.json({ error: "Ya existe un expediente con ese número" }, { status: 409 });
+      }
+      throw e;
+    }
+
     // Los domicilios/renglones divididos dejan de estar cubiertos por el
-    // expediente de origen.
+    // expediente de origen — el resto sigue su curso ahí normalmente.
     await prisma.expediente.update({
       where: { id: origen.id },
       data: {
-        domiciliosRenglones: (origen.domiciliosRenglones || []).filter(v => !domiciliosMovidos.includes(v)),
+        domiciliosRenglones: (origen.domiciliosRenglones || []).filter(v => !todosLosDomicilios.includes(v)),
       },
     });
 
-    return NextResponse.json({ expediente: nuevaDivision }, { status: 201 });
+    return NextResponse.json({ expedientes: nuevasDivisiones }, { status: 201 });
   }
 
   // ---------- Alta normal de expediente ----------

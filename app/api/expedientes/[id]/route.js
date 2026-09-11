@@ -225,11 +225,15 @@ export async function PUT(request, { params }) {
     if (!(nuevaFecha > exp.fechaVencimiento) || nuevaFecha > maxFecha) {
       return NextResponse.json({ error: "La prórroga no puede superar los " + Math.max(...PRORROGA_MESES_OPCIONES) + " meses" }, { status: 400 });
     }
+    const fechaNotificacionProrroga = body.activarProrroga.fechaNotificacionProrroga
+      ? new Date(body.activarProrroga.fechaNotificacionProrroga)
+      : null;
     const actualizado = await prisma.expediente.update({
       where: { id },
       data: {
         prorrogaActivada: true,
         fechaVencimiento: nuevaFecha,
+        fechaNotificacionProrroga,
         observaciones: {
           create: {
             usuario: session.user.name,

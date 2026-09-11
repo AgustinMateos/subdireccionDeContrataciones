@@ -5,7 +5,7 @@ import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil,
 import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, ESTADOS_CONVOCATORIA_FALLIDOS, SECTORES } from "@/lib/constants";
 import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtMoneda, documentacionDeExpediente, diasFrenado, estadoGeneralMostrado, esConvocatoriaFracasada } from "@/lib/utils";
 import BotonAccion from "./BotonAccion";
-export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onActivarProrroga, onGenerarParche, onDividir, onReunificar, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
+export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onActivarProrroga, onGenerarParche, onGenerarProrrogaDepartamento, onDividir, onReunificar, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
   const [verMasAntecedentes, setVerMasAntecedentes] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const cadena = expedientes.filter(e => e.cadenaId === exp.cadenaId);
@@ -25,7 +25,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   const nodos = [
     antecedente && { key: "antecedente", label: ROL_LABEL.antecedente, item: antecedente },
     vigente && { key: "vigente", label: ROL_LABEL.vigente, item: vigente },
-    ...parches.map(p => ({ key: p.id, label: p.tipoParche || ROL_LABEL.parche, item: p })),
+    ...parches.map(p => ({ key: p.id, label: p.tipoParche || p.tipoContratacionProrroga || ROL_LABEL.parche, item: p })),
     renovacion && { key: "renovacion", label: ROL_LABEL.renovacion, item: renovacion },
   ].filter(Boolean).sort((a, b) => {
     const fa = new Date(a.item.fechaInicio || a.item.fechaVencimiento);
@@ -56,7 +56,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
           <div>
             <div className="font-mono text-base font-semibold text-slate-900">{exp.exp}</div>
             {exp.nombreCorto && <div className="text-sm font-medium text-slate-700">{exp.nombreCorto}</div>}
-            <div className="text-xs text-slate-500">{exp.rol === "parche" ? (exp.tipoParche || ROL_LABEL.parche) : ROL_LABEL[exp.rol]}</div>
+            <div className="text-xs text-slate-500">{exp.rol === "parche" ? (exp.tipoParche || exp.tipoContratacionProrroga || ROL_LABEL.parche) : ROL_LABEL[exp.rol]}</div>
           </div>
         </div>
 
@@ -216,13 +216,15 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             
           </div>
 
-          {((exp.fuero || []).length > 0 || exp.zona || exp.codigoInterno || exp.estadoConvocatoria || exp.tipoParche) && (
+          {((exp.fuero || []).length > 0 || exp.zona || exp.codigoInterno || exp.estadoConvocatoria || exp.tipoParche || exp.tipoContratacionProrroga || exp.fechaNotificacionProrroga) && (
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm border-t border-slate-100 pt-4">
               {exp.zona && <Campo label="Zona" valor={exp.zona} />}
               {(exp.fuero || []).length > 0 && <Campo label={exp.fuero.length > 1 ? "Fueros" : "Fuero"} valor={exp.fuero.join(", ")} />}
               {exp.codigoInterno && <Campo label="Código interno" valor={exp.codigoInterno} />}
               {exp.estadoConvocatoria && <Campo label="Estado de convocatoria" valor={exp.estadoConvocatoria} />}
               {exp.tipoParche && <Campo label="Tipo de parche" valor={exp.detalleParche ? exp.tipoParche + " — " + exp.detalleParche : exp.tipoParche} />}
+              {exp.tipoContratacionProrroga && <Campo label="Prórroga (departamento) — tipo de contratación" valor={exp.tipoContratacionProrroga} />}
+              {exp.fechaNotificacionProrroga && <Campo label="Notificación de recepción (organismo)" valor={fmtFecha(exp.fechaNotificacionProrroga)} />}
             </div>
           )}
 
@@ -320,9 +322,14 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                 Generar parche / contratación puente
               </button>
             )}
-            {esConvocatoriaFracasada(exp) && (exp.domiciliosRenglones || []).length > 0 && (
+            {(exp.rol === "vigente" || exp.rol === "parche") && (
+              <button onClick={onGenerarProrrogaDepartamento} className="px-3 py-2 rounded-md border border-teal-300 bg-teal-50 text-teal-800 text-xs font-medium hover:bg-teal-100">
+                Habilitar prórroga (departamento)
+              </button>
+            )}
+            {exp.rol === "renovacion" && exp.estadoGeneral === "En trámite de renovación" && (
               <button onClick={onDividir} className="px-3 py-2 rounded-md border border-indigo-300 bg-indigo-50 text-indigo-800 text-xs font-medium hover:bg-indigo-100">
-                Dividir expediente
+                Resolver adjudicación
               </button>
             )}
             {puedeEliminar && (

@@ -97,17 +97,23 @@ model Expediente {
   creadoEn               DateTime  @default(now())
   actualizadoEn          DateTime  @updatedAt
 
-  // Prórroga: opción del propio contrato vigente, no genera un expediente nuevo.
-  // Se carga al crear el vigente; se activa después desde la ficha si la
-  // renovación se atrasa (extiende fechaVencimiento del mismo registro).
-  tieneProrroga    Boolean @default(false)
-  prorrogaActivada Boolean @default(false)
+  // Prórroga habilitada por el ORGANISMO: opción del propio contrato vigente,
+  // no genera un expediente nuevo. Se carga al crear el vigente; se activa
+  // después desde la ficha si la renovación se atrasa (extiende
+  // fechaVencimiento del mismo registro). fechaNotificacionProrroga es la
+  // fecha en que el organismo notificó la recepción de la resolución.
+  tieneProrroga             Boolean   @default(false)
+  prorrogaActivada          Boolean   @default(false)
+  fechaNotificacionProrroga DateTime?
 
   // Parche: contratación puente propia (rol "parche" en la cadena) que cubre
   // el período mientras no hay vigente ni renovación lista. Puede repetirse
-  // más de una vez en la misma cadena.
-  tipoParche    String? // "Contratación descentralizada" | "Contratación directa por trámite simplificado" | "Legítimo abono"
-  detalleParche String?
+  // más de una vez en la misma cadena. Un parche es o bien uno "clásico"
+  // (tipoParche) o bien una prórroga habilitada por el DEPARTAMENTO
+  // (tipoContratacionProrroga) — mutuamente excluyentes.
+  tipoParche               String? // "Contratación descentralizada" | "Contratación directa por trámite simplificado" | "Legítimo abono"
+  detalleParche            String?
+  tipoContratacionProrroga String? // "Contratación descentralizada" | "Licitación Privada" | "Contratación Directa" | "Licitación Pública" | "Trámite Simplificado"
 
   // --- Campos exclusivos del departamento Servicios (nullable, sin uso en Informática y Varios) ---
   fuero              String[] @default([]) // ej ["Cámara Federal de Apelaciones de Córdoba"] — puede haber más de uno

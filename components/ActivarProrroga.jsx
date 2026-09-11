@@ -7,6 +7,7 @@ import BotonAccion from "./BotonAccion";
 
 export default function ActivarProrroga({ exp, onCerrar, onConfirmar }) {
   const [meses, setMeses] = useState(null);
+  const [fechaNotificacionProrroga, setFechaNotificacionProrroga] = useState("");
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
 
@@ -18,7 +19,7 @@ export default function ActivarProrroga({ exp, onCerrar, onConfirmar }) {
       return;
     }
     setCargando(true);
-    await onConfirmar({ nuevaFechaVencimiento });
+    await onConfirmar({ nuevaFechaVencimiento, fechaNotificacionProrroga: fechaNotificacionProrroga || null });
     setCargando(false);
   }
 
@@ -55,6 +56,18 @@ export default function ActivarProrroga({ exp, onCerrar, onConfirmar }) {
             Nuevo vencimiento: <span className="font-medium text-slate-800">{fmtFecha(nuevaFechaVencimiento)}</span>
           </p>
         )}
+
+        <div className="mt-3">
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Fecha de notificación de recepción de la resolución del organismo (opcional)
+          </label>
+          <input
+            type="date"
+            value={fechaNotificacionProrroga}
+            onChange={e => setFechaNotificacionProrroga(e.target.value)}
+            className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800"
+          />
+        </div>
 
         {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2 mt-3">{error}</p>}
 

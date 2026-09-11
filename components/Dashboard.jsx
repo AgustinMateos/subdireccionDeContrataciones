@@ -72,7 +72,8 @@ import CaratularExpediente from "./CaratularExpediente";
 import ConfirmarRenovacion from "./ConfirmarRenovacion";
 import ActivarProrroga from "./ActivarProrroga";
 import GenerarParche from "./GenerarParche";
-import DividirExpediente from "./DividirExpediente";
+import GenerarProrrogaDepartamento from "./GenerarProrrogaDepartamento";
+import ResolverAdjudicacion from "./ResolverAdjudicacion";
 import CotizadorTaquigrafico from "./CotizadorTaquigrafico";
 import CotizadorPolicia from "./CotizadorPolicia";
 import CotizadorAvisos from "./CotizadorAvisos";
@@ -470,11 +471,44 @@ export default function App() {
     mostrarToast("Parche generado y vinculado a " + origen.exp);
   }
 
-  async function crearDivision(origen, datos) {
+  async function crearProrrogaDepartamento(origen, datos) {
     const res = await fetch("/api/expedientes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ divisionDeId: origen.id, ...datos }),
+      body: JSON.stringify({ prorrogaDepartamentoDeId: origen.id, ...datos }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      mostrarToast(data.error || "No se pudo habilitar la prórroga");
+      return;
+    }
+    const data = await res.json();
+    await refrescar(data.expediente?.id);
+    setFormAbierto(null);
+    mostrarToast("Prórroga (departamento) generada y vinculada a " + origen.exp);
+  }
+
+  async function resolverAdjudicacionTotal(origen, estadoConvocatoria) {
+    const res = await fetch(`/api/expedientes/${origen.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ estadoConvocatoria }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      mostrarToast(data.error || "No se pudo actualizar el estado de convocatoria");
+      return;
+    }
+    await refrescar(origen.id);
+    setFormAbierto(null);
+    mostrarToast("Estado de convocatoria: " + estadoConvocatoria);
+  }
+
+  async function dividirExpediente(origen, grupos) {
+    const res = await fetch("/api/expedientes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ divisionDeId: origen.id, grupos }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -482,9 +516,11 @@ export default function App() {
       return;
     }
     const data = await res.json();
-    await refrescar(data.expediente?.id);
+    await refrescar(data.expedientes?.[0]?.id);
     setFormAbierto(null);
-    mostrarToast("Expediente dividido — el resto queda vinculado a " + origen.exp);
+    mostrarToast(
+      (data.expedientes?.length || 0) + " expediente(s) nuevo(s) — el resto queda vinculado a " + origen.exp
+    );
   }
 
   async function reunificar(exp, unificado) {
@@ -571,6 +607,7 @@ export default function App() {
             onActivar={() => activarRenovacion(seleccionado)}
             onActivarProrroga={() => setFormAbierto("activarProrroga")}
             onGenerarParche={() => setFormAbierto("generarParche")}
+            onGenerarProrrogaDepartamento={() => setFormAbierto("prorrogaDepartamento")}
             onDividir={() => setFormAbierto("dividir")}
             onReunificar={(unificado) => reunificar(seleccionado, unificado)}
             puedeEditar={puedeEditar}
@@ -755,11 +792,20 @@ export default function App() {
         />
       )}
 
-      {formAbierto === "dividir" && seleccionado && (
-        <DividirExpediente
+      {formAbierto === "prorrogaDepartamento" && seleccionado && (
+        <GenerarProrrogaDepartamento
           exp={seleccionado}
           onCerrar={() => setFormAbierto(null)}
-          onConfirmar={(datos) => crearDivision(seleccionado, datos)}
+          onConfirmar={(datos) => crearProrrogaDepartamento(seleccionado, datos)}
+        />
+      )}
+
+      {formAbierto === "dividir" && seleccionado && (
+        <ResolverAdjudicacion
+          exp={seleccionado}
+          onCerrar={() => setFormAbierto(null)}
+          onResolverTotal={(estadoConvocatoria) => resolverAdjudicacionTotal(seleccionado, estadoConvocatoria)}
+          onDividir={(grupos) => dividirExpediente(seleccionado, grupos)}
         />
       )}
     </div>
