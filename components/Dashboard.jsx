@@ -712,14 +712,26 @@ export default function App() {
             // Vigente" desde la ficha, una vez adjudicado de verdad).
             const rolNuevo = resuelto.rolNuevo === "vigente" ? "renovacion" : resuelto.rolNuevo;
             const { cadenaId, idVigenteAActualizar, match } = resuelto;
+
+            // Si el período cargado ya terminó (vencimiento anterior a hoy),
+            // no puede quedar como renovación ni "en trámite de renovación"
+            // — es un antecedente cerrado, no algo en curso. No aplica la
+            // lógica de renovación vinculada (no se fuerzan campos vacíos).
+            const periodoYaPasado = resto.fechaVencimiento && new Date(resto.fechaVencimiento + "T00:00:00") < HOY;
+            const rolFinal = periodoYaPasado ? "antecedente" : rolNuevo;
+            const estadoGeneralFinal = periodoYaPasado ? "Finalizado" : "En trámite de renovación";
+            const idVigenteAActualizarFinal = periodoYaPasado ? null : idVigenteAActualizar;
+
             // El mensaje de resolverCadena da por hecho que puede pasar a
             // "Vigente" — al caratular eso ya no es posible, así que se arma
             // acá en vez de usar resuelto.mensaje para ese caso.
-            const mensaje = !match
-              ? "Expediente caratulado. Completá el resto desde \"Editar expediente\" en su ficha."
-              : idVigenteAActualizar
-                ? resuelto.mensaje
-                : "Expediente caratulado y vinculado a la cadena de " + match.exp + " (en trámite de renovación).";
+            const mensaje = periodoYaPasado
+              ? "Expediente caratulado como antecedente cerrado (el período cargado ya venció)."
+              : !match
+                ? "Expediente caratulado. Completá el resto desde \"Editar expediente\" en su ficha."
+                : idVigenteAActualizar
+                  ? resuelto.mensaje
+                  : "Expediente caratulado y vinculado a la cadena de " + match.exp + " (en trámite de renovación).";
 
             const res = await fetch("/api/expedientes", {
               method: "POST",
@@ -727,9 +739,9 @@ export default function App() {
               body: JSON.stringify({
                 ...resto,
                 cadenaId,
-                rol: rolNuevo,
-                estadoGeneral: "En trámite de renovación",
-                idVigenteAActualizar,
+                rol: rolFinal,
+                estadoGeneral: estadoGeneralFinal,
+                idVigenteAActualizar: idVigenteAActualizarFinal,
               }),
             });
             if (!res.ok) {
