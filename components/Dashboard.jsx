@@ -39,9 +39,10 @@ function resolverCadena(antecedenteExp, expedientes) {
   let rolNuevo = "vigente";
   let idVigenteAActualizar = null;
   let mensaje = "Expediente creado";
+  let match = null;
 
   if (antecedenteExp && antecedenteExp.trim()) {
-    const match = expedientes.find(
+    match = expedientes.find(
       e => e.exp.trim().toLowerCase() === antecedenteExp.trim().toLowerCase()
     );
     if (match) {
@@ -56,7 +57,7 @@ function resolverCadena(antecedenteExp, expedientes) {
       }
     }
   }
-  return { cadenaId, rolNuevo, idVigenteAActualizar, mensaje };
+  return { cadenaId, rolNuevo, idVigenteAActualizar, mensaje, match };
 }
 
 import Login from "./Login";
@@ -667,7 +668,21 @@ export default function App() {
           onCerrar={() => setFormAbierto(null)}
           onGuardar={async (datos) => {
             const { antecedenteExp, ...resto } = datos;
-            const { cadenaId, rolNuevo, idVigenteAActualizar, mensaje } = resolverCadena(antecedenteExp, expedientes);
+            const resuelto = resolverCadena(antecedenteExp, expedientes);
+            // Al caratular, el expediente arranca siempre "en trámite de
+            // renovación": todavía no fue adjudicado, así que su rol nunca
+            // puede ser "vigente" (eso se define recién al "Activar como
+            // Vigente" desde la ficha, una vez adjudicado de verdad).
+            const rolNuevo = resuelto.rolNuevo === "vigente" ? "renovacion" : resuelto.rolNuevo;
+            const { cadenaId, idVigenteAActualizar, match } = resuelto;
+            // El mensaje de resolverCadena da por hecho que puede pasar a
+            // "Vigente" — al caratular eso ya no es posible, así que se arma
+            // acá en vez de usar resuelto.mensaje para ese caso.
+            const mensaje = !match
+              ? "Expediente caratulado. Completá el resto desde \"Editar expediente\" en su ficha."
+              : idVigenteAActualizar
+                ? resuelto.mensaje
+                : "Expediente caratulado y vinculado a la cadena de " + match.exp + " (en trámite de renovación).";
 
             const res = await fetch("/api/expedientes", {
               method: "POST",
@@ -676,7 +691,7 @@ export default function App() {
                 ...resto,
                 cadenaId,
                 rol: rolNuevo,
-                estadoGeneral: rolNuevo === "renovacion" ? "En trámite de renovación" : resto.estadoGeneral,
+                estadoGeneral: "En trámite de renovación",
                 idVigenteAActualizar,
               }),
             });
@@ -689,7 +704,7 @@ export default function App() {
             await refrescar(data.expediente?.id);
             setFormAbierto(null);
             setVista("expedienteDetalle");
-            mostrarToast(rolNuevo === "renovacion" ? mensaje : "Expediente caratulado. Completá el resto desde \"Editar expediente\" en su ficha.");
+            mostrarToast(mensaje);
           }}
         />
       )}

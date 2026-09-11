@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA } from "@/lib/constants";
+import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA, ESTADOS_CONVOCATORIA_FALLIDOS } from "@/lib/constants";
 
 const INCLUDE_EXPEDIENTE = {
   observaciones: { orderBy: { fecha: "asc" } },
@@ -253,6 +253,9 @@ export async function POST(request) {
     if (!origen || origen.departamentoId !== session.user.departamentoId) {
       return NextResponse.json({ error: "Expediente de origen no encontrado" }, { status: 404 });
     }
+    if (origen.estadoGeneral !== "En trámite de renovación" || !ESTADOS_CONVOCATORIA_FALLIDOS.includes(origen.estadoConvocatoria)) {
+      return NextResponse.json({ error: "Solo se puede dividir cuando el estado de la convocatoria es fracasado" }, { status: 400 });
+    }
     const domiciliosMovidos = normalizarLista(body.domiciliosRenglones);
     if (domiciliosMovidos.length === 0) {
       return NextResponse.json({ error: "Elegí al menos un domicilio/renglón para dividir" }, { status: 400 });
@@ -332,6 +335,7 @@ export async function POST(request) {
   // que se haya tipeado en el formulario. La zona es la misma de donde surge,
   // no se puede elegir otra al vincular.
   const esRenovacionVinculada = !!body.idVigenteAActualizar;
+  const sectorInicial = body.sector || null;
 
   const nuevo = await prisma.expediente.create({
     data: {
@@ -361,7 +365,7 @@ export async function POST(request) {
       resolucionLlamado: esRenovacionVinculada ? null : (body.resolucionLlamado || null),
       resolucionAdjudicacion: esRenovacionVinculada ? null : (body.resolucionAdjudicacion || null),
       adjudicatario: esRenovacionVinculada ? null : (body.adjudicatario || null),
-      sector: body.sector || null,
+      sector: sectorInicial,
       etapa: body.etapa || null,
       estadoGeneral: body.estadoGeneral || "Vigente",
       fuero: normalizarFuero(body),
@@ -370,6 +374,17 @@ export async function POST(request) {
       estadoConvocatoria: body.estadoConvocatoria || null,
       tieneProrroga: !!body.tieneProrroga,
       domiciliosRenglones: normalizarLista(body.domiciliosRenglones),
+      observaciones: sectorInicial
+        ? {
+            create: [{
+              usuario: session.user.name,
+              tipo: "movimiento",
+              texto: "Expediente caratulado, ingresa a " + sectorInicial + ".",
+              sectorAnterior: null,
+              sectorNuevo: sectorInicial,
+            }],
+          }
+        : undefined,
     },
     include: INCLUDE_EXPEDIENTE,
   });

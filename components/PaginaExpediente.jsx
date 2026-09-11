@@ -191,9 +191,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <Campo label="N° de contratación" valor={exp.nroContratacion} />
             <Campo label="N° de resolución" valor={exp.nroResolucion} />
             <Campo label={(exp.organismos || []).length > 1 ? "Organismos" : "Organismo"} valor={(exp.organismos || []).join(", ")} />
-            {(exp.domiciliosRenglones || []).length > 0 && (
-              <Campo label="Domicilios/renglones" valor={exp.domiciliosRenglones.join(", ")} />
-            )}
+            <Campo label="Domicilios/renglones" valor={(exp.domiciliosRenglones || []).join(", ")} />
             <Campo label="Sector actual" valor={exp.sector} />
             {frenado != null && (
               <Campo label="Días frenado" valor={
@@ -209,7 +207,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <Campo label="Adjudicatario" valor={exp.adjudicatario} />
             <Campo label="Etapa" valor={exp.etapa} />
             <Campo label="Fecha inicio" valor={fmtFecha(exp.fechaInicio)} />
-            <Campo label="Fecha vencimiento" valor={fmtFecha(exp.fechaVencimiento)} />
+            {!esConvocatoriaFracasada(exp) && <Campo label="Fecha vencimiento" valor={fmtFecha(exp.fechaVencimiento)} />}
             <Campo label="Fecha de publicación" valor={fmtFecha(exp.fechaPublicacion)} />
             <Campo label="Fecha de apertura" valor={fmtFecha(exp.fechaApertura)} />
             <Campo label="Presupuesto oficial" valor={exp.presupuestoOficial ? fmtMoneda(exp.presupuestoOficial) : "-"} />
@@ -322,7 +320,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                 Generar parche / contratación puente
               </button>
             )}
-            {(exp.domiciliosRenglones || []).length > 0 && (
+            {esConvocatoriaFracasada(exp) && (exp.domiciliosRenglones || []).length > 0 && (
               <button onClick={onDividir} className="px-3 py-2 rounded-md border border-indigo-300 bg-indigo-50 text-indigo-800 text-xs font-medium hover:bg-indigo-100">
                 Dividir expediente
               </button>

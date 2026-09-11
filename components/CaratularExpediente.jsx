@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTOR_INICIAL_POR_DEPARTAMENTO } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
@@ -9,6 +9,7 @@ import CampoFuero from "./CampoFuero";
 import CampoDomiciliosRenglones from "./CampoDomiciliosRenglones";
 import BotonAccion from "./BotonAccion";
 import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
+import { direccionesDe } from "@/lib/organismosFueros";
 
 function formVacio(esServicios, departamentoSlug) {
   return {
@@ -40,6 +41,20 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
   const [guardando, setGuardando] = useState(false);
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
+
+  // Al elegir organismo + fuero, las direcciones conocidas del padrón se
+  // suman como sugerencia a "Domicilios/renglones" — sin pisar las que el
+  // usuario ya haya sacado o agregado a mano.
+  useEffect(() => {
+    if (!esServicios) return;
+    const sugeridas = direccionesDe(f.organismos, f.fuero);
+    if (sugeridas.length === 0) return;
+    setF(prev => {
+      const nuevas = sugeridas.filter(d => !prev.domiciliosRenglones.includes(d));
+      if (nuevas.length === 0) return prev;
+      return { ...prev, domiciliosRenglones: [...prev.domiciliosRenglones, ...nuevas] };
+    });
+  }, [f.organismos, f.fuero, esServicios]);
 
   const coincidenciaAntecedente = f.antecedenteExp && expedientes
     ? expedientes.find(e => e.exp.trim().toLowerCase() === f.antecedenteExp.trim().toLowerCase())
