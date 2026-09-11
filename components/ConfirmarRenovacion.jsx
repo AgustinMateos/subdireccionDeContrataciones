@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import BotonAccion from "./BotonAccion";
+import CampoDomiciliosRenglones from "./CampoDomiciliosRenglones";
 import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
 
 export default function ConfirmarRenovacion({ exp, expedientes, onCerrar, onConfirmar }) {
-  const [f, setF] = useState({ exp: "", fechaInicio: "", fechaVencimiento: "" });
+  const [f, setF] = useState({ exp: "", fechaInicio: "", fechaVencimiento: "", domiciliosRenglones: exp.domiciliosRenglones || [] });
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
 
@@ -27,7 +28,12 @@ export default function ConfirmarRenovacion({ exp, expedientes, onCerrar, onConf
       return;
     }
     setCargando(true);
-    await onConfirmar({ exp: f.exp.trim(), fechaInicio: f.fechaInicio, fechaVencimiento: f.fechaVencimiento });
+    await onConfirmar({
+      exp: f.exp.trim(),
+      fechaInicio: f.fechaInicio,
+      fechaVencimiento: f.fechaVencimiento,
+      domiciliosRenglones: f.domiciliosRenglones,
+    });
     setCargando(false);
   }
 
@@ -63,6 +69,11 @@ export default function ConfirmarRenovacion({ exp, expedientes, onCerrar, onConf
                 className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
             </div>
           </div>
+          <CampoDomiciliosRenglones
+            id="lista-domicilios-renovacion"
+            valores={f.domiciliosRenglones}
+            onChange={v => set("domiciliosRenglones", v)}
+          />
           {fechaMinima && (
             <p className="text-[11px] text-amber-700">
               La fecha de inicio no puede ser anterior al {fmtFecha(fechaMinima)} (cuando termina la cobertura vigente).

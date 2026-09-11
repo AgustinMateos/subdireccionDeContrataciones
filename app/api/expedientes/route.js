@@ -147,6 +147,9 @@ export async function POST(request) {
           zona: vigente.zona,
           fuero: vigente.fuero,
           codigoInterno: vigente.codigoInterno,
+          domiciliosRenglones: Array.isArray(body.domiciliosRenglones)
+            ? normalizarLista(body.domiciliosRenglones)
+            : (vigente.domiciliosRenglones || []),
           etapa: "En trámite - carátula inicial",
           estadoGeneral: "En trámite de renovación",
         },
