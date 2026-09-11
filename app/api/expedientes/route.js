@@ -247,6 +247,9 @@ export async function POST(request) {
     if (!origen || origen.departamentoId !== session.user.departamentoId) {
       return NextResponse.json({ error: "Expediente de origen no encontrado" }, { status: 404 });
     }
+    if (!origen.tieneProrroga) {
+      return NextResponse.json({ error: "Este expediente no tiene la opción de prórroga marcada" }, { status: 400 });
+    }
     if (!body.nroResolucion) {
       return NextResponse.json({ error: "Cargá el N° de resolución" }, { status: 400 });
     }

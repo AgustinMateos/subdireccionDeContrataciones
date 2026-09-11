@@ -322,7 +322,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                 Generar parche / contratación puente
               </button>
             )}
-            {(exp.rol === "vigente" || exp.rol === "parche") && (
+            {(exp.rol === "vigente" || exp.rol === "parche") && exp.tieneProrroga && (
               <button onClick={onGenerarProrrogaDepartamento} className="px-3 py-2 rounded-md border border-teal-300 bg-teal-50 text-teal-800 text-xs font-medium hover:bg-teal-100">
                 Habilitar prórroga (departamento)
               </button>
