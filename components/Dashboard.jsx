@@ -5,7 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { CheckCircle2 } from "lucide-react";
 
 import { HOY, ROL_USUARIO_LABEL } from "@/lib/constants";
-import { diasRestantes, alerta, documentacionDeExpediente } from "@/lib/utils";
+import { diasRestantes, alerta, documentacionDeExpediente, fmtFecha } from "@/lib/utils";
 
 // Prisma serializa las fechas como ISO ("2026-09-10T00:00:00.000Z"), pero los
 // componentes hijos y utils esperan strings "YYYY-MM-DD". Además `documentacion`
@@ -706,32 +706,43 @@ export default function App() {
           onGuardar={async (datos) => {
             const { antecedenteExp, ...resto } = datos;
             const resuelto = resolverCadena(antecedenteExp, expedientes);
-            // Al caratular, el expediente arranca siempre "en trámite de
-            // renovación": todavía no fue adjudicado, así que su rol nunca
-            // puede ser "vigente" (eso se define recién al "Activar como
-            // Vigente" desde la ficha, una vez adjudicado de verdad).
-            const rolNuevo = resuelto.rolNuevo === "vigente" ? "renovacion" : resuelto.rolNuevo;
-            const { cadenaId, idVigenteAActualizar, match } = resuelto;
+            const { cadenaId, match } = resuelto;
 
-            // Si el período cargado ya terminó (vencimiento anterior a hoy),
-            // no puede quedar como renovación ni "en trámite de renovación"
-            // — es un antecedente cerrado, no algo en curso. No aplica la
-            // lógica de renovación vinculada (no se fuerzan campos vacíos).
-            const periodoYaPasado = resto.fechaVencimiento && new Date(resto.fechaVencimiento + "T00:00:00") < HOY;
-            const rolFinal = periodoYaPasado ? "antecedente" : rolNuevo;
-            const estadoGeneralFinal = periodoYaPasado ? "Finalizado" : "En trámite de renovación";
-            const idVigenteAActualizarFinal = periodoYaPasado ? null : idVigenteAActualizar;
+            // El rol y el estado se deciden según el período cargado, no por
+            // default: si ya terminó, es un antecedente cerrado; si todavía
+            // no arrancó, es una renovación en trámite (avisa cuándo
+            // arranca); si ya está corriendo hoy, es un Vigente (avisa
+            // cuándo finaliza).
+            const vencimiento = resto.fechaVencimiento ? new Date(resto.fechaVencimiento + "T00:00:00") : null;
+            const inicio = resto.fechaInicio ? new Date(resto.fechaInicio + "T00:00:00") : null;
 
-            // El mensaje de resolverCadena da por hecho que puede pasar a
-            // "Vigente" — al caratular eso ya no es posible, así que se arma
-            // acá en vez de usar resuelto.mensaje para ese caso.
-            const mensaje = periodoYaPasado
+            let rolFinal, estadoGeneralFinal;
+            if (vencimiento && vencimiento < HOY) {
+              rolFinal = "antecedente";
+              estadoGeneralFinal = "Finalizado";
+            } else if (inicio && inicio > HOY) {
+              rolFinal = "renovacion";
+              estadoGeneralFinal = "En trámite de renovación";
+            } else {
+              rolFinal = "vigente";
+              estadoGeneralFinal = "Vigente";
+            }
+
+            // idVigenteAActualizar fuerza campos vacíos (N° de contratación,
+            // montos, adjudicatario) y hereda la zona del vigente referenciado
+            // — solo tiene sentido cuando el resultado es una renovación
+            // vinculada de verdad.
+            const idVigenteAActualizarFinal = rolFinal === "renovacion" ? resuelto.idVigenteAActualizar : null;
+
+            const mensaje = rolFinal === "antecedente"
               ? "Expediente caratulado como antecedente cerrado (el período cargado ya venció)."
-              : !match
-                ? "Expediente caratulado. Completá el resto desde \"Editar expediente\" en su ficha."
-                : idVigenteAActualizar
+              : rolFinal === "vigente"
+                ? "Expediente caratulado como Vigente (vence " + fmtFecha(resto.fechaVencimiento) + ")."
+                : idVigenteAActualizarFinal
                   ? resuelto.mensaje
-                  : "Expediente caratulado y vinculado a la cadena de " + match.exp + " (en trámite de renovación).";
+                  : "Expediente caratulado, en trámite de renovación" +
+                    (match ? " y vinculado a la cadena de " + match.exp : "") +
+                    (inicio ? " (arranca " + fmtFecha(resto.fechaInicio) + ")" : "") + ".";
 
             const res = await fetch("/api/expedientes", {
               method: "POST",
