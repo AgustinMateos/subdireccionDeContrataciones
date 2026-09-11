@@ -2,18 +2,17 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { TIPOS_CONTRATACION_PRORROGA_DEPTO } from "@/lib/constants";
 import BotonAccion from "./BotonAccion";
 import { fmtFecha } from "@/lib/utils";
 
 // Prórroga habilitada por el DEPARTAMENTO (no por el organismo): a diferencia
 // de la prórroga simple, ésta lleva su propio N° de expediente asociado al
-// vigente. Siempre lleva N° de resolución; la orden de compra solo aplica si
-// la contratación no es descentralizada.
+// vigente. El encuadre/tipo de contratación es siempre el mismo de donde
+// surge (el vigente) — no se elige. Siempre lleva N° de resolución; la
+// orden de compra solo aplica si esa contratación no es descentralizada.
 export default function GenerarProrrogaDepartamento({ exp, onCerrar, onConfirmar }) {
   const [f, setF] = useState({
     exp: "",
-    tipoContratacionProrroga: TIPOS_CONTRATACION_PRORROGA_DEPTO[0],
     objeto: exp.objeto || "",
     fechaInicio: "",
     fechaVencimiento: "",
@@ -23,11 +22,15 @@ export default function GenerarProrrogaDepartamento({ exp, onCerrar, onConfirmar
   });
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
-  const esDescentralizada = f.tipoContratacionProrroga === "Contratación descentralizada";
+  const esDescentralizada = (exp.encuadre || "").toLowerCase().includes("descentralizada");
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
 
   async function confirmar() {
+    if (!exp.encuadre) {
+      setError("El expediente de origen no tiene encuadre definido — cargalo primero desde \"Editar expediente\".");
+      return;
+    }
     if (!f.exp || !f.objeto || !f.fechaVencimiento) {
       setError("Completá al menos N° de expediente, objeto y fecha de vencimiento.");
       return;
@@ -71,11 +74,9 @@ export default function GenerarProrrogaDepartamento({ exp, onCerrar, onConfirmar
                 className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Tipo de contratación</label>
-              <select value={f.tipoContratacionProrroga} onChange={e => set("tipoContratacionProrroga", e.target.value)}
-                className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800">
-                {TIPOS_CONTRATACION_PRORROGA_DEPTO.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Tipo de contratación (del vigente)</label>
+              <input value={exp.encuadre || "Sin encuadre definido"} disabled
+                className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 bg-slate-100 text-slate-500" />
             </div>
 
             <div>

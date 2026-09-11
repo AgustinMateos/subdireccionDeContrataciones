@@ -253,10 +253,15 @@ export async function POST(request) {
     if (!origen.tieneProrroga) {
       return NextResponse.json({ error: "Este expediente no tiene la opción de prórroga marcada" }, { status: 400 });
     }
+    if (!origen.encuadre) {
+      return NextResponse.json({ error: "El expediente de origen no tiene encuadre definido" }, { status: 400 });
+    }
     if (!body.nroResolucion) {
       return NextResponse.json({ error: "Cargá el N° de resolución" }, { status: 400 });
     }
-    const esDescentralizada = body.tipoContratacionProrroga === "Contratación descentralizada";
+    // El tipo de contratación de la prórroga es siempre el mismo del vigente
+    // de origen — no se elige.
+    const esDescentralizada = origen.encuadre.toLowerCase().includes("descentralizada");
     if (!esDescentralizada && !body.ocResolucion) {
       return NextResponse.json({ error: "Esta modalidad requiere N° de orden de compra" }, { status: 400 });
     }
@@ -285,7 +290,8 @@ export async function POST(request) {
           ocResolucion: esDescentralizada ? null : (body.ocResolucion || null),
           sector: origen.sector,
           estadoGeneral: "Vigente",
-          tipoContratacionProrroga: body.tipoContratacionProrroga || null,
+          tipoContratacionProrroga: origen.encuadre,
+          encuadre: origen.encuadre,
           zona: origen.zona,
           fuero: origen.fuero,
         },
@@ -361,6 +367,11 @@ export async function POST(request) {
         const g = grupos[i];
         const domicilios = normalizarLista(g.domiciliosRenglones);
         todosLosDomicilios.push(...domicilios);
+        const motivo = ESTADOS_CONVOCATORIA_FALLIDOS.includes(g.estadoConvocatoria) ? g.estadoConvocatoria : "Proyecto fracasado";
+        // Este expediente nuevo NO tramita el fracaso — es el intento de
+        // contratación de esos domicilios/renglones, así que arranca su
+        // propia convocatoria desde cero. El motivo por el que no se
+        // adjudicaron antes queda de referencia en una observación.
         const nueva = await prisma.expediente.create({
           data: {
             cadenaId: "c" + Date.now() + "_" + i,
@@ -378,11 +389,17 @@ export async function POST(request) {
             sector: origen.sector,
             zona: origen.zona,
             fuero: origen.fuero,
-            estadoConvocatoria: ESTADOS_CONVOCATORIA_FALLIDOS.includes(g.estadoConvocatoria)
-              ? g.estadoConvocatoria
-              : "Proyecto fracasado",
+            estadoConvocatoria: "Caratulación",
             domiciliosRenglones: domicilios,
             divisionDeId: origen.id,
+            observaciones: {
+              create: [{
+                usuario: session.user.name,
+                tipo: "general",
+                texto: "Intento de contratación de los domicilios/renglones: " + domicilios.join(", ") +
+                  " — en " + origen.exp + " quedaron como " + motivo + ".",
+              }],
+            },
           },
           include: INCLUDE_EXPEDIENTE,
         });
@@ -395,12 +412,27 @@ export async function POST(request) {
       throw e;
     }
 
-    // Los domicilios/renglones divididos dejan de estar cubiertos por el
-    // expediente de origen — el resto sigue su curso ahí normalmente.
+    // El expediente de origen conserva TODOS los domicilios/renglones con los
+    // que arrancó esa contratación (no se le sacan los que se dividieron) —
+    // pero se deja constancia en una observación de cuáles quedaron
+    // adjudicados ahí y cuáles se tramitan por separado en los expedientes
+    // nuevos.
+    const adjudicados = (origen.domiciliosRenglones || []).filter(v => !todosLosDomicilios.includes(v));
+    const textoConstancia = (adjudicados.length > 0
+      ? "Adjudicación parcial: quedan adjudicados los domicilios/renglones " + adjudicados.join(", ") + ". "
+      : "Adjudicación parcial: ningún domicilio/renglón quedó adjudicado en este expediente. ") +
+      "Se tramitan por separado los domicilios/renglones " + todosLosDomicilios.join(", ") +
+      " en los expedientes " + nuevasDivisiones.map(d => d.exp).join(", ") + ".";
     await prisma.expediente.update({
       where: { id: origen.id },
       data: {
-        domiciliosRenglones: (origen.domiciliosRenglones || []).filter(v => !todosLosDomicilios.includes(v)),
+        observaciones: {
+          create: [{
+            usuario: session.user.name,
+            tipo: "general",
+            texto: textoConstancia,
+          }],
+        },
       },
     });
 
