@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil, Trash2, Shield, Clock } from "lucide-react";
-import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, ESTADOS_CONVOCATORIA_FALLIDOS, SECTORES } from "@/lib/constants";
-import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtMoneda, documentacionDeExpediente, diasFrenado, estadoGeneralMostrado, esConvocatoriaFracasada } from "@/lib/utils";
+import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, ESTADOS_CONVOCATORIA_FALLIDOS, SECTORES, MODALIDADES_CONTRATACION } from "@/lib/constants";
+import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtFechaHora, fmtMoneda, documentacionDeExpediente, diasFrenado, estadoGeneralMostrado, esConvocatoriaFracasada } from "@/lib/utils";
 import BotonAccion from "./BotonAccion";
-export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onActivarProrroga, onGenerarParche, onGenerarProrrogaDepartamento, onDividir, onReunificar, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
+export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onGestionarProrroga, onGenerarParche, onDividir, onReunificar, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
   const [verMasAntecedentes, setVerMasAntecedentes] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const cadena = expedientes.filter(e => e.cadenaId === exp.cadenaId);
@@ -107,6 +107,48 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
           )}
 
           <div>
+             {puedeEditar && (
+          <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex flex-wrap gap-2">
+            <button onClick={onEditar} className="px-3 py-2 rounded-md border border-slate-300 text-xs font-medium hover:bg-slate-50">
+              Editar expediente
+            </button>
+            {exp.rol === "vigente" && !renovacion && (
+              <button onClick={onRenovar} className="px-3 py-2 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800">
+                Crear renovación vinculada
+              </button>
+            )}
+            {exp.rol === "renovacion" && (
+              <button onClick={onActivar} className="px-3 py-2 rounded-md bg-emerald-700 text-white text-xs font-medium hover:bg-emerald-800">
+                Activar como Vigente (venció el contrato anterior)
+              </button>
+            )}
+            {(exp.rol === "vigente" || exp.rol === "parche") && (
+              <button onClick={onGenerarParche} className="px-3 py-2 rounded-md border border-amber-300 bg-amber-50 text-amber-800 text-xs font-medium hover:bg-amber-100">
+                Generar parche / contratación puente
+              </button>
+            )}
+            {(exp.rol === "vigente" || exp.rol === "parche") && exp.tieneProrroga && (
+              <button onClick={onGestionarProrroga} className="px-3 py-2 rounded-md border border-teal-300 bg-teal-50 text-teal-800 text-xs font-medium hover:bg-teal-100">
+                Gestionar prórroga
+              </button>
+            )}
+            {exp.rol === "renovacion" && exp.estadoGeneral === "En trámite de renovación" && (
+              <button onClick={onDividir} className="px-3 py-2 rounded-md border border-indigo-300 bg-indigo-50 text-indigo-800 text-xs font-medium hover:bg-indigo-100">
+                Resolver adjudicación
+              </button>
+            )}
+            {puedeEliminar && (
+              <BotonAccion
+                onClick={async () => { setEliminando(true); await onEliminar(exp.id); setEliminando(false); }}
+                cargando={eliminando}
+                cargandoTexto="Eliminando..."
+                className="ml-auto px-3 py-2 rounded-md border border-red-300 text-red-700 text-xs font-medium hover:bg-red-50 disabled:opacity-60"
+              >
+                Eliminar
+              </BotonAccion>
+            )}
+          </div>
+        )}
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Trazabilidad del expediente</h3>
             <div className="flex items-stretch gap-1 flex-wrap">
               {nodos.map((nodo, idx) => {
@@ -176,11 +218,6 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                 (exp.prorrogaActivada ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800")}>
                 <Clock size={11} /> {exp.prorrogaActivada ? "Prórroga activada" : "Con opción de prórroga"}
               </span>
-              {!exp.prorrogaActivada && puedeEditar && (
-                <button onClick={onActivarProrroga} className="text-[11px] font-medium text-slate-600 hover:text-slate-900 underline">
-                  Activar prórroga
-                </button>
-              )}
             </div>
           )}
 <div className="col-span-2">
@@ -189,7 +226,6 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <Campo label="Tipo de expediente" valor={exp.tipo} />
             <Campo label="Agente" valor={exp.agente} />
             <Campo label="N° de contratación" valor={exp.nroContratacion} />
-            <Campo label="N° de resolución" valor={exp.nroResolucion} />
             <Campo label={(exp.organismos || []).length > 1 ? "Organismos" : "Organismo"} valor={(exp.organismos || []).join(", ")} />
             <Campo label="Domicilios/renglones" valor={(exp.domiciliosRenglones || []).join(", ")} />
             <Campo label="Sector actual" valor={exp.sector} />
@@ -209,14 +245,14 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <Campo label="Fecha inicio" valor={fmtFecha(exp.fechaInicio)} />
             {!esConvocatoriaFracasada(exp) && <Campo label="Fecha vencimiento" valor={fmtFecha(exp.fechaVencimiento)} />}
             <Campo label="Fecha de publicación" valor={fmtFecha(exp.fechaPublicacion)} />
-            <Campo label="Fecha de apertura" valor={fmtFecha(exp.fechaApertura)} />
+            <Campo label="Fecha y hora de apertura" valor={fmtFechaHora(exp.fechaApertura)} />
             <Campo label="Presupuesto oficial" valor={exp.presupuestoOficial ? fmtMoneda(exp.presupuestoOficial) : "-"} />
             <Campo label="Monto adjudicado" valor={fmtMoneda(exp.montoARS)} />
             <Campo label="Monto adjudicado USD" valor={exp.montoUSD ? fmtMoneda(exp.montoUSD, "USD") : "-"} />
             
           </div>
 
-          {((exp.fuero || []).length > 0 || exp.zona || exp.codigoInterno || exp.estadoConvocatoria || exp.tipoParche || exp.tipoContratacionProrroga || exp.fechaNotificacionProrroga) && (
+          {((exp.fuero || []).length > 0 || exp.zona || exp.codigoInterno || exp.estadoConvocatoria || exp.tipoParche || exp.tipoContratacionProrroga || exp.fechaNotificacionProrroga || exp.nroResolucion) && (
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm border-t border-slate-100 pt-4">
               {exp.zona && <Campo label="Zona" valor={exp.zona} />}
               {(exp.fuero || []).length > 0 && <Campo label={exp.fuero.length > 1 ? "Fueros" : "Fuero"} valor={exp.fuero.join(", ")} />}
@@ -224,7 +260,24 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
               {exp.estadoConvocatoria && <Campo label="Estado de convocatoria" valor={exp.estadoConvocatoria} />}
               {exp.tipoParche && <Campo label="Tipo de parche" valor={exp.detalleParche ? exp.tipoParche + " — " + exp.detalleParche : exp.tipoParche} />}
               {exp.tipoContratacionProrroga && <Campo label="Prórroga (departamento) — tipo de contratación" valor={exp.tipoContratacionProrroga} />}
+              {exp.nroResolucion && <Campo label="N° de resolución" valor={exp.nroResolucion} />}
               {exp.fechaNotificacionProrroga && <Campo label="Notificación de recepción (organismo)" valor={fmtFecha(exp.fechaNotificacionProrroga)} />}
+            </div>
+          )}
+
+          {exp.adjudicacionPorRenglon && Object.keys(exp.adjudicacionPorRenglon).length > 0 && (
+            <div className="border-t border-slate-100 pt-4 space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Adjudicación por renglón</h3>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {Object.entries(exp.adjudicacionPorRenglon).map(([dom, datos]) => (
+                  <div key={dom} className="flex items-center justify-between gap-2 border border-slate-200 rounded-md px-3 py-1.5">
+                    <span className="text-slate-500 truncate" title={dom}>{dom}</span>
+                    <span className="font-medium text-slate-800 truncate text-right" title={datos.firma}>
+                      {datos.firma}{datos.monto ? " · " + fmtMoneda(datos.monto) : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -302,48 +355,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
           </div>
         </div>
 
-        {puedeEditar && (
-          <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex flex-wrap gap-2">
-            <button onClick={onEditar} className="px-3 py-2 rounded-md border border-slate-300 text-xs font-medium hover:bg-slate-50">
-              Editar expediente
-            </button>
-            {exp.rol === "vigente" && !renovacion && (
-              <button onClick={onRenovar} className="px-3 py-2 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800">
-                Crear renovación vinculada
-              </button>
-            )}
-            {exp.rol === "renovacion" && (
-              <button onClick={onActivar} className="px-3 py-2 rounded-md bg-emerald-700 text-white text-xs font-medium hover:bg-emerald-800">
-                Activar como Vigente (venció el contrato anterior)
-              </button>
-            )}
-            {(exp.rol === "vigente" || exp.rol === "parche") && (
-              <button onClick={onGenerarParche} className="px-3 py-2 rounded-md border border-amber-300 bg-amber-50 text-amber-800 text-xs font-medium hover:bg-amber-100">
-                Generar parche / contratación puente
-              </button>
-            )}
-            {(exp.rol === "vigente" || exp.rol === "parche") && exp.tieneProrroga && (
-              <button onClick={onGenerarProrrogaDepartamento} className="px-3 py-2 rounded-md border border-teal-300 bg-teal-50 text-teal-800 text-xs font-medium hover:bg-teal-100">
-                Habilitar prórroga (departamento)
-              </button>
-            )}
-            {exp.rol === "renovacion" && exp.estadoGeneral === "En trámite de renovación" && (
-              <button onClick={onDividir} className="px-3 py-2 rounded-md border border-indigo-300 bg-indigo-50 text-indigo-800 text-xs font-medium hover:bg-indigo-100">
-                Resolver adjudicación
-              </button>
-            )}
-            {puedeEliminar && (
-              <BotonAccion
-                onClick={async () => { setEliminando(true); await onEliminar(exp.id); setEliminando(false); }}
-                cargando={eliminando}
-                cargandoTexto="Eliminando..."
-                className="ml-auto px-3 py-2 rounded-md border border-red-300 text-red-700 text-xs font-medium hover:bg-red-50 disabled:opacity-60"
-              >
-                Eliminar
-              </BotonAccion>
-            )}
-          </div>
-        )}
+       
       </div>
     </div>
   );
@@ -532,11 +544,33 @@ function FormObservacion({ exp, onObservacion }) {
   const [tipo, setTipo] = useState("general");
   const [texto, setTexto] = useState("");
   const [sectorNuevo, setSectorNuevo] = useState(exp.sector || "");
+  const [fechaPublicacion, setFechaPublicacion] = useState(exp.fechaPublicacion || "");
+  const [fechaApertura, setFechaApertura] = useState(exp.fechaApertura || "");
+  const [presupuestoOficial, setPresupuestoOficial] = useState(exp.presupuestoOficial || "");
+  const [resolucionLlamado, setResolucionLlamado] = useState(exp.resolucionLlamado || "");
+  const [nroContratacion, setNroContratacion] = useState(exp.nroContratacion || "");
+  const [encuadre, setEncuadre] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const vaAAperturas = tipo === "movimiento" && sectorNuevo === "Aperturas";
+  const vaADGP = tipo === "movimiento" && sectorNuevo === "DGP";
+  const necesitaEncuadre = vaADGP && !exp.encuadre;
+  const faltaAperturas = vaAAperturas && (!fechaPublicacion || !fechaApertura || !presupuestoOficial || !resolucionLlamado.trim() || !nroContratacion.trim());
+  const faltaDGP = necesitaEncuadre && !encuadre;
 
-  function enviar() {
+  async function enviar() {
     if (!texto.trim()) return;
     if (tipo === "movimiento" && !sectorNuevo.trim()) return;
-    onObservacion(exp.id, { tipo, texto: texto.trim(), sectorNuevo: sectorNuevo.trim() });
+    if (faltaAperturas) return;
+    if (faltaDGP) return;
+    setEnviando(true);
+    await onObservacion(exp.id, {
+      tipo,
+      texto: texto.trim(),
+      sectorNuevo: sectorNuevo.trim(),
+      ...(vaAAperturas ? { fechaPublicacion, fechaApertura, presupuestoOficial, resolucionLlamado: resolucionLlamado.trim(), nroContratacion: nroContratacion.trim() } : {}),
+      ...(necesitaEncuadre ? { encuadre } : {}),
+    });
+    setEnviando(false);
     setTexto("");
     if (tipo === "movimiento") setSectorNuevo(sectorNuevo.trim());
   }
@@ -569,6 +603,49 @@ function FormObservacion({ exp, onObservacion }) {
         </div>
       )}
 
+      {vaAAperturas && (
+        <div className="grid grid-cols-2 gap-2 bg-blue-50 border border-blue-100 rounded-md p-2.5">
+          <div>
+            <label className="block text-[11px] font-medium text-slate-500 mb-1">Fecha de publicación</label>
+            <input type="date" value={fechaPublicacion} onChange={e => setFechaPublicacion(e.target.value)}
+              className="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-slate-500 mb-1">Fecha y hora de apertura</label>
+            <input type="datetime-local" value={fechaApertura} onChange={e => setFechaApertura(e.target.value)}
+              className="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-slate-500 mb-1">Presupuesto oficial</label>
+            <input type="number" value={presupuestoOficial} onChange={e => setPresupuestoOficial(e.target.value)}
+              className="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-slate-500 mb-1">Resolución de llamado</label>
+            <input value={resolucionLlamado} onChange={e => setResolucionLlamado(e.target.value)}
+              className="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-slate-500 mb-1">N° de contratación</label>
+            <input value={nroContratacion} onChange={e => setNroContratacion(e.target.value)}
+              className="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+          </div>
+        </div>
+      )}
+
+      {necesitaEncuadre && (
+        <div className="bg-blue-50 border border-blue-100 rounded-md p-2.5">
+          <label className="block text-[11px] font-medium text-slate-500 mb-1">
+            Encuadre / modalidad de contratación (no está cargado)
+          </label>
+          <select value={encuadre} onChange={e => setEncuadre(e.target.value)}
+            className="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-700">
+            <option value="">— Elegir encuadre —</option>
+            {MODALIDADES_CONTRATACION.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+      )}
+
       <div className="flex gap-2">
         <input
           value={texto}
@@ -576,12 +653,17 @@ function FormObservacion({ exp, onObservacion }) {
           placeholder={tipo === "movimiento" ? "Motivo del pase / detalle del movimiento..." : "Agregar una observación..."}
           className="flex-1 text-xs border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800"
         />
-        <button
+        <BotonAccion
           onClick={enviar}
-          className={"text-xs px-3 py-2 rounded-md text-white font-medium " + (tipo === "movimiento" ? "bg-blue-700 hover:bg-blue-800" : "bg-slate-900 hover:bg-slate-800")}
+          cargando={enviando}
+          cargandoTexto="Guardando..."
+          disabled={faltaAperturas || faltaDGP}
+          title={faltaAperturas ? "Cargá fecha de publicación, fecha y hora de apertura, presupuesto oficial, resolución de llamado y N° de contratación"
+            : faltaDGP ? "Cargá el encuadre" : undefined}
+          className={"text-xs px-3 py-2 rounded-md text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed " + (tipo === "movimiento" ? "bg-blue-700 hover:bg-blue-800" : "bg-slate-900 hover:bg-slate-800")}
         >
           {tipo === "movimiento" ? "Registrar movimiento" : "Agregar"}
-        </button>
+        </BotonAccion>
       </div>
     </div>
   );

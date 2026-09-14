@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA_FALLIDOS } from "@/lib/constants";
+import { parseFechaHora } from "@/lib/utils";
 
 const INCLUDE_EXPEDIENTE = {
   observaciones: { orderBy: { fecha: "asc" } },
@@ -130,7 +131,9 @@ export async function POST(request) {
           destinatario: vigente.destinatario,
           domicilio: vigente.domicilio,
           objeto: vigente.objeto,
-          encuadre: vigente.encuadre,
+          // El encuadre se define recién cuando se resuelve la adjudicación
+          // de esta renovación — no se hereda del vigente del que surge.
+          encuadre: null,
           presupuestoOficial: 0,
           montoARS: 0,
           montoUSD: 0,
@@ -423,9 +426,29 @@ export async function POST(request) {
       : "Adjudicación parcial: ningún domicilio/renglón quedó adjudicado en este expediente. ") +
       "Se tramitan por separado los domicilios/renglones " + todosLosDomicilios.join(", ") +
       " en los expedientes " + nuevasDivisiones.map(d => d.exp).join(", ") + ".";
+
+    // Firma y monto adjudicados por domicilio/renglón de lo que queda
+    // adjudicado en el origen — distintos renglones pueden haber sido
+    // adjudicados a distintas empresas y por distintos montos dentro de esta
+    // misma resolución.
+    const adjudicacionEnviada = body.adjudicacionPorRenglon && typeof body.adjudicacionPorRenglon === "object" ? body.adjudicacionPorRenglon : {};
+    const adjudicacionPorRenglon = {};
+    for (const dom of adjudicados) {
+      const dato = adjudicacionEnviada[dom] ?? origen.adjudicacionPorRenglon?.[dom];
+      if (dato?.firma) {
+        adjudicacionPorRenglon[dom] = { firma: String(dato.firma).trim(), monto: Number(dato.monto) || 0 };
+      }
+    }
+    const firmasUnicas = [...new Set(Object.values(adjudicacionPorRenglon).map(v => v.firma))];
+    const montoTotal = Object.values(adjudicacionPorRenglon).reduce((s, v) => s + v.monto, 0);
+
     await prisma.expediente.update({
       where: { id: origen.id },
       data: {
+        ...(Object.keys(adjudicacionPorRenglon).length > 0
+          ? { adjudicacionPorRenglon, adjudicatario: firmasUnicas.join(" / "), montoARS: montoTotal }
+          : {}),
+        ...(body.resolucionAdjudicacion ? { resolucionAdjudicacion: String(body.resolucionAdjudicacion).trim() } : {}),
         observaciones: {
           create: [{
             usuario: session.user.name,
@@ -494,7 +517,7 @@ export async function POST(request) {
       fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
       fechaVencimiento: new Date(body.fechaVencimiento),
       fechaPublicacion: body.fechaPublicacion ? new Date(body.fechaPublicacion) : null,
-      fechaApertura: body.fechaApertura ? new Date(body.fechaApertura) : null,
+      fechaApertura: parseFechaHora(body.fechaApertura),
       ocResolucion: esRenovacionVinculada ? null : (body.ocResolucion || null),
       resolucionLlamado: esRenovacionVinculada ? null : (body.resolucionLlamado || null),
       resolucionAdjudicacion: esRenovacionVinculada ? null : (body.resolucionAdjudicacion || null),

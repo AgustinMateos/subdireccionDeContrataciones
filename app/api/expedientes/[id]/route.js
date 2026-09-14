@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
+import { parseFechaHora } from "@/lib/utils";
 
 const ITEM_COTIZADOR_POLICIA = CHECKLIST_POLICIA_ADICIONAL[3]; // "Control con el cotizador de módulos (aprobado y vinculado)"
 
@@ -110,6 +111,12 @@ export async function PUT(request, { params }) {
       where: { id },
       data: {
         ...(esMovimiento ? { sector: body.sectorNuevo, etapa: "En " + body.sectorNuevo } : {}),
+        ...(body.fechaPublicacion ? { fechaPublicacion: new Date(body.fechaPublicacion) } : {}),
+        ...(body.fechaApertura ? { fechaApertura: parseFechaHora(body.fechaApertura) } : {}),
+        ...(body.presupuestoOficial != null ? { presupuestoOficial: Number(body.presupuestoOficial) || 0 } : {}),
+        ...(body.resolucionLlamado ? { resolucionLlamado: body.resolucionLlamado } : {}),
+        ...(body.nroContratacion ? { nroContratacion: body.nroContratacion } : {}),
+        ...(body.encuadre ? { encuadre: body.encuadre } : {}),
         observaciones: {
           create: {
             usuario: session.user.name,
@@ -346,7 +353,7 @@ export async function PUT(request, { params }) {
       nombreCorto: body.nombreCorto ?? undefined,
       nroContratacion: body.nroContratacion ?? undefined,
       nroResolucion: body.nroResolucion ?? undefined,
-      area: body.area || null,
+      area: body.area !== undefined ? (body.area || null) : undefined,
       tipo: body.tipo,
       agente: body.agente,
       organismos: Array.isArray(body.organismos)
@@ -355,16 +362,16 @@ export async function PUT(request, { params }) {
       objeto: body.objeto,
       encuadre: esPoliciaAdicionalPedido ? ENCUADRE_INTERADMINISTRATIVO : (body.encuadre ?? undefined),
       presupuestoOficial: body.presupuestoOficial != null ? Number(body.presupuestoOficial) || 0 : undefined,
-      montoARS: Number(body.montoARS) || 0,
-      montoUSD: Number(body.montoUSD) || 0,
+      montoARS: body.montoARS != null ? Number(body.montoARS) || 0 : undefined,
+      montoUSD: body.montoUSD != null ? Number(body.montoUSD) || 0 : undefined,
       esPoliciaAdicional: typeof body.esPoliciaAdicional === "boolean" ? (puedePoliciaAdicional && body.esPoliciaAdicional) : undefined,
       fuerzaSeguridad: esPoliciaAdicionalPedido
         ? (body.fuerzaSeguridad || null)
         : body.esPoliciaAdicional === false ? null : undefined,
-      fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
+      fechaInicio: body.fechaInicio !== undefined ? (body.fechaInicio ? new Date(body.fechaInicio) : null) : undefined,
       fechaVencimiento: body.fechaVencimiento ? new Date(body.fechaVencimiento) : undefined,
-      fechaPublicacion: body.fechaPublicacion ? new Date(body.fechaPublicacion) : null,
-      fechaApertura: body.fechaApertura ? new Date(body.fechaApertura) : null,
+      fechaPublicacion: body.fechaPublicacion !== undefined ? (body.fechaPublicacion ? new Date(body.fechaPublicacion) : null) : undefined,
+      fechaApertura: body.fechaApertura !== undefined ? parseFechaHora(body.fechaApertura) : undefined,
       ocResolucion: esLegitimoAbono ? null : (body.ocResolucion ?? undefined),
       resolucionLlamado: esLegitimoAbono ? null : (body.resolucionLlamado ?? undefined),
       resolucionAdjudicacion: esLegitimoAbono ? null : (body.resolucionAdjudicacion ?? undefined),
@@ -383,6 +390,9 @@ export async function PUT(request, { params }) {
       detalleParche: body.detalleParche ?? undefined,
       domiciliosRenglones: Array.isArray(body.domiciliosRenglones)
         ? body.domiciliosRenglones.map((v) => String(v).trim()).filter(Boolean)
+        : undefined,
+      adjudicacionPorRenglon: body.adjudicacionPorRenglon && typeof body.adjudicacionPorRenglon === "object"
+        ? body.adjudicacionPorRenglon
         : undefined,
     },
     include: INCLUDE_EXPEDIENTE,

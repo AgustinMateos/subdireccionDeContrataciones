@@ -5,7 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { CheckCircle2 } from "lucide-react";
 
 import { HOY, ROL_USUARIO_LABEL } from "@/lib/constants";
-import { diasRestantes, alerta, documentacionDeExpediente, fmtFecha } from "@/lib/utils";
+import { diasRestantes, alerta, documentacionDeExpediente, fmtFecha, soloFechaLocal } from "@/lib/utils";
 
 // Prisma serializa las fechas como ISO ("2026-09-10T00:00:00.000Z"), pero los
 // componentes hijos y utils esperan strings "YYYY-MM-DD". Además `documentacion`
@@ -18,10 +18,10 @@ function normalizarExpediente(e) {
     fechaInicio: e.fechaInicio ? String(e.fechaInicio).slice(0, 10) : "",
     fechaVencimiento: e.fechaVencimiento ? String(e.fechaVencimiento).slice(0, 10) : "",
     fechaPublicacion: e.fechaPublicacion ? String(e.fechaPublicacion).slice(0, 10) : "",
-    fechaApertura: e.fechaApertura ? String(e.fechaApertura).slice(0, 10) : "",
-    creadoEn: e.creadoEn ? String(e.creadoEn).slice(0, 10) : "",
+    fechaApertura: e.fechaApertura ? String(e.fechaApertura).slice(0, 16) : "",
+    creadoEn: e.creadoEn ? soloFechaLocal(e.creadoEn) : "",
     observaciones: Array.isArray(e.observaciones)
-      ? e.observaciones.map((o) => ({ ...o, fecha: o.fecha ? String(o.fecha).slice(0, 10) : "" }))
+      ? e.observaciones.map((o) => ({ ...o, fecha: o.fecha ? soloFechaLocal(o.fecha) : "" }))
       : [],
     documentacion:
       Array.isArray(e.documentacion) && e.documentacion.length > 0 ? e.documentacion : undefined,
@@ -70,9 +70,8 @@ import PaginaExpediente from "./PaginaExpediente";
 import FormularioExpediente from "./FormularioExpediente";
 import CaratularExpediente from "./CaratularExpediente";
 import ConfirmarRenovacion from "./ConfirmarRenovacion";
-import ActivarProrroga from "./ActivarProrroga";
+import GestionarProrroga from "./GestionarProrroga";
 import GenerarParche from "./GenerarParche";
-import GenerarProrrogaDepartamento from "./GenerarProrrogaDepartamento";
 import ResolverAdjudicacion from "./ResolverAdjudicacion";
 import CotizadorTaquigrafico from "./CotizadorTaquigrafico";
 import CotizadorPolicia from "./CotizadorPolicia";
@@ -278,7 +277,7 @@ export default function App() {
   }
 
   async function guardarObservacion(id, entrada) {
-    // entrada: { tipo: "general" | "movimiento", texto, sectorNuevo? }
+    // entrada: { tipo: "general" | "movimiento", texto, sectorNuevo?, fechaPublicacion?, fechaApertura?, presupuestoOficial?, resolucionLlamado?, nroContratacion?, encuadre? }
     const esMovimiento = entrada.tipo === "movimiento";
     const actual = expedientes.find((e) => e.id === id);
     const res = await fetch(`/api/expedientes/${id}`, {
@@ -289,6 +288,12 @@ export default function App() {
         tipo: entrada.tipo,
         sectorAnterior: esMovimiento ? (actual?.sector ?? null) : null,
         sectorNuevo: esMovimiento ? entrada.sectorNuevo : null,
+        ...(entrada.fechaPublicacion ? { fechaPublicacion: entrada.fechaPublicacion } : {}),
+        ...(entrada.fechaApertura ? { fechaApertura: entrada.fechaApertura } : {}),
+        ...(entrada.presupuestoOficial ? { presupuestoOficial: entrada.presupuestoOficial } : {}),
+        ...(entrada.resolucionLlamado ? { resolucionLlamado: entrada.resolucionLlamado } : {}),
+        ...(entrada.nroContratacion ? { nroContratacion: entrada.nroContratacion } : {}),
+        ...(entrada.encuadre ? { encuadre: entrada.encuadre } : {}),
       }),
     });
     if (!res.ok) { mostrarToast("No se pudo guardar la observación"); return; }
@@ -488,11 +493,17 @@ export default function App() {
     mostrarToast("Prórroga (departamento) generada y vinculada a " + origen.exp);
   }
 
-  async function resolverAdjudicacionTotal(origen, estadoConvocatoria) {
+  async function resolverAdjudicacionTotal(origen, estadoConvocatoria, datos) {
     const res = await fetch(`/api/expedientes/${origen.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ estadoConvocatoria }),
+      body: JSON.stringify({
+        estadoConvocatoria,
+        ...(datos?.adjudicatario ? { adjudicatario: datos.adjudicatario } : {}),
+        ...(datos?.adjudicacionPorRenglon ? { adjudicacionPorRenglon: datos.adjudicacionPorRenglon } : {}),
+        ...(datos?.montoARS != null ? { montoARS: datos.montoARS } : {}),
+        ...(datos?.resolucionAdjudicacion ? { resolucionAdjudicacion: datos.resolucionAdjudicacion } : {}),
+      }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -504,11 +515,11 @@ export default function App() {
     mostrarToast("Estado de convocatoria: " + estadoConvocatoria);
   }
 
-  async function dividirExpediente(origen, grupos) {
+  async function dividirExpediente(origen, grupos, adjudicacionPorRenglon, resolucionAdjudicacion) {
     const res = await fetch("/api/expedientes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ divisionDeId: origen.id, grupos }),
+      body: JSON.stringify({ divisionDeId: origen.id, grupos, adjudicacionPorRenglon, resolucionAdjudicacion }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -605,9 +616,8 @@ export default function App() {
             onEditar={() => setFormAbierto("editar")}
             onRenovar={() => setFormAbierto("renovacion")}
             onActivar={() => activarRenovacion(seleccionado)}
-            onActivarProrroga={() => setFormAbierto("activarProrroga")}
+            onGestionarProrroga={() => setFormAbierto("prorroga")}
             onGenerarParche={() => setFormAbierto("generarParche")}
-            onGenerarProrrogaDepartamento={() => setFormAbierto("prorrogaDepartamento")}
             onDividir={() => setFormAbierto("dividir")}
             onReunificar={(unificado) => reunificar(seleccionado, unificado)}
             puedeEditar={puedeEditar}
@@ -637,7 +647,7 @@ export default function App() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {itemsListado.slice(0, visibles).map(item =>
                 item.tipo === "grupo"
-                  ? <TarjetaGrupoServicios key={item.clave} grupo={item.grupo} onVer={verExpediente} />
+                  ? <TarjetaGrupoServicios key={item.clave} grupo={item.grupo} todos={expedientes} onVer={verExpediente} />
                   : <TarjetaExpediente key={item.exp.id} exp={item.exp} onVer={() => verExpediente(item.exp.id)} />
               )}
             </div>
@@ -799,14 +809,6 @@ export default function App() {
         />
       )}
 
-      {formAbierto === "activarProrroga" && seleccionado && (
-        <ActivarProrroga
-          exp={seleccionado}
-          onCerrar={() => setFormAbierto(null)}
-          onConfirmar={(datos) => activarProrroga(seleccionado, datos)}
-        />
-      )}
-
       {formAbierto === "generarParche" && seleccionado && (
         <GenerarParche
           exp={seleccionado}
@@ -815,11 +817,12 @@ export default function App() {
         />
       )}
 
-      {formAbierto === "prorrogaDepartamento" && seleccionado && (
-        <GenerarProrrogaDepartamento
+      {formAbierto === "prorroga" && seleccionado && (
+        <GestionarProrroga
           exp={seleccionado}
           onCerrar={() => setFormAbierto(null)}
-          onConfirmar={(datos) => crearProrrogaDepartamento(seleccionado, datos)}
+          onActivarOrganismo={(datos) => activarProrroga(seleccionado, datos)}
+          onHabilitarDepartamento={(datos) => crearProrrogaDepartamento(seleccionado, datos)}
         />
       )}
 
@@ -827,8 +830,8 @@ export default function App() {
         <ResolverAdjudicacion
           exp={seleccionado}
           onCerrar={() => setFormAbierto(null)}
-          onResolverTotal={(estadoConvocatoria) => resolverAdjudicacionTotal(seleccionado, estadoConvocatoria)}
-          onDividir={(grupos) => dividirExpediente(seleccionado, grupos)}
+          onResolverTotal={(estadoConvocatoria, datos) => resolverAdjudicacionTotal(seleccionado, estadoConvocatoria, datos)}
+          onDividir={(grupos, adjudicacionPorRenglon, resolucionAdjudicacion) => dividirExpediente(seleccionado, grupos, adjudicacionPorRenglon, resolucionAdjudicacion)}
         />
       )}
     </div>

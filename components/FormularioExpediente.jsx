@@ -116,7 +116,6 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
               <Campo_Input label="Nombre corto" value={f.nombreCorto} onChange={v => set("nombreCorto", v)} placeholder="Ej: Limpieza edificio central" />
             )}
             <Campo_Input label="N° de contratación" value={esVinculoAVigente ? "" : f.nroContratacion} onChange={v => set("nroContratacion", v)} placeholder={esVinculoAVigente ? "Se completa al adjudicar" : "Ej: 45/2026"} disabled={esVinculoAVigente} />
-            <Campo_Input label="N° de resolución" value={f.nroResolucion} onChange={v => set("nroResolucion", v)} placeholder="Ej: 1234/2026" />
             {!esServicios && (
               <Campo_Select label="Área" value={f.area} onChange={v => set("area", v)} opciones={["Informatica", "Varios"]} labels={AREA_LABEL} />
             )}
@@ -260,7 +259,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
             <Campo_Input label="Fecha de inicio" type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
             <Campo_Input label="Fecha de vencimiento" type="date" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
             <Campo_Input label="Fecha de publicación" type="date" value={f.fechaPublicacion} onChange={v => set("fechaPublicacion", v)} />
-            <Campo_Input label="Fecha de apertura" type="date" value={f.fechaApertura} onChange={v => set("fechaApertura", v)} />
+            <Campo_Input label="Fecha y hora de apertura" type="datetime-local" value={f.fechaApertura} onChange={v => set("fechaApertura", v)} />
             <Campo_Select label="Estado general" value={f.estadoGeneral} onChange={v => set("estadoGeneral", v)}
               opciones={["Vigente", "En trámite de renovación", "Finalizado", "Archivado"]} />
           </div>

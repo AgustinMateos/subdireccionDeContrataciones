@@ -128,6 +128,13 @@ model Expediente {
   // períodos de ambos vuelven a coincidir, se marcan como `unificado` — solo
   // se vinculan visualmente, no se fusionan las filas.
   domiciliosRenglones String[]     @default([])
+  // Firma y monto adjudicados por domicilio/renglón:
+  // { "domicilio": { "firma": "...", "monto": 1234 } }. Un mismo expediente
+  // puede adjudicar distintos renglones a distintas empresas y por distintos
+  // montos, por eso no alcanza con `adjudicatario`/`montoARS` (un solo valor
+  // para todo el expediente) — se completa al resolver la adjudicación
+  // (íntegra o lo que queda adjudicado en una parcial).
+  adjudicacionPorRenglon Json?
   divisionDeId        String?
   divisionDe          Expediente?  @relation("DivisionExpediente", fields: [divisionDeId], references: [id])
   divisiones          Expediente[] @relation("DivisionExpediente")

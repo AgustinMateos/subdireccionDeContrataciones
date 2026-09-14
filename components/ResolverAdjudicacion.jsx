@@ -32,9 +32,32 @@ function grupoVacio() {
 export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, onDividir }) {
   const [opcion, setOpcion] = useState("integra");
   const [grupos, setGrupos] = useState([grupoVacio()]);
+  const [firmas, setFirmas] = useState({}); // { domicilio: firma } — íntegra: todos; parcial: los que quedan adjudicados
+  const [montos, setMontos] = useState({}); // { domicilio: monto }
+  const [firmaUnica, setFirmaUnica] = useState(""); // fallback si el expediente no tiene domicilios/renglones cargados
+  const [montoUnico, setMontoUnico] = useState("");
+  const [firmaMasiva, setFirmaMasiva] = useState(""); // atajo: aplicar la misma firma a todos de una
+  const [resolucionAdjudicacion, setResolucionAdjudicacion] = useState(exp.resolucionAdjudicacion || "");
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
   const disponibles = exp.domiciliosRenglones || [];
+
+  function setFirma(dom, valor) {
+    setFirmas(prev => ({ ...prev, [dom]: valor }));
+  }
+
+  function setMonto(dom, valor) {
+    setMontos(prev => ({ ...prev, [dom]: valor }));
+  }
+
+  function aplicarFirmaATodos(lista) {
+    if (!firmaMasiva.trim()) return;
+    setFirmas(prev => {
+      const next = { ...prev };
+      lista.forEach(d => { next[d] = firmaMasiva.trim(); });
+      return next;
+    });
+  }
 
   function actualizarGrupo(id, campo, valor) {
     setGrupos(prev => prev.map(g => (g.id === id ? { ...g, [campo]: valor } : g)));
@@ -58,17 +81,50 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
     setGrupos(prev => (prev.length > 1 ? prev.filter(g => g.id !== id) : prev));
   }
 
+  // En parcial, lo que no fue elegido para ningún expediente nuevo es lo que
+  // queda adjudicado en este mismo expediente — y necesita su firma y monto.
+  const asignadosAGrupos = grupos.flatMap(g => g.seleccionados);
+  const adjudicadosEnParcial = disponibles.filter(d => !asignadosAGrupos.includes(d));
+
   async function confirmar() {
     setError("");
     const opcionElegida = OPCIONES.find(o => o.key === opcion);
 
-    if (opcion !== "parcial") {
+    if (opcion === "fracasada" || opcion === "desierta") {
       setCargando(true);
       await onResolverTotal(opcionElegida.estado);
       setCargando(false);
       return;
     }
 
+    if (opcion === "integra") {
+      let datos = {};
+      if (disponibles.length === 0) {
+        if (!firmaUnica.trim()) {
+          setError("Cargá la firma adjudicataria.");
+          return;
+        }
+        datos = { adjudicatario: firmaUnica.trim(), montoARS: Number(montoUnico) || 0 };
+      } else {
+        const faltantes = disponibles.filter(d => !firmas[d]?.trim());
+        if (faltantes.length > 0) {
+          setError("Cargá la firma adjudicataria de cada domicilio/renglón (falta: " + faltantes.join(", ") + ").");
+          return;
+        }
+        const adjudicacionPorRenglon = {};
+        disponibles.forEach(d => { adjudicacionPorRenglon[d] = { firma: firmas[d].trim(), monto: Number(montos[d]) || 0 }; });
+        const unicas = [...new Set(Object.values(adjudicacionPorRenglon).map(v => v.firma))];
+        const montoTotal = Object.values(adjudicacionPorRenglon).reduce((s, v) => s + v.monto, 0);
+        datos = { adjudicacionPorRenglon, adjudicatario: unicas.join(" / "), montoARS: montoTotal };
+      }
+      if (resolucionAdjudicacion.trim()) datos.resolucionAdjudicacion = resolucionAdjudicacion.trim();
+      setCargando(true);
+      await onResolverTotal(opcionElegida.estado, datos);
+      setCargando(false);
+      return;
+    }
+
+    // Parcial
     for (const g of grupos) {
       if (g.seleccionados.length === 0) {
         setError("Cada expediente nuevo necesita al menos un domicilio/renglón elegido.");
@@ -79,6 +135,16 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
         return;
       }
     }
+    if (adjudicadosEnParcial.length > 0) {
+      const faltantes = adjudicadosEnParcial.filter(d => !firmas[d]?.trim());
+      if (faltantes.length > 0) {
+        setError("Cargá la firma adjudicataria de lo que queda adjudicado en este expediente (falta: " + faltantes.join(", ") + ").");
+        return;
+      }
+    }
+    const adjudicacionPorRenglon = {};
+    adjudicadosEnParcial.forEach(d => { adjudicacionPorRenglon[d] = { firma: firmas[d].trim(), monto: Number(montos[d]) || 0 }; });
+
     setCargando(true);
     await onDividir(grupos.map(g => ({
       exp: g.exp,
@@ -87,7 +153,7 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
       fechaInicio: g.fechaInicio,
       fechaVencimiento: g.fechaVencimiento,
       domiciliosRenglones: g.seleccionados,
-    })));
+    })), adjudicacionPorRenglon, resolucionAdjudicacion.trim() || undefined);
     setCargando(false);
   }
 
@@ -112,12 +178,51 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
             ))}
           </div>
 
-          {opcion !== "parcial" ? (
+          {(opcion === "integra" || opcion === "parcial") && (
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Resolución de adjudicación</label>
+              <input value={resolucionAdjudicacion} onChange={e => setResolucionAdjudicacion(e.target.value)} placeholder="Ej: 1234/2026"
+                className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+            </div>
+          )}
+
+          {(opcion === "fracasada" || opcion === "desierta") && (
             <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
               Se aplica a todos los domicilios/renglones de este expediente — el estado de convocatoria queda en
               "{OPCIONES.find(o => o.key === opcion).estado}".
             </p>
-          ) : (
+          )}
+
+          {opcion === "integra" && (
+            disponibles.length === 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Firma adjudicataria</label>
+                  <input value={firmaUnica} onChange={e => setFirmaUnica(e.target.value)}
+                    className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Monto adjudicado (ARS)</label>
+                  <input type="number" value={montoUnico} onChange={e => setMontoUnico(e.target.value)}
+                    className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+                </div>
+              </div>
+            ) : (
+              <AdjudicacionPorDomicilio
+                titulo="Firma y monto adjudicados por domicilio/renglón"
+                domicilios={disponibles}
+                firmas={firmas}
+                onFirma={setFirma}
+                montos={montos}
+                onMonto={setMonto}
+                firmaMasiva={firmaMasiva}
+                setFirmaMasiva={setFirmaMasiva}
+                onAplicarATodos={() => aplicarFirmaATodos(disponibles)}
+              />
+            )
+          )}
+
+          {opcion === "parcial" && (
             <div className="space-y-4">
               {disponibles.length === 0 ? (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
@@ -186,6 +291,20 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
                   <button type="button" onClick={agregarGrupo} className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900">
                     <Plus size={14} /> Agregar otro expediente
                   </button>
+
+                  {adjudicadosEnParcial.length > 0 && (
+                    <AdjudicacionPorDomicilio
+                      titulo="Firma y monto de lo que queda adjudicado en este expediente"
+                      domicilios={adjudicadosEnParcial}
+                      firmas={firmas}
+                      onFirma={setFirma}
+                      montos={montos}
+                      onMonto={setMonto}
+                      firmaMasiva={firmaMasiva}
+                      setFirmaMasiva={setFirmaMasiva}
+                      onAplicarATodos={() => aplicarFirmaATodos(adjudicadosEnParcial)}
+                    />
+                  )}
                 </>
               )}
             </div>
@@ -200,6 +319,50 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
             </BotonAccion>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Lista de domicilios/renglones con un campo de firma y uno de monto cada
+// uno — permite tanto una única empresa para todos (atajo "Aplicar a todos")
+// como firmas y montos distintos por renglón cuando cada uno se adjudicó a
+// una empresa distinta y por un monto distinto.
+function AdjudicacionPorDomicilio({ titulo, domicilios, firmas, onFirma, montos, onMonto, firmaMasiva, setFirmaMasiva, onAplicarATodos }) {
+  return (
+    <div className="border border-slate-200 rounded-md p-3 space-y-2.5 bg-slate-50">
+      <label className="block text-[11px] font-medium text-slate-600">{titulo}</label>
+      <div className="flex gap-1.5">
+        <input
+          value={firmaMasiva}
+          onChange={e => setFirmaMasiva(e.target.value)}
+          placeholder="Firma para todos (opcional)"
+          className="flex-1 text-xs border border-slate-300 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-800"
+        />
+        <button type="button" onClick={onAplicarATodos}
+          className="text-xs px-2.5 py-1.5 rounded-md border border-slate-300 font-medium text-slate-600 hover:bg-white">
+          Aplicar a todos
+        </button>
+      </div>
+      <div className="space-y-1.5">
+        {domicilios.map(d => (
+          <div key={d} className="flex items-center gap-2">
+            <span className="text-xs text-slate-600 flex-1 truncate" title={d}>{d}</span>
+            <input
+              value={firmas[d] || ""}
+              onChange={e => onFirma(d, e.target.value)}
+              placeholder="Firma adjudicataria"
+              className="flex-1 text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+            />
+            <input
+              type="number"
+              value={montos[d] || ""}
+              onChange={e => onMonto(d, e.target.value)}
+              placeholder="Monto (ARS)"
+              className="w-28 shrink-0 text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+            />
+          </div>
+        ))}
       </div>
     </div>
   );

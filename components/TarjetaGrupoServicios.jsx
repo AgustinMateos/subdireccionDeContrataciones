@@ -1,15 +1,15 @@
 "use client";
 
 import { MapPin, Clock } from "lucide-react";
-import { ALERTA_ESTILO, ESTADO_ESTILO } from "@/lib/constants";
-import { diasRestantes, alerta, fmtFecha, diasFrenado, alertaFrenado, estadoGeneralMostrado, esConvocatoriaFracasada } from "@/lib/utils";
+import { ALERTA_ESTILO, ESTADO_ESTILO, ROL_LABEL } from "@/lib/constants";
+import { diasRestantes, alerta, fmtFecha, fmtMoneda, diasFrenado, alertaFrenado, estadoGeneralMostrado, esConvocatoriaFracasada } from "@/lib/utils";
 import { direccionesDe } from "@/lib/organismosFueros";
 
 // Varios expedientes de Servicios que son "la misma prestación" repetida
 // (mismo tipo de servicio, mismo fuero y misma zona) con distinto N° de
 // expediente se agrupan en una sola card, para no repetir la misma info una
 // y otra vez en el listado.
-export default function TarjetaGrupoServicios({ grupo, onVer }) {
+export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
   const { tipo, zona, fuero, organismos, items } = grupo;
   const direcciones = direccionesDe(organismos, fuero);
   return (
@@ -41,6 +41,10 @@ export default function TarjetaGrupoServicios({ grupo, onVer }) {
           const dias = diasRestantes(exp.fechaVencimiento);
           const niv = alerta(dias);
           const frenado = esRenovacion ? diasFrenado(exp.observaciones, exp.creadoEn) : null;
+          const hijos = (todos || []).filter(e => e.divisionDeId === exp.id);
+          const adjudicados = hijos.length > 0
+            ? (exp.domiciliosRenglones || []).filter(d => !hijos.some(h => (h.domiciliosRenglones || []).includes(d)))
+            : null;
           return (
             <button
               key={exp.id}
@@ -49,12 +53,35 @@ export default function TarjetaGrupoServicios({ grupo, onVer }) {
             >
               <div className="min-w-0">
                 <div className="font-mono text-xs font-semibold text-slate-900">{exp.exp}</div>
-                <div className="text-[11px] text-slate-500 truncate">Agente {exp.agente}</div>
                 {esRenovacion && (
-                  <div className="text-[11px] text-slate-500 truncate">
+                  <div className="text-[11px] text-slate-500">
                     {exp.sector || "Sin sector"} · {exp.estadoConvocatoria || "Sin estado de convocatoria"}
                   </div>
                 )}
+                {exp.divisionDeId && exp.domiciliosRenglones?.length > 0 && (
+                  <div className="flex items-start gap-1 text-[11px] text-slate-500">
+                    <MapPin size={11} className="mt-0.5 shrink-0" />
+                    <span>Tramita: {exp.domiciliosRenglones.join(" · ")}</span>
+                  </div>
+                )}
+                {adjudicados && (
+                  <div className="flex items-start gap-1 text-[11px] text-slate-500">
+                    <MapPin size={11} className="mt-0.5 shrink-0" />
+                    <span>
+                      Adjudicado: {adjudicados.length > 0
+                        ? adjudicados.map(d => {
+                            const datos = exp.adjudicacionPorRenglon?.[d];
+                            if (!datos) return d;
+                            return d + " (" + datos.firma + (datos.monto ? " · " + fmtMoneda(datos.monto) : "") + ")";
+                          }).join(" · ")
+                        : "ningún domicilio/renglón"}
+                    </span>
+                  </div>
+                )}
+                <div className="text-[11px] text-slate-400">
+                  {exp.rol === "parche" ? (exp.tipoParche || exp.tipoContratacionProrroga || ROL_LABEL.parche) : ROL_LABEL[exp.rol]}
+                  {exp.encuadre ? " · " + exp.encuadre : ""}
+                </div>
               </div>
               <div className="flex flex-col items-end gap-1 shrink-0">
                 <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ESTADO_ESTILO[estadoGeneralMostrado(exp)]}>
