@@ -217,12 +217,23 @@ export async function POST(request) {
       include: INCLUDE_EXPEDIENTE,
     });
 
-    // Si ya hay una renovación en trámite en la misma cadena, su período
-    // deja de ser correlativo (el parche ahora cubre más adelante) — se
-    // corre para que arranque justo al día siguiente del parche, conservando
-    // la duración que tenía planificada.
+    // Si ya hay una renovación EN CURSO (todavía no se resolvió) en la misma
+    // cadena, su período deja de ser correlativo (el parche ahora cubre más
+    // adelante) — se corre para que arranque justo al día siguiente del
+    // parche, conservando la duración que tenía planificada. Si la
+    // convocatoria ya fracasó/quedó desierta, no se toca: ese período ya
+    // quedó fijo como antecedente del intento fallido, no es una fecha
+    // "pendiente" que deba seguir corriéndose.
     const renovacionEnTramite = await prisma.expediente.findFirst({
-      where: { cadenaId: origen.cadenaId, rol: "renovacion", departamentoId: session.user.departamentoId },
+      where: {
+        cadenaId: origen.cadenaId,
+        rol: "renovacion",
+        departamentoId: session.user.departamentoId,
+        OR: [
+          { estadoConvocatoria: null },
+          { estadoConvocatoria: { notIn: ESTADOS_CONVOCATORIA_FALLIDOS } },
+        ],
+      },
     });
     if (renovacionEnTramite) {
       const nuevaFechaInicio = new Date(nuevoParche.fechaVencimiento);
@@ -308,10 +319,18 @@ export async function POST(request) {
     }
 
     // Misma lógica de corrimiento que un parche clásico: si ya hay una
-    // renovación en trámite en la cadena, se corre para arrancar al día
-    // siguiente, conservando la duración planificada.
+    // renovación EN CURSO (no fracasada/desierta) en la cadena, se corre
+    // para arrancar al día siguiente, conservando la duración planificada.
     const renovacionEnTramite = await prisma.expediente.findFirst({
-      where: { cadenaId: origen.cadenaId, rol: "renovacion", departamentoId: session.user.departamentoId },
+      where: {
+        cadenaId: origen.cadenaId,
+        rol: "renovacion",
+        departamentoId: session.user.departamentoId,
+        OR: [
+          { estadoConvocatoria: null },
+          { estadoConvocatoria: { notIn: ESTADOS_CONVOCATORIA_FALLIDOS } },
+        ],
+      },
     });
     if (renovacionEnTramite) {
       const nuevaFechaInicio = new Date(nuevaProrroga.fechaVencimiento);

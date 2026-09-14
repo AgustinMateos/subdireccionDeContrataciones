@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
+import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO, PRORROGA_MESES_OPCIONES, ESTADOS_CONVOCATORIA_FALLIDOS } from "@/lib/constants";
 import { parseFechaHora } from "@/lib/utils";
 
 const ITEM_COTIZADOR_POLICIA = CHECKLIST_POLICIA_ADICIONAL[3]; // "Control con el cotizador de módulos (aprobado y vinculado)"
@@ -253,12 +253,22 @@ export async function PUT(request, { params }) {
       include: INCLUDE_EXPEDIENTE,
     });
 
-    // Si ya hay una renovación en trámite en la misma cadena, su período deja
-    // de ser correlativo (la prórroga corrió la cobertura) — se corre para
-    // que arranque justo al día siguiente, conservando la duración que tenía
-    // planificada. Mismo ajuste que se hace al generar un parche nuevo.
+    // Si ya hay una renovación EN CURSO (no fracasada/desierta) en la misma
+    // cadena, su período deja de ser correlativo (la prórroga corrió la
+    // cobertura) — se corre para que arranque justo al día siguiente,
+    // conservando la duración que tenía planificada. Mismo ajuste que se
+    // hace al generar un parche nuevo. Si la convocatoria ya fracasó, su
+    // período queda fijo — no es una fecha pendiente que deba correrse.
     const renovacionEnTramite = await prisma.expediente.findFirst({
-      where: { cadenaId: exp.cadenaId, rol: "renovacion", departamentoId: session.user.departamentoId },
+      where: {
+        cadenaId: exp.cadenaId,
+        rol: "renovacion",
+        departamentoId: session.user.departamentoId,
+        OR: [
+          { estadoConvocatoria: null },
+          { estadoConvocatoria: { notIn: ESTADOS_CONVOCATORIA_FALLIDOS } },
+        ],
+      },
     });
     if (renovacionEnTramite) {
       const nuevaFechaInicio = new Date(nuevaFecha);

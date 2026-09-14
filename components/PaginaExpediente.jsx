@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil, Trash2, Shield, Clock } from "lucide-react";
-import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, ESTADOS_CONVOCATORIA_FALLIDOS, SECTORES, MODALIDADES_CONTRATACION } from "@/lib/constants";
+import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, SECTORES, MODALIDADES_CONTRATACION, ENCUADRE_FUNDAMENTO_LEGAL } from "@/lib/constants";
 import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtFechaHora, fmtMoneda, documentacionDeExpediente, diasFrenado, estadoGeneralMostrado, esConvocatoriaFracasada } from "@/lib/utils";
 import BotonAccion from "./BotonAccion";
 export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onGestionarProrroga, onGenerarParche, onDividir, onReunificar, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
@@ -18,11 +18,20 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   // antecedentes, nunca quedan ocultos detrás de un "ver más": si hubo que
   // cubrir el período varias veces, se tiene que ver.
   const parches = cadena.filter(e => e.rol === "parche");
-  const renovacion = cadena.find(e => e.rol === "renovacion");
-  // El orden de las tarjetas es siempre por fecha real, no por rol: un parche
-  // cargado con fechas anteriores al vigente (o lo que sea) tiene que
-  // aparecer antes en la línea, no fijo al final.
-  const nodos = [
+  // Una renovación cuya convocatoria fracasó/quedó desierta ya no es "la"
+  // renovación de la cadena — el vigente puede volver a crear una nueva
+  // (por eso "renovacion" acá es la única que sigue en curso, si la hay) y
+  // la fracasada se cuelga aparte, arriba de la línea principal, como una
+  // rama que no prosperó (tipo organigrama). Puede haber más de una
+  // fracasada si hubo varios intentos fallidos sucesivos.
+  const renovacion = cadena.find(e => e.rol === "renovacion" && !esConvocatoriaFracasada(e));
+  const renovacionesFracasadas = cadena
+    .filter(e => e.rol === "renovacion" && esConvocatoriaFracasada(e))
+    .sort((a, b) => new Date(a.fechaInicio || a.fechaVencimiento) - new Date(b.fechaInicio || b.fechaVencimiento));
+  // El orden de las tarjetas de la línea principal es siempre por fecha
+  // real, no por rol: un parche cargado con fechas anteriores al vigente (o
+  // lo que sea) tiene que aparecer antes en la línea, no fijo al final.
+  const nodosPrincipales = [
     antecedente && { key: "antecedente", label: ROL_LABEL.antecedente, item: antecedente },
     vigente && { key: "vigente", label: ROL_LABEL.vigente, item: vigente },
     ...parches.map(p => ({ key: p.id, label: p.tipoParche || p.tipoContratacionProrroga || ROL_LABEL.parche, item: p })),
@@ -32,6 +41,19 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
     const fb = new Date(b.item.fechaInicio || b.item.fechaVencimiento);
     return fa - fb;
   });
+  // Para cada fracasada: la columna de la línea principal debajo de la cual
+  // cuelga es la del primer expediente que arranca en la misma fecha en que
+  // hubiera arrancado esa renovación (típicamente el parche o la nueva
+  // renovación que se generó después para cubrir el hueco) o después. Si no
+  // hay ninguno todavía, queda colgada al final.
+  const ramasFracasadas = renovacionesFracasadas.map(r => {
+    const fFracasada = new Date(r.fechaInicio || r.fechaVencimiento);
+    const idx = nodosPrincipales.findIndex(n => new Date(n.item.fechaInicio || n.item.fechaVencimiento) >= fFracasada);
+    return { item: r, indice: idx === -1 ? nodosPrincipales.length : idx };
+  });
+  const columnasTrazabilidad = ramasFracasadas.length > 0
+    ? Math.max(nodosPrincipales.length, ...ramasFracasadas.map(r => r.indice + 1))
+    : nodosPrincipales.length;
   const dias = diasRestantes(exp.fechaVencimiento);
   const niv = alerta(dias);
   const frenado = diasFrenado(exp.observaciones, exp.creadoEn);
@@ -117,7 +139,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                 Crear renovación vinculada
               </button>
             )}
-            {exp.rol === "renovacion" && (
+            {exp.rol === "renovacion" && !esConvocatoriaFracasada(exp) && (
               <button onClick={onActivar} className="px-3 py-2 rounded-md bg-emerald-700 text-white text-xs font-medium hover:bg-emerald-800">
                 Activar como Vigente (venció el contrato anterior)
               </button>
@@ -150,39 +172,62 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
           </div>
         )}
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Trazabilidad del expediente</h3>
-            <div className="flex items-stretch gap-1 flex-wrap">
-              {nodos.map((nodo, idx) => {
+
+            <div className="overflow-x-auto -mx-1 px-1 pb-1">
+            {ramasFracasadas.map(rama => (
+              <div key={rama.item.id} className="grid gap-1 mb-1" style={{ gridTemplateColumns: `repeat(${columnasTrazabilidad}, 9rem)` }}>
+                {Array.from({ length: columnasTrazabilidad }).map((_, i) => {
+                  const activo = rama.item.id === exp.id;
+                  return (
+                    <div key={i} className="flex flex-col items-stretch">
+                      {i === rama.indice && (
+                        <>
+                          <button
+                            onClick={() => onNavegar(rama.item.id)}
+                            className={"text-left rounded-lg border px-3 py-2.5 transition-colors " +
+                              (activo ? "border-red-900 bg-red-900 text-white" : "border-red-300 bg-red-50 text-red-800 hover:border-red-400")}
+                          >
+                            <div className="text-xs font-mono">{rama.item.exp}</div>
+                            <div className={"text-[10px] mt-0.5 " + (activo ? "text-red-200" : "text-red-500")}>
+                              {fmtFecha(rama.item.fechaInicio)} — {fmtFecha(rama.item.fechaVencimiento)}
+                            </div>
+                            <div className={"text-[10px] font-semibold mt-0.5 " + (activo ? "text-red-100" : "text-red-700")}>
+                              {rama.item.estadoConvocatoria}
+                            </div>
+                          </button>
+                          <div className="w-px h-3 bg-red-300 self-center" />
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+
+            <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${nodosPrincipales.length}, 9rem)` }}>
+              {nodosPrincipales.map((nodo, idx) => {
                 const item = nodo.item;
-                const activo = item && item.id === exp.id;
-                const fallido = item && ESTADOS_CONVOCATORIA_FALLIDOS.includes(item.estadoConvocatoria);
+                const activo = item.id === exp.id;
                 return (
-                  <div key={nodo.key} className="flex items-center" style={{ minWidth: "9rem", flex: "1 1 9rem" }}>
+                  <div key={nodo.key} className="relative">
                     <button
-                      disabled={!item}
-                      onClick={() => item && onNavegar(item.id)}
-                      className={"flex-1 text-left rounded-lg border px-3 py-2.5 transition-colors " +
-                        (!item ? "border-dashed border-slate-200 text-slate-300 cursor-default" :
-                          fallido
-                            ? (activo ? "border-red-900 bg-red-900 text-white" : "border-red-300 bg-red-50 text-red-800 hover:border-red-400")
-                            : (activo ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-400 text-slate-700"))}
+                      onClick={() => onNavegar(item.id)}
+                      className={"w-full text-left rounded-lg border px-3 py-2.5 transition-colors " +
+                        (activo ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-400 text-slate-700")}
                     >
-                      <div className={"text-[10px] uppercase tracking-wide " + (fallido && !activo ? "text-red-500" : "opacity-70")}>{nodo.label}</div>
-                      <div className="text-xs font-mono mt-0.5">{item ? item.exp : "No registrado"}</div>
-                      {item && (
-                        <div className={"text-[10px] mt-0.5 " + (activo ? (fallido ? "text-red-200" : "text-slate-300") : (fallido ? "text-red-500" : "text-slate-400"))}>
-                          {fmtFecha(item.fechaInicio)} — {fmtFecha(item.fechaVencimiento)}
-                        </div>
-                      )}
-                      {fallido && (
-                        <div className={"text-[10px] font-semibold mt-0.5 " + (activo ? "text-red-100" : "text-red-700")}>
-                          {item.estadoConvocatoria}
-                        </div>
-                      )}
+                      <div className="text-[10px] uppercase tracking-wide opacity-70">{nodo.label}</div>
+                      <div className="text-xs font-mono mt-0.5">{item.exp}</div>
+                      <div className={"text-[10px] mt-0.5 " + (activo ? "text-slate-300" : "text-slate-400")}>
+                        {fmtFecha(item.fechaInicio)} — {fmtFecha(item.fechaVencimiento)}
+                      </div>
                     </button>
-                    {idx < nodos.length - 1 && <ChevronRight size={14} className="text-slate-300 shrink-0 mx-1" />}
+                    {idx < nodosPrincipales.length - 1 && (
+                      <ChevronRight size={14} className="text-slate-300 absolute top-1/2 -right-3 -translate-y-1/2 z-10 bg-white rounded-full" />
+                    )}
                   </div>
                 );
               })}
+            </div>
             </div>
 
             {antecedentesAnteriores.length > 0 && (
@@ -249,8 +294,14 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <Campo label="Presupuesto oficial" valor={exp.presupuestoOficial ? fmtMoneda(exp.presupuestoOficial) : "-"} />
             <Campo label="Monto adjudicado" valor={fmtMoneda(exp.montoARS)} />
             <Campo label="Monto adjudicado USD" valor={exp.montoUSD ? fmtMoneda(exp.montoUSD, "USD") : "-"} />
-            
+
           </div>
+
+          {ENCUADRE_FUNDAMENTO_LEGAL[exp.encuadre] && (
+            <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
+              {ENCUADRE_FUNDAMENTO_LEGAL[exp.encuadre]}
+            </p>
+          )}
 
           {((exp.fuero || []).length > 0 || exp.zona || exp.codigoInterno || exp.estadoConvocatoria || exp.tipoParche || exp.tipoContratacionProrroga || exp.fechaNotificacionProrroga || exp.nroResolucion) && (
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm border-t border-slate-100 pt-4">
