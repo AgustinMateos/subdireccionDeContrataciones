@@ -116,6 +116,7 @@ export async function PUT(request, { params }) {
         ...(body.presupuestoOficial != null ? { presupuestoOficial: Number(body.presupuestoOficial) || 0 } : {}),
         ...(body.resolucionLlamado ? { resolucionLlamado: body.resolucionLlamado } : {}),
         ...(body.nroContratacion ? { nroContratacion: body.nroContratacion } : {}),
+        ...(typeof body.tieneProrroga === "boolean" ? { tieneProrroga: body.tieneProrroga } : {}),
         ...(body.encuadre ? { encuadre: body.encuadre } : {}),
         observaciones: {
           create: {

@@ -601,6 +601,7 @@ function FormObservacion({ exp, onObservacion }) {
   const [resolucionLlamado, setResolucionLlamado] = useState(exp.resolucionLlamado || "");
   const [nroContratacion, setNroContratacion] = useState(exp.nroContratacion || "");
   const [encuadre, setEncuadre] = useState("");
+  const [tieneProrroga, setTieneProrroga] = useState(!!exp.tieneProrroga);
   const [enviando, setEnviando] = useState(false);
   const vaAAperturas = tipo === "movimiento" && sectorNuevo === "Aperturas";
   const vaADGP = tipo === "movimiento" && sectorNuevo === "DGP";
@@ -619,7 +620,7 @@ function FormObservacion({ exp, onObservacion }) {
       texto: texto.trim(),
       sectorNuevo: sectorNuevo.trim(),
       ...(vaAAperturas ? { fechaPublicacion, fechaApertura, presupuestoOficial, resolucionLlamado: resolucionLlamado.trim(), nroContratacion: nroContratacion.trim() } : {}),
-      ...(necesitaEncuadre ? { encuadre } : {}),
+      ...(vaADGP ? { tieneProrroga, ...(necesitaEncuadre ? { encuadre } : {}) } : {}),
     });
     setEnviando(false);
     setTexto("");
@@ -684,16 +685,25 @@ function FormObservacion({ exp, onObservacion }) {
         </div>
       )}
 
-      {necesitaEncuadre && (
-        <div className="bg-blue-50 border border-blue-100 rounded-md p-2.5">
-          <label className="block text-[11px] font-medium text-slate-500 mb-1">
-            Encuadre / modalidad de contratación (no está cargado)
+      {vaADGP && (
+        <div className="bg-blue-50 border border-blue-100 rounded-md p-2.5 space-y-2">
+          {necesitaEncuadre && (
+            <div>
+              <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                Encuadre / modalidad de contratación (no está cargado)
+              </label>
+              <select value={encuadre} onChange={e => setEncuadre(e.target.value)}
+                className="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-700">
+                <option value="">— Elegir encuadre —</option>
+                {MODALIDADES_CONTRATACION.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+          )}
+          <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+            <input type="checkbox" checked={tieneProrroga} onChange={e => setTieneProrroga(e.target.checked)}
+              className="w-4 h-4 rounded border-slate-300 text-blue-700 focus:ring-blue-700" />
+            Tiene opción de prórroga
           </label>
-          <select value={encuadre} onChange={e => setEncuadre(e.target.value)}
-            className="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-700">
-            <option value="">— Elegir encuadre —</option>
-            {MODALIDADES_CONTRATACION.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
         </div>
       )}
 

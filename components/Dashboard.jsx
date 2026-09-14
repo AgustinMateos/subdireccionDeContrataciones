@@ -277,7 +277,7 @@ export default function App() {
   }
 
   async function guardarObservacion(id, entrada) {
-    // entrada: { tipo: "general" | "movimiento", texto, sectorNuevo?, fechaPublicacion?, fechaApertura?, presupuestoOficial?, resolucionLlamado?, nroContratacion?, encuadre? }
+    // entrada: { tipo: "general" | "movimiento", texto, sectorNuevo?, fechaPublicacion?, fechaApertura?, presupuestoOficial?, resolucionLlamado?, nroContratacion?, tieneProrroga?, encuadre? }
     const esMovimiento = entrada.tipo === "movimiento";
     const actual = expedientes.find((e) => e.id === id);
     const res = await fetch(`/api/expedientes/${id}`, {
@@ -293,6 +293,7 @@ export default function App() {
         ...(entrada.presupuestoOficial ? { presupuestoOficial: entrada.presupuestoOficial } : {}),
         ...(entrada.resolucionLlamado ? { resolucionLlamado: entrada.resolucionLlamado } : {}),
         ...(entrada.nroContratacion ? { nroContratacion: entrada.nroContratacion } : {}),
+        ...(typeof entrada.tieneProrroga === "boolean" ? { tieneProrroga: entrada.tieneProrroga } : {}),
         ...(entrada.encuadre ? { encuadre: entrada.encuadre } : {}),
       }),
     });
