@@ -27,7 +27,7 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
 
   async function confirmar() {
-    if (!f.exp || !f.objeto || !f.fechaVencimiento) {
+    if ((!esLegitimoAbono && !f.exp) || !f.objeto || !f.fechaVencimiento) {
       setError("Completá al menos N° de expediente, objeto y fecha de vencimiento.");
       return;
     }
@@ -60,16 +60,19 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
           </p>
           {esLegitimoAbono && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-              El legítimo abono no lleva OC ni resoluciones de llamado/adjudicación.
+              El legítimo abono no lleva OC ni resoluciones de llamado/adjudicación, ni tiene N° de expediente
+              propio — usa el de la contratación anterior ({exp.exp}).
             </p>
           )}
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">N° de expediente</label>
-              <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="13-00000/26"
-                className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
-            </div>
+            {!esLegitimoAbono && (
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">N° de expediente</label>
+                <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="13-00000/26"
+                  className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+              </div>
+            )}
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Tipo de parche</label>
               <select value={f.tipoParche} onChange={e => set("tipoParche", e.target.value)}

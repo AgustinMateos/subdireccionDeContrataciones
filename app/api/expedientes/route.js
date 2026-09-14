@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA_FALLIDOS } from "@/lib/constants";
+import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA_FALLIDOS, MOTIVOS_ADJUDICACION_PARCIAL } from "@/lib/constants";
 import { parseFechaHora } from "@/lib/utils";
 
 const INCLUDE_EXPEDIENTE = {
@@ -184,38 +184,60 @@ export async function POST(request) {
     // y trámite simplificado sí pueden tenerlas.
     const esLegitimoAbono = body.tipoParche === "Legítimo abono";
 
-    const nuevoParche = await prisma.expediente.create({
-      data: {
-        cadenaId: origen.cadenaId,
-        rol: "parche",
-        exp: body.exp,
-        departamentoId: session.user.departamentoId,
-        area: origen.area,
-        tipo: origen.tipo,
-        agente: origen.agente,
-        organismos: origen.organismos,
-        destinatario: origen.destinatario,
-        domicilio: origen.domicilio,
-        objeto: body.objeto || origen.objeto,
-        encuadre: ENCUADRE_POR_TIPO_PARCHE[body.tipoParche] || null,
-        presupuestoOficial: 0,
-        montoARS: Number(body.montoARS) || 0,
-        montoUSD: 0,
-        fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
-        fechaVencimiento: new Date(body.fechaVencimiento),
-        ocResolucion: esLegitimoAbono ? null : (body.ocResolucion || null),
-        resolucionLlamado: esLegitimoAbono ? null : (body.resolucionLlamado || null),
-        resolucionAdjudicacion: esLegitimoAbono ? null : (body.resolucionAdjudicacion || null),
-        sector: origen.sector,
-        estadoGeneral: "Vigente",
-        tipoParche: body.tipoParche || null,
-        detalleParche: body.detalleParche || null,
-        tieneProrroga: esLegitimoAbono ? false : !!body.tieneProrroga,
-        zona: origen.zona,
-        fuero: origen.fuero,
-      },
-      include: INCLUDE_EXPEDIENTE,
-    });
+    // El legítimo abono no tiene N° de expediente propio: usa el de la
+    // contratación anterior. Como `exp` es único en la base, se le agrega un
+    // sufijo "-LA" (y un contador si hiciera falta) en vez de pedirlo.
+    let expParche = body.exp;
+    if (esLegitimoAbono) {
+      let candidato = origen.exp + "-LA";
+      let sufijo = 1;
+      while (await prisma.expediente.findUnique({ where: { exp: candidato } })) {
+        sufijo++;
+        candidato = origen.exp + "-LA" + sufijo;
+      }
+      expParche = candidato;
+    }
+
+    let nuevoParche;
+    try {
+      nuevoParche = await prisma.expediente.create({
+        data: {
+          cadenaId: origen.cadenaId,
+          rol: "parche",
+          exp: expParche,
+          departamentoId: session.user.departamentoId,
+          area: origen.area,
+          tipo: origen.tipo,
+          agente: origen.agente,
+          organismos: origen.organismos,
+          destinatario: origen.destinatario,
+          domicilio: origen.domicilio,
+          objeto: body.objeto || origen.objeto,
+          encuadre: ENCUADRE_POR_TIPO_PARCHE[body.tipoParche] || null,
+          presupuestoOficial: 0,
+          montoARS: Number(body.montoARS) || 0,
+          montoUSD: 0,
+          fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
+          fechaVencimiento: new Date(body.fechaVencimiento),
+          ocResolucion: esLegitimoAbono ? null : (body.ocResolucion || null),
+          resolucionLlamado: esLegitimoAbono ? null : (body.resolucionLlamado || null),
+          resolucionAdjudicacion: esLegitimoAbono ? null : (body.resolucionAdjudicacion || null),
+          sector: origen.sector,
+          estadoGeneral: "Vigente",
+          tipoParche: body.tipoParche || null,
+          detalleParche: body.detalleParche || null,
+          tieneProrroga: esLegitimoAbono ? false : !!body.tieneProrroga,
+          zona: origen.zona,
+          fuero: origen.fuero,
+        },
+        include: INCLUDE_EXPEDIENTE,
+      });
+    } catch (e) {
+      if (e.code === "P2002") {
+        return NextResponse.json({ error: "Ya existe un expediente con ese número" }, { status: 409 });
+      }
+      throw e;
+    }
 
     // Si ya hay una renovación EN CURSO (todavía no se resolvió) en la misma
     // cadena, su período deja de ser correlativo (el parche ahora cubre más
@@ -389,7 +411,7 @@ export async function POST(request) {
         const g = grupos[i];
         const domicilios = normalizarLista(g.domiciliosRenglones);
         todosLosDomicilios.push(...domicilios);
-        const motivo = ESTADOS_CONVOCATORIA_FALLIDOS.includes(g.estadoConvocatoria) ? g.estadoConvocatoria : "Proyecto fracasado";
+        const motivo = MOTIVOS_ADJUDICACION_PARCIAL.includes(g.estadoConvocatoria) ? g.estadoConvocatoria : MOTIVOS_ADJUDICACION_PARCIAL[0];
         // Este expediente nuevo NO tramita el fracaso — es el intento de
         // contratación de esos domicilios/renglones, así que arranca su
         // propia convocatoria desde cero. El motivo por el que no se
@@ -455,11 +477,16 @@ export async function POST(request) {
     for (const dom of adjudicados) {
       const dato = adjudicacionEnviada[dom] ?? origen.adjudicacionPorRenglon?.[dom];
       if (dato?.firma) {
-        adjudicacionPorRenglon[dom] = { firma: String(dato.firma).trim(), monto: Number(dato.monto) || 0 };
+        adjudicacionPorRenglon[dom] = { firma: String(dato.firma).trim(), monto: Number(dato.monto) || 0, oc: dato.oc ? String(dato.oc).trim() : "" };
       }
     }
     const firmasUnicas = [...new Set(Object.values(adjudicacionPorRenglon).map(v => v.firma))];
     const montoTotal = Object.values(adjudicacionPorRenglon).reduce((s, v) => s + v.monto, 0);
+    // Una OC por empresa, no por renglón — si además vino un ocResolucion
+    // explícito (join de las OC únicas armado en el cliente) se usa ese.
+    const ocsUnicas = body.ocResolucion
+      ? String(body.ocResolucion).trim()
+      : [...new Set(Object.values(adjudicacionPorRenglon).map(v => v.oc).filter(Boolean))].join(" / ");
 
     await prisma.expediente.update({
       where: { id: origen.id },
@@ -468,6 +495,7 @@ export async function POST(request) {
           ? { adjudicacionPorRenglon, adjudicatario: firmasUnicas.join(" / "), montoARS: montoTotal }
           : {}),
         ...(body.resolucionAdjudicacion ? { resolucionAdjudicacion: String(body.resolucionAdjudicacion).trim() } : {}),
+        ...(ocsUnicas ? { ocResolucion: ocsUnicas } : {}),
         observaciones: {
           create: [{
             usuario: session.user.name,

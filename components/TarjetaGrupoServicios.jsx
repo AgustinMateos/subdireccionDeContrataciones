@@ -72,7 +72,7 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
                         ? adjudicados.map(d => {
                             const datos = exp.adjudicacionPorRenglon?.[d];
                             if (!datos) return d;
-                            return d + " (" + datos.firma + (datos.monto ? " · " + fmtMoneda(datos.monto) : "") + ")";
+                            return d + " (" + datos.firma + (datos.monto ? " · " + fmtMoneda(datos.monto) : "") + (datos.oc ? " · OC " + datos.oc : "") + ")";
                           }).join(" · ")
                         : "ningún domicilio/renglón"}
                     </span>

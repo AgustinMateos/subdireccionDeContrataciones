@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, Plus, Trash2 } from "lucide-react";
-import { ESTADOS_CONVOCATORIA_FALLIDOS } from "@/lib/constants";
+import { MOTIVOS_ADJUDICACION_PARCIAL } from "@/lib/constants";
 import BotonAccion from "./BotonAccion";
 
 const OPCIONES = [
@@ -18,7 +18,7 @@ function grupoVacio() {
     seleccionados: [],
     exp: "",
     objeto: "",
-    estadoConvocatoria: "Proyecto fracasado",
+    estadoConvocatoria: MOTIVOS_ADJUDICACION_PARCIAL[0],
     fechaInicio: "",
     fechaVencimiento: "",
   };
@@ -36,6 +36,8 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
   const [montos, setMontos] = useState({}); // { domicilio: monto }
   const [firmaUnica, setFirmaUnica] = useState(""); // fallback si el expediente no tiene domicilios/renglones cargados
   const [montoUnico, setMontoUnico] = useState("");
+  const [ocUnica, setOcUnica] = useState(""); // OC del único adjudicatario, cuando no hay domicilios/renglones
+  const [ocPorFirma, setOcPorFirma] = useState({}); // { firma: nroOC } — una OC por empresa, no por renglón
   const [firmaMasiva, setFirmaMasiva] = useState(""); // atajo: aplicar la misma firma a todos de una
   const [resolucionAdjudicacion, setResolucionAdjudicacion] = useState(exp.resolucionAdjudicacion || "");
   const [error, setError] = useState("");
@@ -48,6 +50,23 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
 
   function setMonto(dom, valor) {
     setMontos(prev => ({ ...prev, [dom]: valor }));
+  }
+
+  function setOcFirma(firma, valor) {
+    setOcPorFirma(prev => ({ ...prev, [firma]: valor }));
+  }
+
+  // Agrupa los domicilios/renglones por la firma que se les cargó — si
+  // "Fulano SRL" quedó adjudicado en varios renglones, comparten una sola
+  // orden de compra en vez de pedir una por renglón.
+  function agruparPorFirma(lista) {
+    const grupos = {};
+    lista.forEach(d => {
+      const f = firmas[d]?.trim();
+      if (!f) return;
+      (grupos[f] ||= []).push(d);
+    });
+    return grupos;
   }
 
   function aplicarFirmaATodos(lista) {
@@ -105,6 +124,7 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
           return;
         }
         datos = { adjudicatario: firmaUnica.trim(), montoARS: Number(montoUnico) || 0 };
+        if (ocUnica.trim()) datos.ocResolucion = ocUnica.trim();
       } else {
         const faltantes = disponibles.filter(d => !firmas[d]?.trim());
         if (faltantes.length > 0) {
@@ -112,10 +132,15 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
           return;
         }
         const adjudicacionPorRenglon = {};
-        disponibles.forEach(d => { adjudicacionPorRenglon[d] = { firma: firmas[d].trim(), monto: Number(montos[d]) || 0 }; });
+        disponibles.forEach(d => {
+          const firma = firmas[d].trim();
+          adjudicacionPorRenglon[d] = { firma, monto: Number(montos[d]) || 0, oc: (ocPorFirma[firma] || "").trim() };
+        });
         const unicas = [...new Set(Object.values(adjudicacionPorRenglon).map(v => v.firma))];
         const montoTotal = Object.values(adjudicacionPorRenglon).reduce((s, v) => s + v.monto, 0);
+        const ocsUnicas = [...new Set(Object.values(adjudicacionPorRenglon).map(v => v.oc).filter(Boolean))];
         datos = { adjudicacionPorRenglon, adjudicatario: unicas.join(" / "), montoARS: montoTotal };
+        if (ocsUnicas.length > 0) datos.ocResolucion = ocsUnicas.join(" / ");
       }
       if (resolucionAdjudicacion.trim()) datos.resolucionAdjudicacion = resolucionAdjudicacion.trim();
       setCargando(true);
@@ -143,7 +168,11 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
       }
     }
     const adjudicacionPorRenglon = {};
-    adjudicadosEnParcial.forEach(d => { adjudicacionPorRenglon[d] = { firma: firmas[d].trim(), monto: Number(montos[d]) || 0 }; });
+    adjudicadosEnParcial.forEach(d => {
+      const firma = firmas[d].trim();
+      adjudicacionPorRenglon[d] = { firma, monto: Number(montos[d]) || 0, oc: (ocPorFirma[firma] || "").trim() };
+    });
+    const ocsUnicas = [...new Set(Object.values(adjudicacionPorRenglon).map(v => v.oc).filter(Boolean))];
 
     setCargando(true);
     await onDividir(grupos.map(g => ({
@@ -153,7 +182,7 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
       fechaInicio: g.fechaInicio,
       fechaVencimiento: g.fechaVencimiento,
       domiciliosRenglones: g.seleccionados,
-    })), adjudicacionPorRenglon, resolucionAdjudicacion.trim() || undefined);
+    })), adjudicacionPorRenglon, resolucionAdjudicacion.trim() || undefined, ocsUnicas.length > 0 ? ocsUnicas.join(" / ") : undefined);
     setCargando(false);
   }
 
@@ -195,7 +224,7 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
 
           {opcion === "integra" && (
             disponibles.length === 0 ? (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Firma adjudicataria</label>
                   <input value={firmaUnica} onChange={e => setFirmaUnica(e.target.value)}
@@ -206,19 +235,31 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
                   <input type="number" value={montoUnico} onChange={e => setMontoUnico(e.target.value)}
                     className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
                 </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">N° de orden de compra</label>
+                  <input value={ocUnica} onChange={e => setOcUnica(e.target.value)}
+                    className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+                </div>
               </div>
             ) : (
-              <AdjudicacionPorDomicilio
-                titulo="Firma y monto adjudicados por domicilio/renglón"
-                domicilios={disponibles}
-                firmas={firmas}
-                onFirma={setFirma}
-                montos={montos}
-                onMonto={setMonto}
-                firmaMasiva={firmaMasiva}
-                setFirmaMasiva={setFirmaMasiva}
-                onAplicarATodos={() => aplicarFirmaATodos(disponibles)}
-              />
+              <>
+                <AdjudicacionPorDomicilio
+                  titulo="Firma y monto adjudicados por domicilio/renglón"
+                  domicilios={disponibles}
+                  firmas={firmas}
+                  onFirma={setFirma}
+                  montos={montos}
+                  onMonto={setMonto}
+                  firmaMasiva={firmaMasiva}
+                  setFirmaMasiva={setFirmaMasiva}
+                  onAplicarATodos={() => aplicarFirmaATodos(disponibles)}
+                />
+                <OrdenesCompraPorFirma
+                  grupos={agruparPorFirma(disponibles)}
+                  ocPorFirma={ocPorFirma}
+                  onOc={setOcFirma}
+                />
+              </>
             )
           )}
 
@@ -266,7 +307,7 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">Motivo</label>
                             <select value={g.estadoConvocatoria} onChange={e => actualizarGrupo(g.id, "estadoConvocatoria", e.target.value)}
                               className="w-full text-sm border border-slate-300 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800">
-                              {ESTADOS_CONVOCATORIA_FALLIDOS.map(estado => <option key={estado} value={estado}>{estado}</option>)}
+                              {MOTIVOS_ADJUDICACION_PARCIAL.map(estado => <option key={estado} value={estado}>{estado}</option>)}
                             </select>
                           </div>
                           <div className="col-span-2">
@@ -293,17 +334,24 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
                   </button>
 
                   {adjudicadosEnParcial.length > 0 && (
-                    <AdjudicacionPorDomicilio
-                      titulo="Firma y monto de lo que queda adjudicado en este expediente"
-                      domicilios={adjudicadosEnParcial}
-                      firmas={firmas}
-                      onFirma={setFirma}
-                      montos={montos}
-                      onMonto={setMonto}
-                      firmaMasiva={firmaMasiva}
-                      setFirmaMasiva={setFirmaMasiva}
-                      onAplicarATodos={() => aplicarFirmaATodos(adjudicadosEnParcial)}
-                    />
+                    <>
+                      <AdjudicacionPorDomicilio
+                        titulo="Firma y monto de lo que queda adjudicado en este expediente"
+                        domicilios={adjudicadosEnParcial}
+                        firmas={firmas}
+                        onFirma={setFirma}
+                        montos={montos}
+                        onMonto={setMonto}
+                        firmaMasiva={firmaMasiva}
+                        setFirmaMasiva={setFirmaMasiva}
+                        onAplicarATodos={() => aplicarFirmaATodos(adjudicadosEnParcial)}
+                      />
+                      <OrdenesCompraPorFirma
+                        grupos={agruparPorFirma(adjudicadosEnParcial)}
+                        ocPorFirma={ocPorFirma}
+                        onOc={setOcFirma}
+                      />
+                    </>
                   )}
                 </>
               )}
@@ -360,6 +408,36 @@ function AdjudicacionPorDomicilio({ titulo, domicilios, firmas, onFirma, montos,
               onChange={e => onMonto(d, e.target.value)}
               placeholder="Monto (ARS)"
               className="w-28 shrink-0 text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Una orden de compra por empresa adjudicataria, no por domicilio/renglón:
+// si "Fulano SRL" ganó varios renglones, comparten la misma OC.
+function OrdenesCompraPorFirma({ grupos, ocPorFirma, onOc }) {
+  const firmas = Object.keys(grupos);
+  if (firmas.length === 0) return null;
+  return (
+    <div className="border border-slate-200 rounded-md p-3 space-y-2 bg-slate-50">
+      <label className="block text-[11px] font-medium text-slate-600">N° de orden de compra por empresa adjudicataria</label>
+      <div className="space-y-1.5">
+        {firmas.map(firma => (
+          <div key={firma} className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-medium text-slate-700 truncate" title={firma}>{firma}</div>
+              <div className="text-[10px] text-slate-400 truncate" title={grupos[firma].join(", ")}>
+                {grupos[firma].join(", ")}
+              </div>
+            </div>
+            <input
+              value={ocPorFirma[firma] || ""}
+              onChange={e => onOc(firma, e.target.value)}
+              placeholder="N° de OC"
+              className="w-32 shrink-0 text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
             />
           </div>
         ))}

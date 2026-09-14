@@ -324,7 +324,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                   <div key={dom} className="flex items-center justify-between gap-2 border border-slate-200 rounded-md px-3 py-1.5">
                     <span className="text-slate-500 truncate" title={dom}>{dom}</span>
                     <span className="font-medium text-slate-800 truncate text-right" title={datos.firma}>
-                      {datos.firma}{datos.monto ? " · " + fmtMoneda(datos.monto) : ""}
+                      {datos.firma}{datos.monto ? " · " + fmtMoneda(datos.monto) : ""}{datos.oc ? " · OC " + datos.oc : ""}
                     </span>
                   </div>
                 ))}

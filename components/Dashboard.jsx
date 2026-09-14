@@ -504,6 +504,7 @@ export default function App() {
         ...(datos?.adjudicacionPorRenglon ? { adjudicacionPorRenglon: datos.adjudicacionPorRenglon } : {}),
         ...(datos?.montoARS != null ? { montoARS: datos.montoARS } : {}),
         ...(datos?.resolucionAdjudicacion ? { resolucionAdjudicacion: datos.resolucionAdjudicacion } : {}),
+        ...(datos?.ocResolucion ? { ocResolucion: datos.ocResolucion } : {}),
       }),
     });
     if (!res.ok) {
@@ -516,11 +517,11 @@ export default function App() {
     mostrarToast("Estado de convocatoria: " + estadoConvocatoria);
   }
 
-  async function dividirExpediente(origen, grupos, adjudicacionPorRenglon, resolucionAdjudicacion) {
+  async function dividirExpediente(origen, grupos, adjudicacionPorRenglon, resolucionAdjudicacion, ocResolucion) {
     const res = await fetch("/api/expedientes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ divisionDeId: origen.id, grupos, adjudicacionPorRenglon, resolucionAdjudicacion }),
+      body: JSON.stringify({ divisionDeId: origen.id, grupos, adjudicacionPorRenglon, resolucionAdjudicacion, ocResolucion }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -832,7 +833,7 @@ export default function App() {
           exp={seleccionado}
           onCerrar={() => setFormAbierto(null)}
           onResolverTotal={(estadoConvocatoria, datos) => resolverAdjudicacionTotal(seleccionado, estadoConvocatoria, datos)}
-          onDividir={(grupos, adjudicacionPorRenglon, resolucionAdjudicacion) => dividirExpediente(seleccionado, grupos, adjudicacionPorRenglon, resolucionAdjudicacion)}
+          onDividir={(grupos, adjudicacionPorRenglon, resolucionAdjudicacion, ocResolucion) => dividirExpediente(seleccionado, grupos, adjudicacionPorRenglon, resolucionAdjudicacion, ocResolucion)}
         />
       )}
     </div>
