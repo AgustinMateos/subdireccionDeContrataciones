@@ -293,7 +293,7 @@ export default function App() {
         ...(entrada.presupuestoOficial ? { presupuestoOficial: entrada.presupuestoOficial } : {}),
         ...(entrada.resolucionLlamado ? { resolucionLlamado: entrada.resolucionLlamado } : {}),
         ...(entrada.nroContratacion ? { nroContratacion: entrada.nroContratacion } : {}),
-        ...(typeof entrada.tieneProrroga === "boolean" ? { tieneProrroga: entrada.tieneProrroga } : {}),
+        ...(typeof entrada.tieneProrroga === "boolean" ? { tieneProrroga: entrada.tieneProrroga, mesesProrroga: entrada.mesesProrroga ?? null } : {}),
         ...(entrada.encuadre ? { encuadre: entrada.encuadre } : {}),
       }),
     });
@@ -822,6 +822,7 @@ export default function App() {
       {formAbierto === "prorroga" && seleccionado && (
         <GestionarProrroga
           exp={seleccionado}
+          todos={expedientes}
           onCerrar={() => setFormAbierto(null)}
           onActivarOrganismo={(datos) => activarProrroga(seleccionado, datos)}
           onHabilitarDepartamento={(datos) => crearProrrogaDepartamento(seleccionado, datos)}

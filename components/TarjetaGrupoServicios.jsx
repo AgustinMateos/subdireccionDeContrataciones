@@ -1,7 +1,8 @@
 "use client";
 
-import { MapPin, Clock } from "lucide-react";
-import { ALERTA_ESTILO, ESTADO_ESTILO, ROL_LABEL } from "@/lib/constants";
+import { useState } from "react";
+import { MapPin, Clock, ChevronDown } from "lucide-react";
+import { ALERTA_ESTILO, ESTADO_ESTILO, ROL_LABEL, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
 import { diasRestantes, alerta, fmtFecha, fmtMoneda, diasFrenado, alertaFrenado, estadoGeneralMostrado, esConvocatoriaFracasada } from "@/lib/utils";
 import { direccionesDe } from "@/lib/organismosFueros";
 
@@ -12,17 +13,34 @@ import { direccionesDe } from "@/lib/organismosFueros";
 export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
   const { tipo, zona, fuero, organismos, items } = grupo;
   const direcciones = direccionesDe(organismos, fuero);
+  const [abierto, setAbierto] = useState(false);
+  // El acumulado de meses de prórroga vive en el vigente de la cadena, no en
+  // el parche de departamento (ver Expediente.mesesProrrogaUsados).
+  function vigenteDe(exp) {
+    return (todos || []).find(e => e.cadenaId === exp.cadenaId && e.rol === "vigente");
+  }
+  function mesesProrrogaUsadosDe(exp) {
+    return vigenteDe(exp)?.mesesProrrogaUsados || 0;
+  }
+  function mesesProrrogaTopeDe(exp) {
+    return vigenteDe(exp)?.mesesProrroga || Math.max(...PRORROGA_MESES_OPCIONES);
+  }
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
+      <button
+        type="button"
+        onClick={() => setAbierto(a => !a)}
+        className="flex flex-col  justify-between gap-2 text-left"
+      >
         <span className="text-sm font-semibold text-slate-900">{tipo}</span>
-        {zona && (
-          <span className="text-[10px] font-medium uppercase tracking-wide px-2 py-1 rounded border border-slate-300 text-slate-600">
-            {zona}
-          </span>
-        )}
-      </div>
-      {organismos.length > 0 && (
+        <div className="flex items-center gap-2 shrink-0">
+          {zona && (
+            <span className="text-[10px] font-medium uppercase tracking-wide px-2 py-1 rounded border border-slate-300 text-slate-600">
+              {zona}
+            </span>
+          )}
+          <ChevronDown size={16} className={"text-slate-400 transition-transform " + (abierto ? "rotate-180" : "")} />
+        </div>  {organismos.length > 0 && (
         <div className="text-[11px] font-medium text-slate-700 -mt-1">{organismos.join(" · ")}</div>
       )}
       {fuero.length > 0 && (
@@ -34,7 +52,16 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
           <span>{direcciones.join(" · ")}</span>
         </div>
       )}
+      </button>
+    
 
+      {!abierto && (
+        <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2">
+          {items.length} expediente{items.length !== 1 ? "s" : ""} · tocá para ver el detalle
+        </div>
+      )}
+
+      {abierto && (
       <div className="divide-y divide-slate-100 border-t border-slate-100">
         {items.map(exp => {
           const esRenovacion = exp.rol === "renovacion";
@@ -79,7 +106,11 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
                   </div>
                 )}
                 <div className="text-[11px] text-slate-400">
-                  {exp.rol === "parche" ? (exp.tipoParche || exp.tipoContratacionProrroga || ROL_LABEL.parche) : ROL_LABEL[exp.rol]}
+                  {exp.rol === "parche"
+                    ? (exp.tipoParche || (exp.tipoContratacionProrroga
+                        ? "Prórroga (departamento) · " + (mesesProrrogaUsadosDe(exp) || 0) + "/" + mesesProrrogaTopeDe(exp) + " meses"
+                        : ROL_LABEL.parche))
+                    : ROL_LABEL[exp.rol]}
                   {exp.encuadre ? " · " + exp.encuadre : ""}
                 </div>
               </div>
@@ -107,8 +138,10 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
                 )}
                 {!esRenovacion && exp.tieneProrroga && (
                   <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border flex items-center gap-1 " +
-                    (exp.prorrogaActivada ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800")}>
-                    <Clock size={10} /> {exp.prorrogaActivada ? "Prórroga activada" : "Puede activar prórroga"}
+                    (exp.mesesProrrogaUsados > 0 ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800")}>
+                    <Clock size={10} /> {exp.mesesProrrogaUsados > 0
+                      ? `Prórroga activada (${exp.mesesProrrogaUsados}/${exp.mesesProrroga || Math.max(...PRORROGA_MESES_OPCIONES)})`
+                      : "Puede activar prórroga"}
                   </span>
                 )}
               </div>
@@ -116,6 +149,7 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

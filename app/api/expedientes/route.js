@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA_FALLIDOS, MOTIVOS_ADJUDICACION_PARCIAL } from "@/lib/constants";
+import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA_FALLIDOS, MOTIVOS_ADJUDICACION_PARCIAL, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
 import { parseFechaHora } from "@/lib/utils";
 
 const INCLUDE_EXPEDIENTE = {
@@ -184,6 +184,10 @@ export async function POST(request) {
     // y trámite simplificado sí pueden tenerlas.
     const esLegitimoAbono = body.tipoParche === "Legítimo abono";
 
+    if (!esLegitimoAbono && body.tieneProrroga && !PRORROGA_MESES_OPCIONES.includes(Number(body.mesesProrroga))) {
+      return NextResponse.json({ error: "Elegí cuántos meses de prórroga tiene el expediente" }, { status: 400 });
+    }
+
     // El legítimo abono no tiene N° de expediente propio: usa el de la
     // contratación anterior. Como `exp` es único en la base, se le agrega un
     // sufijo "-LA" (y un contador si hiciera falta) en vez de pedirlo.
@@ -227,6 +231,7 @@ export async function POST(request) {
           tipoParche: body.tipoParche || null,
           detalleParche: body.detalleParche || null,
           tieneProrroga: esLegitimoAbono ? false : !!body.tieneProrroga,
+          mesesProrroga: !esLegitimoAbono && body.tieneProrroga ? Number(body.mesesProrroga) : null,
           zona: origen.zona,
           fuero: origen.fuero,
         },
@@ -278,9 +283,10 @@ export async function POST(request) {
   // ---------- Habilitar prórroga por el DEPARTAMENTO ----------
   // A diferencia de la prórroga simple (que habilita el organismo, sin
   // expediente nuevo) y del parche clásico, esta la habilita el propio
-  // departamento: lleva su propio N° de expediente, siempre N° de
-  // resolución, y orden de compra solo si la contratación no es
-  // descentralizada.
+  // departamento: lleva su propio N° de expediente. Ese N° se asigna una
+  // sola vez (primera activación) — si la cadena se subdivide más adelante
+  // (nueva OC, misma cobertura extendida) NO se crea otro expediente: se
+  // extiende el mismo registro y la OC nueva queda como observación.
   if (body.prorrogaDepartamentoDeId) {
     const origen = await prisma.expediente.findUnique({ where: { id: body.prorrogaDepartamentoDeId } });
     if (!origen || origen.departamentoId !== session.user.departamentoId) {
@@ -289,56 +295,123 @@ export async function POST(request) {
     if (!origen.tieneProrroga) {
       return NextResponse.json({ error: "Este expediente no tiene la opción de prórroga marcada" }, { status: 400 });
     }
+    if (origen.prorrogaActivada) {
+      return NextResponse.json({ error: "Esta cadena ya usa la prórroga habilitada por el organismo" }, { status: 400 });
+    }
     if (!origen.encuadre) {
       return NextResponse.json({ error: "El expediente de origen no tiene encuadre definido" }, { status: 400 });
-    }
-    if (!body.nroResolucion) {
-      return NextResponse.json({ error: "Cargá el N° de resolución" }, { status: 400 });
     }
     // El tipo de contratación de la prórroga es siempre el mismo del vigente
     // de origen — no se elige.
     const esDescentralizada = origen.encuadre.toLowerCase().includes("descentralizada");
-    if (!esDescentralizada && !body.ocResolucion) {
-      return NextResponse.json({ error: "Esta modalidad requiere N° de orden de compra" }, { status: 400 });
+
+    const parcheExistente = await prisma.expediente.findFirst({
+      where: { cadenaId: origen.cadenaId, rol: "parche", tipoContratacionProrroga: { not: null } },
+    });
+
+    // Igual que la del organismo, se elige en meses (1/2/3) en vez de una
+    // fecha libre, y el acumulado (sea cual sea la modalidad) se descuenta
+    // siempre del tope elegido en el vigente (origen.mesesProrroga) — cada
+    // subdivisión consume de ahí, no hay un tope aparte para el parche.
+    const maxMeses = origen.mesesProrroga || Math.max(...PRORROGA_MESES_OPCIONES);
+    const mesesDisponibles = maxMeses - (origen.mesesProrrogaUsados || 0);
+    if (mesesDisponibles <= 0) {
+      return NextResponse.json({ error: "Este expediente ya usó todos los meses de prórroga disponibles" }, { status: 400 });
+    }
+    const meses = Number(body.meses);
+    if (!PRORROGA_MESES_OPCIONES.includes(meses) || meses > mesesDisponibles) {
+      return NextResponse.json({ error: "Solo podés activar hasta " + mesesDisponibles + " mes(es) más" }, { status: 400 });
     }
 
-    let nuevaProrroga;
-    try {
-      nuevaProrroga = await prisma.expediente.create({
+    let resultado;
+    if (parcheExistente) {
+      // Subdivisión: mismo N° de expediente, solo se extiende el vencimiento
+      // y se suma una OC nueva.
+      if (!esDescentralizada && !body.ocResolucion) {
+        return NextResponse.json({ error: "Esta modalidad requiere N° de orden de compra" }, { status: 400 });
+      }
+      const nuevaFecha = new Date(parcheExistente.fechaVencimiento);
+      nuevaFecha.setMonth(nuevaFecha.getMonth() + meses);
+      const ocResolucion = esDescentralizada ? null : (body.ocResolucion || null);
+      resultado = await prisma.expediente.update({
+        where: { id: parcheExistente.id },
         data: {
-          cadenaId: origen.cadenaId,
-          rol: "parche",
-          exp: body.exp,
-          departamentoId: session.user.departamentoId,
-          area: origen.area,
-          tipo: origen.tipo,
-          agente: origen.agente,
-          organismos: origen.organismos,
-          destinatario: origen.destinatario,
-          domicilio: origen.domicilio,
-          objeto: body.objeto || origen.objeto,
-          presupuestoOficial: 0,
-          montoARS: Number(body.montoARS) || 0,
-          montoUSD: 0,
-          fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
-          fechaVencimiento: new Date(body.fechaVencimiento),
-          nroResolucion: body.nroResolucion,
-          ocResolucion: esDescentralizada ? null : (body.ocResolucion || null),
-          sector: origen.sector,
-          estadoGeneral: "Vigente",
-          tipoContratacionProrroga: origen.encuadre,
-          encuadre: origen.encuadre,
-          zona: origen.zona,
-          fuero: origen.fuero,
+          fechaVencimiento: nuevaFecha,
+          ...(body.nroResolucion ? { nroResolucion: body.nroResolucion } : {}),
+          ...(ocResolucion ? { ocResolucion } : {}),
+          ...(body.montoARS != null ? { montoARS: Number(body.montoARS) || 0 } : {}),
+          observaciones: {
+            create: {
+              usuario: session.user.name,
+              tipo: "general",
+              texto: "Prórroga (departamento) subdividida: +" + meses + " mes(es), vencimiento extendido de " +
+                parcheExistente.fechaVencimiento.toISOString().slice(0, 10) + " a " + nuevaFecha.toISOString().slice(0, 10) +
+                (ocResolucion ? ", OC " + ocResolucion : "") + ".",
+              ocResolucion,
+            },
+          },
         },
         include: INCLUDE_EXPEDIENTE,
       });
-    } catch (e) {
-      if (e.code === "P2002") {
-        return NextResponse.json({ error: "Ya existe un expediente con ese número" }, { status: 409 });
+    } else {
+      // Primera activación: crea el expediente nuevo de la cadena. La fecha
+      // de inicio es correlativa al período contratado (arranca al día
+      // siguiente del vencimiento del vigente, sin que se pueda elegir) y
+      // cubre los meses elegidos desde ahí.
+      if (!body.nroResolucion) {
+        return NextResponse.json({ error: "Cargá el N° de resolución" }, { status: 400 });
       }
-      throw e;
+      if (!esDescentralizada && !body.ocResolucion) {
+        return NextResponse.json({ error: "Esta modalidad requiere N° de orden de compra" }, { status: 400 });
+      }
+      const fechaInicio = new Date(origen.fechaVencimiento);
+      fechaInicio.setDate(fechaInicio.getDate() + 1);
+      const nuevaFecha = new Date(fechaInicio);
+      nuevaFecha.setMonth(nuevaFecha.getMonth() + meses);
+      try {
+        resultado = await prisma.expediente.create({
+          data: {
+            cadenaId: origen.cadenaId,
+            rol: "parche",
+            exp: body.exp,
+            departamentoId: session.user.departamentoId,
+            area: origen.area,
+            tipo: origen.tipo,
+            agente: origen.agente,
+            organismos: origen.organismos,
+            destinatario: origen.destinatario,
+            domicilio: origen.domicilio,
+            objeto: body.objeto || origen.objeto,
+            presupuestoOficial: 0,
+            montoARS: Number(body.montoARS) || 0,
+            montoUSD: 0,
+            fechaInicio,
+            fechaVencimiento: nuevaFecha,
+            nroResolucion: body.nroResolucion,
+            ocResolucion: esDescentralizada ? null : (body.ocResolucion || null),
+            sector: origen.sector,
+            estadoGeneral: "Vigente",
+            tipoContratacionProrroga: origen.encuadre,
+            encuadre: origen.encuadre,
+            zona: origen.zona,
+            fuero: origen.fuero,
+          },
+          include: INCLUDE_EXPEDIENTE,
+        });
+      } catch (e) {
+        if (e.code === "P2002") {
+          return NextResponse.json({ error: "Ya existe un expediente con ese número" }, { status: 409 });
+        }
+        throw e;
+      }
     }
+
+    // El acumulado vive en el vigente (origen), no en el parche: ahí es
+    // donde se eligió el tope y donde lo consulta la modalidad organismo.
+    await prisma.expediente.update({
+      where: { id: origen.id },
+      data: { mesesProrrogaUsados: (origen.mesesProrrogaUsados || 0) + meses },
+    });
 
     // Misma lógica de corrimiento que un parche clásico: si ya hay una
     // renovación EN CURSO (no fracasada/desierta) en la cadena, se corre
@@ -355,7 +428,7 @@ export async function POST(request) {
       },
     });
     if (renovacionEnTramite) {
-      const nuevaFechaInicio = new Date(nuevaProrroga.fechaVencimiento);
+      const nuevaFechaInicio = new Date(resultado.fechaVencimiento);
       nuevaFechaInicio.setDate(nuevaFechaInicio.getDate() + 1);
       const duracionMs = renovacionEnTramite.fechaInicio
         ? new Date(renovacionEnTramite.fechaVencimiento) - new Date(renovacionEnTramite.fechaInicio)
@@ -369,7 +442,7 @@ export async function POST(request) {
       });
     }
 
-    return NextResponse.json({ expediente: nuevaProrroga }, { status: 201 });
+    return NextResponse.json({ expediente: resultado }, { status: parcheExistente ? 200 : 201 });
   }
 
   // ---------- Dividir expediente (adjudicación parcial) ----------
@@ -541,6 +614,10 @@ export async function POST(request) {
   const esRenovacionVinculada = !!body.idVigenteAActualizar;
   const sectorInicial = body.sector || null;
 
+  if (body.tieneProrroga && !PRORROGA_MESES_OPCIONES.includes(Number(body.mesesProrroga))) {
+    return NextResponse.json({ error: "Elegí cuántos meses de prórroga tiene el expediente" }, { status: 400 });
+  }
+
   const nuevo = await prisma.expediente.create({
     data: {
       cadenaId: body.cadenaId || "c" + Date.now(),
@@ -577,6 +654,7 @@ export async function POST(request) {
       codigoInterno: body.codigoInterno || null,
       estadoConvocatoria: body.estadoConvocatoria || null,
       tieneProrroga: !!body.tieneProrroga,
+      mesesProrroga: body.tieneProrroga ? Number(body.mesesProrroga) : null,
       domiciliosRenglones: normalizarLista(body.domiciliosRenglones),
       observaciones: sectorInicial
         ? {

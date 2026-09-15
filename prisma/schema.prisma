@@ -97,13 +97,26 @@ model Expediente {
   creadoEn               DateTime  @default(now())
   actualizadoEn          DateTime  @updatedAt
 
-  // Prórroga habilitada por el ORGANISMO: opción del propio contrato vigente,
-  // no genera un expediente nuevo. Se carga al crear el vigente; se activa
-  // después desde la ficha si la renovación se atrasa (extiende
-  // fechaVencimiento del mismo registro). fechaNotificacionProrroga es la
-  // fecha en que el organismo notificó la recepción de la resolución.
+  // Prórroga: opción del propio contrato vigente. tieneProrroga se tilda al
+  // cargar el vigente (o un parche clásico) y ahí mismo se elige el tope
+  // total en meses (mesesProrroga, 1/2/3 — no siempre son 3). Ese tope se
+  // puede consumir en más de una tanda, sea cual sea la modalidad elegida
+  // para activarlo (mutuamente excluyentes entre sí, ver GestionarProrroga):
+  //  - la habilita el ORGANISMO: extiende este mismo registro, sin
+  //    expediente nuevo y sin orden de compra.
+  //  - la habilita el DEPARTAMENTO: genera un expediente "parche" aparte
+  //    (una sola vez) que después se subdivide con una OC nueva cada vez,
+  //    pero el acumulado se seguí descontando de ESTE registro (el vigente),
+  //    no del parche.
+  // mesesProrrogaUsados lleva ese acumulado sin importar la modalidad. Cada
+  // activación puntual queda registrada en su propia Observacion
+  // (mesesProrroga + fechaNotificacionProrroga u ocResolucion de esa tanda).
+  // fechaNotificacionProrroga acá es solo la de la última tanda del
+  // organismo, para mostrar de un vistazo en la ficha.
   tieneProrroga             Boolean   @default(false)
+  mesesProrroga             Int?
   prorrogaActivada          Boolean   @default(false)
+  mesesProrrogaUsados       Int       @default(0)
   fechaNotificacionProrroga DateTime?
 
   // Parche: contratación puente propia (rol "parche" en la cadena) que cubre
@@ -162,6 +175,13 @@ model Observacion {
   texto          String
   sectorAnterior String?
   sectorNuevo    String?
+
+  // Detalle estructurado de una activación puntual de prórroga, además del
+  // resumen en `texto` — permite reconstruir el historial completo cuando la
+  // prórroga se usó en más de una tanda (ver comentario en Expediente.mesesProrrogaUsados).
+  mesesProrroga             Int?      // organismo: meses usados en ESTA activación
+  fechaNotificacionProrroga DateTime? // organismo: fecha de notificación de ESTA activación
+  ocResolucion              String?   // departamento: OC generada en ESTA subdivisión
 
   @@index([expedienteId])
 }

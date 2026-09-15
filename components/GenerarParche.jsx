@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { TIPOS_PARCHE } from "@/lib/constants";
+import { TIPOS_PARCHE, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
 import BotonAccion from "./BotonAccion";
+import SelectorMesesProrroga from "./SelectorMesesProrroga";
 import { fmtFecha } from "@/lib/utils";
 
 export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
@@ -19,6 +20,7 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
     resolucionLlamado: "",
     resolucionAdjudicacion: "",
     tieneProrroga: false,
+    mesesProrroga: null,
   });
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
@@ -31,6 +33,10 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
       setError("Completá al menos N° de expediente, objeto y fecha de vencimiento.");
       return;
     }
+    if (!esLegitimoAbono && f.tieneProrroga && !PRORROGA_MESES_OPCIONES.includes(Number(f.mesesProrroga))) {
+      setError("Elegí cuántos meses de prórroga tiene el expediente.");
+      return;
+    }
     setCargando(true);
     await onConfirmar({
       ...f,
@@ -39,6 +45,7 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
       resolucionLlamado: esLegitimoAbono ? "" : f.resolucionLlamado,
       resolucionAdjudicacion: esLegitimoAbono ? "" : f.resolucionAdjudicacion,
       tieneProrroga: esLegitimoAbono ? false : f.tieneProrroga,
+      mesesProrroga: esLegitimoAbono ? null : (f.tieneProrroga ? f.mesesProrroga : null),
     });
     setCargando(false);
   }
@@ -105,11 +112,14 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
                       onChange={e => set("tieneProrroga", e.target.checked)}
                       className="w-4 h-4 mt-0.5 rounded border-slate-300 text-slate-800 focus:ring-slate-800"
                     />
-                    <span>
+                    <span className="flex-1">
                       <span className="text-xs font-medium text-slate-700">Tiene opción de prórroga</span>
                       <span className="block text-[11px] text-slate-500 mt-0.5">
-                        Hasta 3 meses, activable después desde la ficha si hace falta.
+                        Activable después desde la ficha si hace falta, en una sola tanda o repartida en más de una.
                       </span>
+                      {f.tieneProrroga && (
+                        <SelectorMesesProrroga value={f.mesesProrroga} onChange={v => set("mesesProrroga", v)} />
+                      )}
                     </span>
                   </label>
                 </div>

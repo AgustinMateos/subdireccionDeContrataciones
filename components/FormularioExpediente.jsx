@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTORES } from "@/lib/constants";
+import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTORES, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
 import CampoFuero from "./CampoFuero";
 import CampoDomiciliosRenglones from "./CampoDomiciliosRenglones";
+import SelectorMesesProrroga from "./SelectorMesesProrroga";
 import BotonAccion from "./BotonAccion";
 import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
 function formVacio(esServicios) {
@@ -23,6 +24,7 @@ function formVacio(esServicios) {
     fuero: [], zona: ZONAS[0], codigoInterno: "",
     estadoConvocatoria: esServicios ? ESTADOS_CONVOCATORIA[0] : "",
     tieneProrroga: false,
+    mesesProrroga: null,
     domiciliosRenglones: [],
   };
 }
@@ -42,6 +44,7 @@ function normalizarInicial(inicial, esServicios) {
     esPoliciaAdicional: !!inicial.esPoliciaAdicional,
     fuerzaSeguridad: inicial.fuerzaSeguridad || "",
     tieneProrroga: !!inicial.tieneProrroga,
+    mesesProrroga: inicial.mesesProrroga || null,
   };
 }
 
@@ -84,6 +87,10 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
     }
     if (f.esPoliciaAdicional && !f.fuerzaSeguridad) {
       setError("Elegí la fuerza de seguridad para el expediente de policía adicional.");
+      return;
+    }
+    if (f.tieneProrroga && !PRORROGA_MESES_OPCIONES.includes(Number(f.mesesProrroga))) {
+      setError("Elegí cuántos meses de prórroga tiene el expediente.");
       return;
     }
     if (fechaMinima && f.fechaInicio && new Date(f.fechaInicio) < new Date(fechaMinima)) {
@@ -148,12 +155,15 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
                     onChange={e => set("tieneProrroga", e.target.checked)}
                     className="w-4 h-4 mt-0.5 rounded border-slate-300 text-slate-800 focus:ring-slate-800"
                   />
-                  <span>
+                  <span className="flex-1">
                     <span className="text-xs font-medium text-slate-700">Tiene opción de prórroga</span>
                     <span className="block text-[11px] text-slate-500 mt-0.5">
-                      Hasta 3 meses. Se podrá activar más adelante desde la ficha del expediente si la
-                      renovación se atrasa, sin necesidad de un expediente nuevo.
+                      Se podrá activar más adelante desde la ficha del expediente si la renovación se
+                      atrasa, sin necesidad de un expediente nuevo — en una sola tanda o repartida en más de una.
                     </span>
+                    {f.tieneProrroga && (
+                      <SelectorMesesProrroga value={f.mesesProrroga} onChange={v => set("mesesProrroga", v)} />
+                    )}
                   </span>
                 </label>
               </div>

@@ -107,6 +107,9 @@ export async function PUT(request, { params }) {
   // ---------- Agregar una observación o un movimiento de sector ----------
   if (body.nuevaObservacion) {
     const esMovimiento = body.tipo === "movimiento";
+    if (typeof body.tieneProrroga === "boolean" && body.tieneProrroga && !PRORROGA_MESES_OPCIONES.includes(Number(body.mesesProrroga))) {
+      return NextResponse.json({ error: "Elegí cuántos meses de prórroga tiene el expediente" }, { status: 400 });
+    }
     const actualizado = await prisma.expediente.update({
       where: { id },
       data: {
@@ -116,7 +119,7 @@ export async function PUT(request, { params }) {
         ...(body.presupuestoOficial != null ? { presupuestoOficial: Number(body.presupuestoOficial) || 0 } : {}),
         ...(body.resolucionLlamado ? { resolucionLlamado: body.resolucionLlamado } : {}),
         ...(body.nroContratacion ? { nroContratacion: body.nroContratacion } : {}),
-        ...(typeof body.tieneProrroga === "boolean" ? { tieneProrroga: body.tieneProrroga } : {}),
+        ...(typeof body.tieneProrroga === "boolean" ? { tieneProrroga: body.tieneProrroga, mesesProrroga: body.tieneProrroga ? Number(body.mesesProrroga) : null } : {}),
         ...(body.encuadre ? { encuadre: body.encuadre } : {}),
         observaciones: {
           create: {
@@ -224,15 +227,31 @@ export async function PUT(request, { params }) {
     const exp = await prisma.expediente.findUnique({ where: { id } });
     if (!exp) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
     const puedeTenerProrroga = exp.rol === "vigente" || (exp.rol === "parche" && exp.tipoParche !== "Legítimo abono");
-    if (!puedeTenerProrroga || !exp.tieneProrroga || exp.prorrogaActivada) {
-      return NextResponse.json({ error: "Este expediente no tiene una prórroga disponible para activar" }, { status: 400 });
+    // exp.mesesProrroga es el tope elegido para ESTE expediente al tildar
+    // "tiene opción de prórroga" (no siempre son 3). Fallback al máximo
+    // histórico solo para filas creadas antes de que existiera este campo.
+    const maxMeses = exp.mesesProrroga || Math.max(...PRORROGA_MESES_OPCIONES);
+    const mesesDisponibles = maxMeses - (exp.mesesProrrogaUsados || 0);
+    if (!puedeTenerProrroga || !exp.tieneProrroga || mesesDisponibles <= 0) {
+      return NextResponse.json({ error: "Este expediente no tiene meses de prórroga disponibles para activar" }, { status: 400 });
     }
-    const nuevaFecha = new Date(body.activarProrroga.nuevaFechaVencimiento);
-    const maxFecha = new Date(exp.fechaVencimiento);
-    maxFecha.setMonth(maxFecha.getMonth() + Math.max(...PRORROGA_MESES_OPCIONES));
-    if (!(nuevaFecha > exp.fechaVencimiento) || nuevaFecha > maxFecha) {
-      return NextResponse.json({ error: "La prórroga no puede superar los " + Math.max(...PRORROGA_MESES_OPCIONES) + " meses" }, { status: 400 });
+    // Mutuamente excluyente con la prórroga habilitada por el departamento:
+    // si la cadena ya usó esa modalidad, no se puede activar también la del organismo.
+    const yaUsoDepartamento = await prisma.expediente.findFirst({
+      where: { cadenaId: exp.cadenaId, rol: "parche", tipoContratacionProrroga: { not: null } },
+    });
+    if (yaUsoDepartamento) {
+      return NextResponse.json({ error: "Esta cadena ya usa la prórroga habilitada por el departamento" }, { status: 400 });
     }
+    // Los 3 meses tope se pueden usar en más de una tanda (ej. 1 mes ahora y
+    // 2 más adelante) — cada tanda extiende el vencimiento actual, no el
+    // original, así que se valida contra lo que queda disponible.
+    const meses = Number(body.activarProrroga.meses);
+    if (!PRORROGA_MESES_OPCIONES.includes(meses) || meses > mesesDisponibles) {
+      return NextResponse.json({ error: "Solo podés activar hasta " + mesesDisponibles + " mes(es) más" }, { status: 400 });
+    }
+    const nuevaFecha = new Date(exp.fechaVencimiento);
+    nuevaFecha.setMonth(nuevaFecha.getMonth() + meses);
     const fechaNotificacionProrroga = body.activarProrroga.fechaNotificacionProrroga
       ? new Date(body.activarProrroga.fechaNotificacionProrroga)
       : null;
@@ -240,14 +259,17 @@ export async function PUT(request, { params }) {
       where: { id },
       data: {
         prorrogaActivada: true,
+        mesesProrrogaUsados: (exp.mesesProrrogaUsados || 0) + meses,
         fechaVencimiento: nuevaFecha,
         fechaNotificacionProrroga,
         observaciones: {
           create: {
             usuario: session.user.name,
             tipo: "general",
-            texto: "Prórroga activada: vencimiento extendido de " + exp.fechaVencimiento.toISOString().slice(0, 10) +
+            texto: "Prórroga activada (organismo): +" + meses + " mes(es), vencimiento extendido de " + exp.fechaVencimiento.toISOString().slice(0, 10) +
               " a " + nuevaFecha.toISOString().slice(0, 10) + ".",
+            mesesProrroga: meses,
+            fechaNotificacionProrroga,
           },
         },
       },
@@ -356,6 +378,16 @@ export async function PUT(request, { params }) {
   // El legítimo abono nunca lleva OC ni resoluciones de llamado/adjudicación.
   const esLegitimoAbono = body.tipoParche === "Legítimo abono";
 
+  if (!esLegitimoAbono && body.tieneProrroga) {
+    if (!PRORROGA_MESES_OPCIONES.includes(Number(body.mesesProrroga))) {
+      return NextResponse.json({ error: "Elegí cuántos meses de prórroga tiene el expediente" }, { status: 400 });
+    }
+    const previo = await prisma.expediente.findUnique({ where: { id }, select: { mesesProrrogaUsados: true } });
+    if (previo && Number(body.mesesProrroga) < (previo.mesesProrrogaUsados || 0)) {
+      return NextResponse.json({ error: "Ya se usaron " + previo.mesesProrrogaUsados + " mes(es) — no se puede bajar el tope por debajo de eso" }, { status: 400 });
+    }
+  }
+
   // ---------- Edición normal de campos del expediente ----------
   const actualizado = await prisma.expediente.update({
     where: { id },
@@ -397,6 +429,9 @@ export async function PUT(request, { params }) {
       codigoInterno: body.codigoInterno ?? undefined,
       estadoConvocatoria: body.estadoConvocatoria ?? undefined,
       tieneProrroga: esLegitimoAbono ? false : (typeof body.tieneProrroga === "boolean" ? body.tieneProrroga : undefined),
+      mesesProrroga: esLegitimoAbono
+        ? null
+        : (typeof body.tieneProrroga === "boolean" ? (body.tieneProrroga ? Number(body.mesesProrroga) : null) : undefined),
       tipoParche: body.tipoParche ?? undefined,
       detalleParche: body.detalleParche ?? undefined,
       domiciliosRenglones: Array.isArray(body.domiciliosRenglones)

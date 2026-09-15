@@ -153,6 +153,7 @@ async function main() {
         estadoConvocatoria: "Control",
         estadoGeneral: "En trámite de renovación",
         tieneProrroga: true,
+        mesesProrroga: 3,
         observaciones: {
           create: [
             { usuario: "seed", tipo: "movimiento", texto: "Pase a Contrataciones para control previo a vencimiento.", sectorAnterior: "Contable", sectorNuevo: "Contrataciones" },

@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil, Trash2, Shield, Clock } from "lucide-react";
-import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, SECTORES, MODALIDADES_CONTRATACION, ENCUADRE_FUNDAMENTO_LEGAL } from "@/lib/constants";
+import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, SECTORES, MODALIDADES_CONTRATACION, ENCUADRE_FUNDAMENTO_LEGAL, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
 import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtFechaHora, fmtMoneda, documentacionDeExpediente, diasFrenado, estadoGeneralMostrado, esConvocatoriaFracasada } from "@/lib/utils";
 import BotonAccion from "./BotonAccion";
+import SelectorMesesProrroga from "./SelectorMesesProrroga";
 export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onGestionarProrroga, onGenerarParche, onDividir, onReunificar, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
   const [verMasAntecedentes, setVerMasAntecedentes] = useState(false);
   const [eliminando, setEliminando] = useState(false);
@@ -28,13 +29,21 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   const renovacionesFracasadas = cadena
     .filter(e => e.rol === "renovacion" && esConvocatoriaFracasada(e))
     .sort((a, b) => new Date(a.fechaInicio || a.fechaVencimiento) - new Date(b.fechaInicio || b.fechaVencimiento));
+  // El acumulado de meses de prórroga vive en el vigente (origen), no en el
+  // parche de departamento — ver comentario en el schema (Expediente.mesesProrrogaUsados).
+  const maxMesesProrroga = vigente?.mesesProrroga || Math.max(...PRORROGA_MESES_OPCIONES);
+  function labelParche(p) {
+    if (p.tipoParche) return p.tipoParche;
+    if (p.tipoContratacionProrroga) return "Prórroga (departamento) · " + (vigente?.mesesProrrogaUsados || 0) + "/" + maxMesesProrroga + " meses";
+    return ROL_LABEL.parche;
+  }
   // El orden de las tarjetas de la línea principal es siempre por fecha
   // real, no por rol: un parche cargado con fechas anteriores al vigente (o
   // lo que sea) tiene que aparecer antes en la línea, no fijo al final.
   const nodosPrincipales = [
     antecedente && { key: "antecedente", label: ROL_LABEL.antecedente, item: antecedente },
     vigente && { key: "vigente", label: ROL_LABEL.vigente, item: vigente },
-    ...parches.map(p => ({ key: p.id, label: p.tipoParche || p.tipoContratacionProrroga || ROL_LABEL.parche, item: p })),
+    ...parches.map(p => ({ key: p.id, label: labelParche(p), item: p })),
     renovacion && { key: "renovacion", label: ROL_LABEL.renovacion, item: renovacion },
   ].filter(Boolean).sort((a, b) => {
     const fa = new Date(a.item.fechaInicio || a.item.fechaVencimiento);
@@ -57,6 +66,12 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   const dias = diasRestantes(exp.fechaVencimiento);
   const niv = alerta(dias);
   const frenado = diasFrenado(exp.observaciones, exp.creadoEn);
+  // OC, N° de resolución y monto significan cosas distintas según de dónde
+  // salió el registro: la adjudicación de un vigente/renovación no es lo
+  // mismo que la resolución/OC/monto de una prórroga habilitada por el
+  // departamento — se etiquetan distinto para no confundirlas en la ficha.
+  const esProrrogaDepto = !!exp.tipoContratacionProrroga;
+  const esAdjudicacion = exp.rol === "vigente" || exp.rol === "renovacion";
 
   // División por adjudicación parcial: expediente del que salió (si es una
   // división) y los que salieron de éste (si tiene domicilios/renglones
@@ -78,7 +93,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
           <div>
             <div className="font-mono text-base font-semibold text-slate-900">{exp.exp}</div>
             {exp.nombreCorto && <div className="text-sm font-medium text-slate-700">{exp.nombreCorto}</div>}
-            <div className="text-xs text-slate-500">{exp.rol === "parche" ? (exp.tipoParche || exp.tipoContratacionProrroga || ROL_LABEL.parche) : ROL_LABEL[exp.rol]}</div>
+            <div className="text-xs text-slate-500">{exp.rol === "parche" ? labelParche(exp) : ROL_LABEL[exp.rol]}</div>
           </div>
         </div>
 
@@ -260,8 +275,11 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
           {(exp.rol === "vigente" || exp.rol === "parche") && exp.tieneProrroga && (
             <div className="flex items-center gap-2 text-xs">
               <span className={"font-medium px-2 py-1 rounded border flex items-center gap-1 " +
-                (exp.prorrogaActivada ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800")}>
-                <Clock size={11} /> {exp.prorrogaActivada ? "Prórroga activada" : "Con opción de prórroga"}
+                (exp.mesesProrrogaUsados > 0 ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800")}>
+                <Clock size={11} />
+                {exp.mesesProrrogaUsados > 0
+                  ? `Prórroga activada (${exp.mesesProrrogaUsados}/${exp.mesesProrroga || Math.max(...PRORROGA_MESES_OPCIONES)} meses usados)`
+                  : "Con opción de prórroga"}
               </span>
             </div>
           )}
@@ -282,7 +300,10 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
               } />
             )}
             <Campo label="Encuadre" valor={exp.encuadre} />
-            <Campo label="OC" valor={exp.ocResolucion} />
+            <Campo
+              label={esProrrogaDepto ? "OC (prórroga por departamento)" : esAdjudicacion ? "OC (adjudicación)" : "OC"}
+              valor={exp.ocResolucion}
+            />
             <Campo label="Resolución de llamado" valor={exp.resolucionLlamado} />
             <Campo label="Resolución de adjudicación" valor={exp.resolucionAdjudicacion} />
             <Campo label="Adjudicatario" valor={exp.adjudicatario} />
@@ -292,7 +313,10 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <Campo label="Fecha de publicación" valor={fmtFecha(exp.fechaPublicacion)} />
             <Campo label="Fecha y hora de apertura" valor={fmtFechaHora(exp.fechaApertura)} />
             <Campo label="Presupuesto oficial" valor={exp.presupuestoOficial ? fmtMoneda(exp.presupuestoOficial) : "-"} />
-            <Campo label="Monto adjudicado" valor={fmtMoneda(exp.montoARS)} />
+            <Campo
+              label={esProrrogaDepto ? "Monto (prórroga por departamento)" : esAdjudicacion ? "Monto adjudicado" : "Monto"}
+              valor={fmtMoneda(exp.montoARS)}
+            />
             <Campo label="Monto adjudicado USD" valor={exp.montoUSD ? fmtMoneda(exp.montoUSD, "USD") : "-"} />
 
           </div>
@@ -311,7 +335,9 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
               {exp.estadoConvocatoria && <Campo label="Estado de convocatoria" valor={exp.estadoConvocatoria} />}
               {exp.tipoParche && <Campo label="Tipo de parche" valor={exp.detalleParche ? exp.tipoParche + " — " + exp.detalleParche : exp.tipoParche} />}
               {exp.tipoContratacionProrroga && <Campo label="Prórroga (departamento) — tipo de contratación" valor={exp.tipoContratacionProrroga} />}
-              {exp.nroResolucion && <Campo label="N° de resolución" valor={exp.nroResolucion} />}
+              {exp.nroResolucion && (
+                <Campo label={esProrrogaDepto ? "N° de resolución (prórroga por departamento)" : "N° de resolución"} valor={exp.nroResolucion} />
+              )}
               {exp.fechaNotificacionProrroga && <Campo label="Notificación de recepción (organismo)" valor={fmtFecha(exp.fechaNotificacionProrroga)} />}
             </div>
           )}
@@ -602,12 +628,14 @@ function FormObservacion({ exp, onObservacion }) {
   const [nroContratacion, setNroContratacion] = useState(exp.nroContratacion || "");
   const [encuadre, setEncuadre] = useState("");
   const [tieneProrroga, setTieneProrroga] = useState(!!exp.tieneProrroga);
+  const [mesesProrroga, setMesesProrroga] = useState(exp.mesesProrroga || null);
   const [enviando, setEnviando] = useState(false);
   const vaAAperturas = tipo === "movimiento" && sectorNuevo === "Aperturas";
   const vaADGP = tipo === "movimiento" && sectorNuevo === "DGP";
   const necesitaEncuadre = vaADGP && !exp.encuadre;
   const faltaAperturas = vaAAperturas && (!fechaPublicacion || !fechaApertura || !presupuestoOficial || !resolucionLlamado.trim() || !nroContratacion.trim());
-  const faltaDGP = necesitaEncuadre && !encuadre;
+  const faltaProrroga = vaADGP && tieneProrroga && !PRORROGA_MESES_OPCIONES.includes(Number(mesesProrroga));
+  const faltaDGP = (necesitaEncuadre && !encuadre) || faltaProrroga;
 
   async function enviar() {
     if (!texto.trim()) return;
@@ -620,7 +648,7 @@ function FormObservacion({ exp, onObservacion }) {
       texto: texto.trim(),
       sectorNuevo: sectorNuevo.trim(),
       ...(vaAAperturas ? { fechaPublicacion, fechaApertura, presupuestoOficial, resolucionLlamado: resolucionLlamado.trim(), nroContratacion: nroContratacion.trim() } : {}),
-      ...(vaADGP ? { tieneProrroga, ...(necesitaEncuadre ? { encuadre } : {}) } : {}),
+      ...(vaADGP ? { tieneProrroga, mesesProrroga: tieneProrroga ? mesesProrroga : null, ...(necesitaEncuadre ? { encuadre } : {}) } : {}),
     });
     setEnviando(false);
     setTexto("");
@@ -704,6 +732,9 @@ function FormObservacion({ exp, onObservacion }) {
               className="w-4 h-4 rounded border-slate-300 text-blue-700 focus:ring-blue-700" />
             Tiene opción de prórroga
           </label>
+          {tieneProrroga && (
+            <SelectorMesesProrroga value={mesesProrroga} onChange={setMesesProrroga} />
+          )}
         </div>
       )}
 
@@ -720,7 +751,8 @@ function FormObservacion({ exp, onObservacion }) {
           cargandoTexto="Guardando..."
           disabled={faltaAperturas || faltaDGP}
           title={faltaAperturas ? "Cargá fecha de publicación, fecha y hora de apertura, presupuesto oficial, resolución de llamado y N° de contratación"
-            : faltaDGP ? "Cargá el encuadre" : undefined}
+            : faltaProrroga ? "Elegí cuántos meses de prórroga tiene el expediente"
+            : necesitaEncuadre && !encuadre ? "Cargá el encuadre" : undefined}
           className={"text-xs px-3 py-2 rounded-md text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed " + (tipo === "movimiento" ? "bg-blue-700 hover:bg-blue-800" : "bg-slate-900 hover:bg-slate-800")}
         >
           {tipo === "movimiento" ? "Registrar movimiento" : "Agregar"}
