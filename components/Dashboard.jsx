@@ -5,7 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { CheckCircle2 } from "lucide-react";
 
 import { HOY, ROL_USUARIO_LABEL } from "@/lib/constants";
-import { diasRestantes, alerta, documentacionDeExpediente, fmtFecha, soloFechaLocal } from "@/lib/utils";
+import { diasRestantes, alerta, documentacionDeExpediente, fmtFecha, soloFechaLocal, esConvocatoriaFracasada } from "@/lib/utils";
 
 // Prisma serializa las fechas como ISO ("2026-09-10T00:00:00.000Z"), pero los
 // componentes hijos y utils esperan strings "YYYY-MM-DD". Además `documentacion`
@@ -74,6 +74,7 @@ import GestionarProrroga from "./GestionarProrroga";
 import GenerarParche from "./GenerarParche";
 import ResolverApertura from "./ResolverApertura";
 import RelanzarConvocatoria from "./RelanzarConvocatoria";
+import CambiarFechaCorteLegitimoAbono from "./CambiarFechaCorteLegitimoAbono";
 import ResolverAdjudicacion from "./ResolverAdjudicacion";
 import CotizadorTaquigrafico from "./CotizadorTaquigrafico";
 import CotizadorPolicia from "./CotizadorPolicia";
@@ -539,6 +540,22 @@ export default function App() {
     mostrarToast("Convocatoria relanzada");
   }
 
+  async function cambiarFechaCorteLegitimoAbono(exp, fechaVencimiento) {
+    const res = await fetch(`/api/expedientes/${exp.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fechaVencimiento, tipoParche: "Legítimo abono" }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      mostrarToast(data.error || "No se pudo cambiar la fecha de corte");
+      return;
+    }
+    await refrescar(exp.id);
+    setFormAbierto(null);
+    mostrarToast("Fecha de corte actualizada");
+  }
+
   async function resolverAdjudicacionTotal(origen, estadoConvocatoria, datos) {
     const res = await fetch(`/api/expedientes/${origen.id}`, {
       method: "PUT",
@@ -675,6 +692,7 @@ export default function App() {
             onGenerarParche={() => setFormAbierto("generarParche")}
             onDividir={() => setFormAbierto("dividir")}
             onRelanzarConvocatoria={() => setFormAbierto("relanzarConvocatoria")}
+            onCambiarFechaCorteLegitimoAbono={() => setFormAbierto("cambiarFechaCorteLegitimoAbono")}
             onReunificar={(unificado) => reunificar(seleccionado, unificado)}
             puedeEditar={puedeEditar}
             puedeEliminar={puedeEliminar}
@@ -897,6 +915,15 @@ export default function App() {
           exp={seleccionado}
           onCerrar={() => setFormAbierto(null)}
           onConfirmar={(datos) => relanzarConvocatoria(seleccionado, datos)}
+        />
+      )}
+
+      {formAbierto === "cambiarFechaCorteLegitimoAbono" && seleccionado && (
+        <CambiarFechaCorteLegitimoAbono
+          exp={seleccionado}
+          renovacionEnTramite={expedientes.find(e => e.cadenaId === seleccionado.cadenaId && e.rol === "renovacion" && !esConvocatoriaFracasada(e))}
+          onCerrar={() => setFormAbierto(null)}
+          onConfirmar={(fechaVencimiento) => cambiarFechaCorteLegitimoAbono(seleccionado, fechaVencimiento)}
         />
       )}
     </div>

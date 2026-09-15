@@ -6,7 +6,7 @@ import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, RO
 import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtFechaHora, fmtMoneda, documentacionDeExpediente, diasFrenado, estadoGeneralMostrado, esConvocatoriaFracasada } from "@/lib/utils";
 import BotonAccion from "./BotonAccion";
 import SelectorMesesProrroga from "./SelectorMesesProrroga";
-export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onGestionarProrroga, onGenerarParche, onDividir, onReunificar, onRelanzarConvocatoria, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
+export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onGestionarProrroga, onGenerarParche, onDividir, onReunificar, onRelanzarConvocatoria, onCambiarFechaCorteLegitimoAbono, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
   const [verMasAntecedentes, setVerMasAntecedentes] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const cadena = expedientes.filter(e => e.cadenaId === exp.cadenaId);
@@ -154,7 +154,8 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                 Crear renovación vinculada
               </button>
             )}
-            {exp.rol === "renovacion" && !esConvocatoriaFracasada(exp) && (
+            {exp.rol === "renovacion" && !esConvocatoriaFracasada(exp)
+              && (exp.estadoConvocatoria === "Adjudicación íntegra" || !!exp.adjudicatario) && (
               <button onClick={onActivar} className="px-3 py-2 rounded-md bg-emerald-700 text-white text-xs font-medium hover:bg-emerald-800">
                 Activar como Vigente (venció el contrato anterior)
               </button>
@@ -169,7 +170,9 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                 Gestionar prórroga
               </button>
             )}
-            {exp.rol === "renovacion" && exp.estadoGeneral === "En trámite de renovación" && (
+            {exp.rol === "renovacion" && exp.estadoGeneral === "En trámite de renovación"
+              && exp.estadoConvocatoria !== "Adjudicación íntegra" && !esConvocatoriaFracasada(exp)
+              && !expedientes.some(e => e.divisionDeId === exp.id) && (
               <button onClick={onDividir} className="px-3 py-2 rounded-md border border-indigo-300 bg-indigo-50 text-indigo-800 text-xs font-medium hover:bg-indigo-100">
                 Resolver adjudicación
               </button>
@@ -195,7 +198,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
 
             <div className="overflow-x-auto -mx-1 px-1 pb-1">
             {ramasFracasadas.map(rama => (
-              <div key={rama.item.id} className="grid gap-1 mb-1" style={{ gridTemplateColumns: `repeat(${columnasTrazabilidad}, 9rem)` }}>
+              <div key={rama.item.id} className="grid gap-1 mb-1" style={{ gridTemplateColumns: `repeat(${columnasTrazabilidad}, minmax(9rem, 1fr))` }}>
                 {Array.from({ length: columnasTrazabilidad }).map((_, i) => {
                   const activo = rama.item.id === exp.id;
                   return (
@@ -224,7 +227,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
               </div>
             ))}
 
-            <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${nodosPrincipales.length}, 9rem)` }}>
+            <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${columnasTrazabilidad}, minmax(9rem, 1fr))` }}>
               {nodosPrincipales.map((nodo, idx) => {
                 const item = nodo.item;
                 const activo = item.id === exp.id;
@@ -287,6 +290,14 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                   : "Con opción de prórroga"}
               </span>
             </div>
+          )}
+          {exp.rol === "parche" && exp.tipoParche === "Legítimo abono" && (
+            <button
+              onClick={onCambiarFechaCorteLegitimoAbono}
+              className="px-3 py-1.5 rounded-md border border-amber-300 bg-amber-50 text-amber-800 text-xs font-medium hover:bg-amber-100"
+            >
+              Cambiar fecha de corte
+            </button>
           )}
 <div className="col-span-2">
   <Campo label="Objeto" valor={exp.objeto} /></div>

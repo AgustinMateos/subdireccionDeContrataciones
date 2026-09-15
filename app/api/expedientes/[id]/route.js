@@ -465,6 +465,20 @@ export async function PUT(request, { params }) {
     }
   }
 
+  // El legítimo abono, a diferencia de los demás parches, no tiene una fecha
+  // de corte fija — se puede finalizar en cualquier momento. Si se acorta
+  // (nueva fecha de vencimiento anterior a la que tenía), la renovación en
+  // trámite de la misma cadena tiene que arrancar justo al día siguiente del
+  // nuevo corte: se retrocede su período (misma duración planificada), en
+  // vez de dejarla con un hueco esperando una fecha que ya no corresponde.
+  let legitimoAbonoPrevio = null;
+  if (esLegitimoAbono && body.fechaVencimiento) {
+    legitimoAbonoPrevio = await prisma.expediente.findUnique({
+      where: { id },
+      select: { rol: true, cadenaId: true, fechaVencimiento: true },
+    });
+  }
+
   // ---------- Edición normal de campos del expediente ----------
   const actualizado = await prisma.expediente.update({
     where: { id },
@@ -520,6 +534,37 @@ export async function PUT(request, { params }) {
     },
     include: INCLUDE_EXPEDIENTE,
   });
+
+  if (
+    legitimoAbonoPrevio?.rol === "parche" &&
+    new Date(body.fechaVencimiento) < legitimoAbonoPrevio.fechaVencimiento
+  ) {
+    const renovacionEnTramite = await prisma.expediente.findFirst({
+      where: {
+        cadenaId: legitimoAbonoPrevio.cadenaId,
+        rol: "renovacion",
+        departamentoId: session.user.departamentoId,
+        OR: [
+          { estadoConvocatoria: null },
+          { estadoConvocatoria: { notIn: ESTADOS_CONVOCATORIA_FALLIDOS } },
+        ],
+      },
+    });
+    if (renovacionEnTramite) {
+      const nuevaFechaInicio = new Date(actualizado.fechaVencimiento);
+      nuevaFechaInicio.setDate(nuevaFechaInicio.getDate() + 1);
+      const duracionMs = renovacionEnTramite.fechaInicio
+        ? new Date(renovacionEnTramite.fechaVencimiento) - new Date(renovacionEnTramite.fechaInicio)
+        : 0;
+      await prisma.expediente.update({
+        where: { id: renovacionEnTramite.id },
+        data: {
+          fechaInicio: nuevaFechaInicio,
+          fechaVencimiento: new Date(nuevaFechaInicio.getTime() + duracionMs),
+        },
+      });
+    }
+  }
 
   return NextResponse.json({ expediente: actualizado });
 }
