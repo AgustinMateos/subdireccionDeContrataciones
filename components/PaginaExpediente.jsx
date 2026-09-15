@@ -6,7 +6,7 @@ import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, RO
 import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtFechaHora, fmtMoneda, documentacionDeExpediente, diasFrenado, estadoGeneralMostrado, esConvocatoriaFracasada } from "@/lib/utils";
 import BotonAccion from "./BotonAccion";
 import SelectorMesesProrroga from "./SelectorMesesProrroga";
-export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onGestionarProrroga, onGenerarParche, onDividir, onReunificar, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
+export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onGestionarProrroga, onGenerarParche, onDividir, onReunificar, onRelanzarConvocatoria, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
   const [verMasAntecedentes, setVerMasAntecedentes] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const cadena = expedientes.filter(e => e.cadenaId === exp.cadenaId);
@@ -172,6 +172,11 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             {exp.rol === "renovacion" && exp.estadoGeneral === "En trámite de renovación" && (
               <button onClick={onDividir} className="px-3 py-2 rounded-md border border-indigo-300 bg-indigo-50 text-indigo-800 text-xs font-medium hover:bg-indigo-100">
                 Resolver adjudicación
+              </button>
+            )}
+            {exp.rol === "renovacion" && exp.estadoConvocatoria === "Desierta" && !exp.convocatoriaRelanzada && (
+              <button onClick={onRelanzarConvocatoria} className="px-3 py-2 rounded-md border border-orange-300 bg-orange-50 text-orange-800 text-xs font-medium hover:bg-orange-100">
+                Relanzar convocatoria
               </button>
             )}
             {puedeEliminar && (

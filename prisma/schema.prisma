@@ -153,6 +153,15 @@ model Expediente {
   divisiones          Expediente[] @relation("DivisionExpediente")
   unificado           Boolean      @default(false)
 
+  // Al día siguiente de la fecha de apertura, se pregunta si se presentaron
+  // ofertas: si no, la convocatoria queda "Desierta" y se puede relanzar UNA
+  // sola vez con el mismo N° de expediente (misma fila — `exp` es único en
+  // la base, no se crea un registro nuevo): mismo N° de contratación si el
+  // encuadre es descentralizado, uno nuevo en cualquier otro caso.
+  // convocatoriaRelanzada bloquea un segundo relanzamiento si esa segunda
+  // convocatoria vuelve a quedar desierta.
+  convocatoriaRelanzada Boolean @default(false)
+
   observaciones Observacion[]
   documentacion DocumentacionItem[]
 

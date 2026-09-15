@@ -311,6 +311,83 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ expediente: actualizado });
   }
 
+  // ---------- Resolver si hubo ofertas en la apertura ----------
+  // Se dispara desde el aviso automático que aparece al día siguiente de la
+  // fecha de apertura. Si hubo ofertas, el trámite sigue su curso normal
+  // (pasa a Preadjudicación); si no, la convocatoria queda Desierta.
+  if (body.resolverApertura) {
+    const exp = await prisma.expediente.findUnique({ where: { id } });
+    if (!exp) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    if (exp.rol !== "renovacion" || exp.estadoConvocatoria !== "Publicación") {
+      return NextResponse.json({ error: "Esta convocatoria no está esperando resolución de apertura" }, { status: 400 });
+    }
+    const huboOfertas = !!body.resolverApertura.huboOfertas;
+    const actualizado = await prisma.expediente.update({
+      where: { id },
+      data: {
+        estadoConvocatoria: huboOfertas ? "Preadjudicación" : "Desierta",
+        observaciones: {
+          create: {
+            usuario: session.user.name,
+            tipo: "general",
+            texto: huboOfertas
+              ? "Apertura del " + exp.fechaApertura.toISOString().slice(0, 10) + ": se presentaron ofertas, continúa el trámite."
+              : "Apertura del " + exp.fechaApertura.toISOString().slice(0, 10) + ": no se presentaron ofertas, convocatoria desierta.",
+          },
+        },
+      },
+      include: INCLUDE_EXPEDIENTE,
+    });
+    return NextResponse.json({ expediente: actualizado });
+  }
+
+  // ---------- Relanzar una convocatoria desierta ----------
+  // Mismo N° de expediente (misma fila, `exp` es único en la base): mismo N°
+  // de contratación si el encuadre es descentralizado, uno nuevo en
+  // cualquier otro caso. Solo se puede relanzar una vez — si la segunda
+  // convocatoria también queda desierta, no hay una tercera oportunidad.
+  if (body.relanzarConvocatoria) {
+    const exp = await prisma.expediente.findUnique({ where: { id } });
+    if (!exp) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    if (exp.rol !== "renovacion" || exp.estadoConvocatoria !== "Desierta") {
+      return NextResponse.json({ error: "Solo se puede relanzar una convocatoria desierta" }, { status: 400 });
+    }
+    if (exp.convocatoriaRelanzada) {
+      return NextResponse.json({ error: "Esta convocatoria ya se relanzó una vez y no se puede volver a intentar" }, { status: 400 });
+    }
+    const { fechaPublicacion, fechaApertura, nroContratacion } = body.relanzarConvocatoria;
+    if (!fechaPublicacion || !fechaApertura) {
+      return NextResponse.json({ error: "Cargá la nueva fecha de publicación y de apertura" }, { status: 400 });
+    }
+    const esDescentralizada = (exp.encuadre || "").toLowerCase().includes("descentralizada");
+    if (!esDescentralizada && !nroContratacion) {
+      return NextResponse.json({ error: "Cargá el nuevo N° de contratación" }, { status: 400 });
+    }
+    const nuevoNroContratacion = esDescentralizada ? exp.nroContratacion : nroContratacion;
+    const actualizado = await prisma.expediente.update({
+      where: { id },
+      data: {
+        estadoConvocatoria: "Publicación",
+        fechaPublicacion: new Date(fechaPublicacion),
+        fechaApertura: parseFechaHora(fechaApertura),
+        nroContratacion: nuevoNroContratacion,
+        convocatoriaRelanzada: true,
+        observaciones: {
+          create: {
+            usuario: session.user.name,
+            tipo: "general",
+            texto: "Convocatoria relanzada tras quedar desierta" +
+              (esDescentralizada
+                ? " (descentralizada, mismo N° de contratación " + exp.nroContratacion + ")"
+                : " con nuevo N° de contratación " + nuevoNroContratacion) + ".",
+          },
+        },
+      },
+      include: INCLUDE_EXPEDIENTE,
+    });
+    return NextResponse.json({ expediente: actualizado });
+  }
+
   // ---------- Reunificar / separar una división ----------
   // Solo aplica a un expediente que salió de otro por "Dividir expediente"
   // (tiene divisionDeId). Reunificar no fusiona filas: solo marca que sus
