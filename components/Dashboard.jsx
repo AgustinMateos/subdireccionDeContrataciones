@@ -72,7 +72,6 @@ import CaratularExpediente from "./CaratularExpediente";
 import ConfirmarRenovacion from "./ConfirmarRenovacion";
 import GestionarProrroga from "./GestionarProrroga";
 import GenerarParche from "./GenerarParche";
-import ResolverApertura from "./ResolverApertura";
 import RelanzarConvocatoria from "./RelanzarConvocatoria";
 import CambiarFechaCorteLegitimoAbono from "./CambiarFechaCorteLegitimoAbono";
 import ResolverAdjudicacion from "./ResolverAdjudicacion";
@@ -85,6 +84,7 @@ import ValorModular from "./ValorModular";
 import InformePoliciaAdicional from "./InformePoliciaAdicional";
 import InformeOrganismos from "./InformeOrganismos";
 import InformeServicios from "./InformeServicios";
+import Aperturas from "./Aperturas";
 
 const VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS = [
   "cotizadorTaquigrafico", "cotizadorPolicia", "cotizadorAvisos",
@@ -254,17 +254,6 @@ export default function App() {
     };
   }, [expedientes]);
 
-  // Convocatorias cuya apertura ya pasó (al menos un día) y todavía no se
-  // resolvió si se presentaron ofertas — se avisa apenas se entra al
-  // dashboard, sin necesidad de abrir cada ficha una por una.
-  const aperturasPendientes = useMemo(() => {
-    return expedientes.filter(e => {
-      if (e.rol !== "renovacion" || e.estadoConvocatoria !== "Publicación" || !e.fechaApertura) return false;
-      const f = new Date(e.fechaApertura);
-      const soloFecha = new Date(f.getFullYear(), f.getMonth(), f.getDate());
-      return soloFecha < HOY;
-    });
-  }, [expedientes]);
 
   async function guardarValorModular(nuevoValor) {
     const anterior = moduloValor;
@@ -509,21 +498,6 @@ export default function App() {
     mostrarToast("Prórroga (departamento) generada y vinculada a " + origen.exp);
   }
 
-  async function resolverApertura(exp, huboOfertas) {
-    const res = await fetch(`/api/expedientes/${exp.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ resolverApertura: { huboOfertas } }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      mostrarToast(data.error || "No se pudo guardar la respuesta");
-      return;
-    }
-    await refrescar();
-    mostrarToast(huboOfertas ? "Registrado: se presentaron ofertas" : "Registrado: convocatoria desierta");
-  }
-
   async function relanzarConvocatoria(exp, datos) {
     const res = await fetch(`/api/expedientes/${exp.id}`, {
       method: "PUT",
@@ -538,6 +512,21 @@ export default function App() {
     await refrescar(exp.id);
     setFormAbierto(null);
     mostrarToast("Convocatoria relanzada");
+  }
+
+  async function resolverApertura(exp, huboOfertas) {
+    const res = await fetch(`/api/expedientes/${exp.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resolverApertura: { huboOfertas } }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      mostrarToast(data.error || "No se pudo guardar la respuesta");
+      return;
+    }
+    await refrescar();
+    mostrarToast(huboOfertas ? "Registrado: se presentaron ofertas" : "Registrado: convocatoria desierta");
   }
 
   async function cambiarFechaCorteLegitimoAbono(exp, fechaVencimiento) {
@@ -641,14 +630,6 @@ export default function App() {
         </div>
       )}
 
-      {puedeEditar && aperturasPendientes.length > 0 && (
-        <ResolverApertura
-          exp={aperturasPendientes[0]}
-          pendientes={aperturasPendientes.length}
-          onResolver={resolverApertura}
-        />
-      )}
-
       <TopBar sesion={sesion} onLogout={() => signOut()} busqueda={busqueda} setBusqueda={setBusqueda} vista={vista} setVista={setVista} mostrarToast={mostrarToast} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -668,6 +649,8 @@ export default function App() {
           <InformeOrganismos expedientes={expedientes} />
         ) : vistaEfectiva === "informeServicios" ? (
           <InformeServicios expedientes={expedientes} />
+        ) : vistaEfectiva === "aperturas" ? (
+          <Aperturas expedientes={expedientes} onVerExpediente={verExpediente} onResolverApertura={resolverApertura} />
         ) : vistaEfectiva === "cotizadorAvisos" ? (
           <CotizadorAvisos mostrarToast={mostrarToast} expedientes={expedientes} onVincular={vincularCotizacionAExpediente} />
         ) : vistaEfectiva === "listadoTelefonos" ? (

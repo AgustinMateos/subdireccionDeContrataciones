@@ -1,13 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { X } from "lucide-react";
 import { fmtFechaHora } from "@/lib/utils";
 import BotonAccion from "./BotonAccion";
 
-// Aviso automático que aparece al día siguiente de la fecha de apertura de
-// una convocatoria (ver detección en Dashboard.jsx), preguntando si se
-// presentaron ofertas. Si hay más de una pendiente, se muestran de a una.
-export default function ResolverApertura({ exp, pendientes, onResolver }) {
+// Se abre desde el botón que aparece en la tabla de Aperturas una vez
+// transcurrida la fecha y hora de apertura. Si no se presentaron ofertas, la
+// convocatoria queda Desierta y se habilita el relanzamiento desde la ficha
+// (mismo N° de expediente, distinto N° de contratación) — si esa segunda
+// convocatoria también queda desierta, no hay más relanzamientos: el
+// siguiente intento es un expediente nuevo por el alta normal.
+export default function ResolverApertura({ exp, onCerrar, onResolver }) {
   const [cargando, setCargando] = useState(false);
 
   async function responder(huboOfertas) {
@@ -18,13 +22,11 @@ export default function ResolverApertura({ exp, pendientes, onResolver }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/50" />
+      <div className="absolute inset-0 bg-slate-900/50" onClick={onCerrar} />
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <div className="px-6 py-4 border-b border-slate-200">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h2 className="text-base font-semibold text-slate-900">¿Se presentaron ofertas?</h2>
-          {pendientes > 1 && (
-            <p className="text-[11px] text-slate-400 mt-0.5">Quedan {pendientes} aperturas por resolver.</p>
-          )}
+          <button onClick={onCerrar} className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500"><X size={18} /></button>
         </div>
         <div className="p-6 space-y-3">
           <p className="text-sm text-slate-600">

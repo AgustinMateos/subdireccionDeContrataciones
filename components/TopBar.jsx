@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, Phone, Globe, ExternalLink, User, Contact, FileDown, BarChart3, Building2 } from "lucide-react";
+import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, Phone, Globe, ExternalLink, User, Contact, FileDown, BarChart3, Building2, CalendarClock } from "lucide-react";
 import { descargarArchivoBase64 } from "@/lib/utils";
 import { FORMULARIO_FALTAS_BASE64 } from "@/lib/constants";
 export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista, setVista, mostrarToast }) {
@@ -92,6 +92,15 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
         >
           <FileText size={13} /> Planilla
         </button>
+        {!esInformaticaYVarios && (
+          <button
+            onClick={() => { setVista("aperturas"); setVariosAbierto(false); }}
+            className={"h-full px-3 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 " +
+              (vista === "aperturas" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}
+          >
+            <CalendarClock size={13} /> Aperturas
+          </button>
+        )}
 
         {esInformaticaYVarios && (
           <div className="relative h-full">

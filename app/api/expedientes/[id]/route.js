@@ -312,14 +312,18 @@ export async function PUT(request, { params }) {
   }
 
   // ---------- Resolver si hubo ofertas en la apertura ----------
-  // Se dispara desde el aviso automático que aparece al día siguiente de la
-  // fecha de apertura. Si hubo ofertas, el trámite sigue su curso normal
-  // (pasa a Preadjudicación); si no, la convocatoria queda Desierta.
+  // Se dispara desde el botón que aparece en la sección Aperturas una vez
+  // pasada la fecha y hora de apertura. Si hubo ofertas, el trámite sigue su
+  // curso normal (pasa a Preadjudicación); si no, la convocatoria queda
+  // Desierta y habilita el botón de relanzamiento en la ficha.
   if (body.resolverApertura) {
     const exp = await prisma.expediente.findUnique({ where: { id } });
     if (!exp) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-    if (exp.rol !== "renovacion" || exp.estadoConvocatoria !== "Publicación") {
-      return NextResponse.json({ error: "Esta convocatoria no está esperando resolución de apertura" }, { status: 400 });
+    if (exp.rol !== "renovacion") {
+      return NextResponse.json({ error: "Solo aplica a una renovación en trámite" }, { status: 400 });
+    }
+    if (exp.estadoConvocatoria === "Adjudicación íntegra" || ESTADOS_CONVOCATORIA_FALLIDOS.includes(exp.estadoConvocatoria)) {
+      return NextResponse.json({ error: "Esta convocatoria ya fue resuelta" }, { status: 400 });
     }
     const huboOfertas = !!body.resolverApertura.huboOfertas;
     const actualizado = await prisma.expediente.update({
@@ -331,8 +335,8 @@ export async function PUT(request, { params }) {
             usuario: session.user.name,
             tipo: "general",
             texto: huboOfertas
-              ? "Apertura del " + exp.fechaApertura.toISOString().slice(0, 10) + ": se presentaron ofertas, continúa el trámite."
-              : "Apertura del " + exp.fechaApertura.toISOString().slice(0, 10) + ": no se presentaron ofertas, convocatoria desierta.",
+              ? "Apertura: se presentaron ofertas, continúa el trámite."
+              : "Apertura: no se presentaron ofertas, convocatoria desierta.",
           },
         },
       },
@@ -345,7 +349,9 @@ export async function PUT(request, { params }) {
   // Mismo N° de expediente (misma fila, `exp` es único en la base): mismo N°
   // de contratación si el encuadre es descentralizado, uno nuevo en
   // cualquier otro caso. Solo se puede relanzar una vez — si la segunda
-  // convocatoria también queda desierta, no hay una tercera oportunidad.
+  // convocatoria también queda desierta, no hay una tercera oportunidad (se
+  // inicia un expediente nuevo desde el flujo normal de alta, referenciando
+  // este como antecedente).
   if (body.relanzarConvocatoria) {
     const exp = await prisma.expediente.findUnique({ where: { id } });
     if (!exp) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
