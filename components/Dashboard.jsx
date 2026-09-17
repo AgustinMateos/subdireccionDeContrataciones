@@ -74,6 +74,7 @@ import GestionarProrroga from "./GestionarProrroga";
 import GenerarParche from "./GenerarParche";
 import RelanzarConvocatoria from "./RelanzarConvocatoria";
 import CambiarFechaCorteLegitimoAbono from "./CambiarFechaCorteLegitimoAbono";
+import GenerarContratacionFracasada from "./GenerarContratacionFracasada";
 import ResolverAdjudicacion from "./ResolverAdjudicacion";
 import CotizadorTaquigrafico from "./CotizadorTaquigrafico";
 import CotizadorPolicia from "./CotizadorPolicia";
@@ -545,6 +546,39 @@ export default function App() {
     mostrarToast("Fecha de corte actualizada");
   }
 
+  async function generarContratacionFracasada(exp, datos) {
+    const res = await fetch(`/api/expedientes/${exp.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ generarContratacionFracasada: datos }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      mostrarToast(data.error || "No se pudo generar la contratación");
+      return;
+    }
+    await refrescar(exp.id);
+    setFormAbierto(null);
+    mostrarToast("Contratación generada bajo el mismo N° de expediente");
+  }
+
+  async function generarContratacionesFracasada(origen, grupos) {
+    const res = await fetch("/api/expedientes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ generarContratacionesFracasadaDeId: origen.id, grupos }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      mostrarToast(data.error || "No se pudieron generar las contrataciones");
+      return;
+    }
+    const data = await res.json();
+    await refrescar(data.expedientes?.[0]?.id);
+    setFormAbierto(null);
+    mostrarToast((data.expedientes?.length || 0) + " contratación(es) generada(s) — " + origen.exp + " queda como antecedente fracasado");
+  }
+
   async function resolverAdjudicacionTotal(origen, estadoConvocatoria, datos) {
     const res = await fetch(`/api/expedientes/${origen.id}`, {
       method: "PUT",
@@ -676,6 +710,7 @@ export default function App() {
             onDividir={() => setFormAbierto("dividir")}
             onRelanzarConvocatoria={() => setFormAbierto("relanzarConvocatoria")}
             onCambiarFechaCorteLegitimoAbono={() => setFormAbierto("cambiarFechaCorteLegitimoAbono")}
+            onGenerarContratacionFracasada={() => setFormAbierto("generarContratacionFracasada")}
             onReunificar={(unificado) => reunificar(seleccionado, unificado)}
             puedeEditar={puedeEditar}
             puedeEliminar={puedeEliminar}
@@ -907,6 +942,15 @@ export default function App() {
           renovacionEnTramite={expedientes.find(e => e.cadenaId === seleccionado.cadenaId && e.rol === "renovacion" && !esConvocatoriaFracasada(e))}
           onCerrar={() => setFormAbierto(null)}
           onConfirmar={(fechaVencimiento) => cambiarFechaCorteLegitimoAbono(seleccionado, fechaVencimiento)}
+        />
+      )}
+
+      {formAbierto === "generarContratacionFracasada" && seleccionado && (
+        <GenerarContratacionFracasada
+          exp={seleccionado}
+          onCerrar={() => setFormAbierto(null)}
+          onConfirmarUnico={(datos) => generarContratacionFracasada(seleccionado, datos)}
+          onConfirmarDividir={(grupos) => generarContratacionesFracasada(seleccionado, grupos)}
         />
       )}
     </div>

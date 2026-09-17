@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA_FALLIDOS, MOTIVOS_ADJUDICACION_PARCIAL, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
+import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA_FALLIDOS, MOTIVOS_ADJUDICACION_PARCIAL, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
 import { parseFechaHora } from "@/lib/utils";
 
 const INCLUDE_EXPEDIENTE = {
@@ -580,6 +580,123 @@ export async function POST(request) {
     });
 
     return NextResponse.json({ expedientes: nuevasDivisiones }, { status: 201 });
+  }
+
+  // ---------- Generar contrataciones tras una convocatoria fracasada, dividiendo por renglón ----------
+  // A diferencia de "Generar contratación" (que reutiliza el mismo N° de
+  // expediente cuando no hace falta dividir), acá cada grupo de
+  // domicilios/renglones va a un expediente NUEVO, cada uno con su propia
+  // modalidad — puede ser que 2 renglones se resuelvan por Contratación
+  // Directa y el otro por Licitación Privada, por ejemplo. El expediente
+  // fracasado de origen queda intacto (sigue mostrando su propio estado e
+  // encuadre); cada nuevo expediente arranca en ejecución (Vigente) de
+  // inmediato, igual que un parche clásico, y queda vinculado a la fracasada
+  // vía divisionDeId — la ficha los cuelga juntos, uno arriba del otro.
+  if (body.generarContratacionesFracasadaDeId) {
+    const grupos = Array.isArray(body.grupos) ? body.grupos : [];
+    if (grupos.length === 0) {
+      return NextResponse.json({ error: "Cargá al menos un expediente para la división" }, { status: 400 });
+    }
+    const origen = await prisma.expediente.findUnique({ where: { id: body.generarContratacionesFracasadaDeId } });
+    if (!origen || origen.departamentoId !== session.user.departamentoId) {
+      return NextResponse.json({ error: "Expediente de origen no encontrado" }, { status: 404 });
+    }
+    if (origen.rol !== "renovacion" || origen.estadoConvocatoria !== "Proyecto fracasado") {
+      return NextResponse.json({ error: "Solo aplica a una convocatoria fracasada" }, { status: 400 });
+    }
+    for (const g of grupos) {
+      if (!g.exp || !String(g.exp).trim()) {
+        return NextResponse.json({ error: "Cargá el N° de expediente de cada división" }, { status: 400 });
+      }
+      if (normalizarLista(g.domiciliosRenglones).length === 0) {
+        return NextResponse.json({ error: "Elegí al menos un domicilio/renglón para cada división" }, { status: 400 });
+      }
+      if (!MODALIDADES_FRACASADA.includes(g.modalidad)) {
+        return NextResponse.json({ error: "Elegí una modalidad válida para cada división" }, { status: 400 });
+      }
+      if (!g.fechaVencimiento) {
+        return NextResponse.json({ error: "Cargá la fecha de vencimiento de cada división" }, { status: 400 });
+      }
+      const esDescentralizada = g.modalidad === "Contratación Descentralizada";
+      if (!esDescentralizada && !g.ocResolucion) {
+        return NextResponse.json({ error: "Cargá la OC de cada división que no sea descentralizada" }, { status: 400 });
+      }
+      if (g.tieneProrroga && !PRORROGA_MESES_OPCIONES.includes(Number(g.mesesProrroga))) {
+        return NextResponse.json({ error: "Elegí cuántos meses de prórroga tiene cada división con opción de prórroga" }, { status: 400 });
+      }
+    }
+
+    const nuevasContrataciones = [];
+    try {
+      for (let i = 0; i < grupos.length; i++) {
+        const g = grupos[i];
+        const esDescentralizada = g.modalidad === "Contratación Descentralizada";
+        const nueva = await prisma.expediente.create({
+          data: {
+            // Misma cadena que la fracasada (a diferencia de "Dividir
+            // expediente", que arranca una cadena nueva por división): estas
+            // contrataciones resuelven la MISMA convocatoria, así que tienen
+            // que verse juntas en la trazabilidad del expediente de origen.
+            cadenaId: origen.cadenaId,
+            rol: "parche",
+            exp: g.exp.trim(),
+            departamentoId: session.user.departamentoId,
+            area: origen.area,
+            tipo: origen.tipo,
+            agente: origen.agente,
+            organismos: origen.organismos,
+            objeto: g.objeto || origen.objeto,
+            encuadre: g.modalidad,
+            parcheDeFracasada: true,
+            estadoGeneral: "Vigente",
+            etapa: "En ejecución",
+            sector: origen.sector,
+            zona: origen.zona,
+            fuero: origen.fuero,
+            domiciliosRenglones: normalizarLista(g.domiciliosRenglones),
+            fechaInicio: g.fechaInicio ? new Date(g.fechaInicio) : null,
+            fechaVencimiento: new Date(g.fechaVencimiento),
+            montoARS: Number(g.montoARS) || 0,
+            ocResolucion: esDescentralizada ? null : (g.ocResolucion || null),
+            resolucionLlamado: g.resolucionLlamado || null,
+            resolucionAdjudicacion: g.resolucionAdjudicacion || null,
+            tieneProrroga: !!g.tieneProrroga,
+            mesesProrroga: g.tieneProrroga ? Number(g.mesesProrroga) : null,
+            observaciones: {
+              create: [{
+                usuario: session.user.name,
+                tipo: "general",
+                texto: "Contratación (" + g.modalidad + ") generada tras la convocatoria fracasada " + origen.exp +
+                  " — domicilios/renglones: " + normalizarLista(g.domiciliosRenglones).join(", ") + ".",
+              }],
+            },
+          },
+          include: INCLUDE_EXPEDIENTE,
+        });
+        nuevasContrataciones.push(nueva);
+      }
+    } catch (e) {
+      if (e.code === "P2002") {
+        return NextResponse.json({ error: "Ya existe un expediente con ese número" }, { status: 409 });
+      }
+      throw e;
+    }
+
+    await prisma.expediente.update({
+      where: { id: origen.id },
+      data: {
+        observaciones: {
+          create: [{
+            usuario: session.user.name,
+            tipo: "general",
+            texto: "Convocatoria fracasada dividida en " + nuevasContrataciones.length + " contratación(es): " +
+              nuevasContrataciones.map(n => n.exp + " (" + n.encuadre + ")").join(", ") + ".",
+          }],
+        },
+      },
+    });
+
+    return NextResponse.json({ expedientes: nuevasContrataciones }, { status: 201 });
   }
 
   // ---------- Alta normal de expediente ----------

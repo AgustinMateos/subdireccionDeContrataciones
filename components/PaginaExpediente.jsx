@@ -6,7 +6,7 @@ import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, RO
 import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtFechaHora, fmtMoneda, documentacionDeExpediente, diasFrenado, estadoGeneralMostrado, esConvocatoriaFracasada } from "@/lib/utils";
 import BotonAccion from "./BotonAccion";
 import SelectorMesesProrroga from "./SelectorMesesProrroga";
-export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onGestionarProrroga, onGenerarParche, onDividir, onReunificar, onRelanzarConvocatoria, onCambiarFechaCorteLegitimoAbono, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
+export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onGestionarProrroga, onGenerarParche, onDividir, onReunificar, onRelanzarConvocatoria, onCambiarFechaCorteLegitimoAbono, onGenerarContratacionFracasada, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
   const [verMasAntecedentes, setVerMasAntecedentes] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const cadena = expedientes.filter(e => e.cadenaId === exp.cadenaId);
@@ -17,8 +17,12 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   const vigente = cadena.find(e => e.rol === "vigente");
   // Todos los parches se muestran en la línea de tiempo — a diferencia de los
   // antecedentes, nunca quedan ocultos detrás de un "ver más": si hubo que
-  // cubrir el período varias veces, se tiene que ver.
+  // cubrir el período varias veces, se tiene que ver. Los que resolvieron una
+  // convocatoria fracasada (parcheDeFracasada) aparecen ACÁ TAMBIÉN, en su
+  // lugar normal de la línea — además de la tarjeta elevada que queda
+  // colgada arriba marcando de dónde salieron (ver ramasFracasadas).
   const parches = cadena.filter(e => e.rol === "parche");
+  const parchesDeFracasada = cadena.filter(e => e.rol === "parche" && e.parcheDeFracasada);
   // Una renovación cuya convocatoria fracasó/quedó desierta ya no es "la"
   // renovación de la cadena — el vigente puede volver a crear una nueva
   // (por eso "renovacion" acá es la única que sigue en curso, si la hay) y
@@ -35,6 +39,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   function labelParche(p) {
     if (p.tipoParche) return p.tipoParche;
     if (p.tipoContratacionProrroga) return "Prórroga (departamento) · " + (vigente?.mesesProrrogaUsados || 0) + "/" + maxMesesProrroga + " meses";
+    if (p.parcheDeFracasada && p.encuadre) return p.encuadre;
     return ROL_LABEL.parche;
   }
   // El orden de las tarjetas de la línea principal es siempre por fecha
@@ -55,10 +60,13 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   // hubiera arrancado esa renovación (típicamente el parche o la nueva
   // renovación que se generó después para cubrir el hueco) o después. Si no
   // hay ninguno todavía, queda colgada al final.
-  const ramasFracasadas = renovacionesFracasadas.map(r => {
-    const fFracasada = new Date(r.fechaInicio || r.fechaVencimiento);
-    const idx = nodosPrincipales.findIndex(n => new Date(n.item.fechaInicio || n.item.fechaVencimiento) >= fFracasada);
-    return { item: r, indice: idx === -1 ? nodosPrincipales.length : idx };
+  const ramasFracasadas = [
+    ...renovacionesFracasadas.map(r => ({ item: r, resuelta: false })),
+    ...parchesDeFracasada.map(p => ({ item: p, resuelta: true })),
+  ].map(rama => {
+    const fRama = new Date(rama.item.fechaInicio || rama.item.fechaVencimiento);
+    const idx = nodosPrincipales.findIndex(n => new Date(n.item.fechaInicio || n.item.fechaVencimiento) >= fRama);
+    return { ...rama, indice: idx === -1 ? nodosPrincipales.length : idx };
   });
   const columnasTrazabilidad = ramasFracasadas.length > 0
     ? Math.max(nodosPrincipales.length, ...ramasFracasadas.map(r => r.indice + 1))
@@ -182,6 +190,11 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                 Relanzar convocatoria
               </button>
             )}
+            {exp.rol === "renovacion" && exp.estadoConvocatoria === "Proyecto fracasado" && (
+              <button onClick={onGenerarContratacionFracasada} className="px-3 py-2 rounded-md border border-orange-300 bg-orange-50 text-orange-800 text-xs font-medium hover:bg-orange-100">
+                Generar descentralizada / trámite simplificado
+              </button>
+            )}
             {puedeEliminar && (
               <BotonAccion
                 onClick={async () => { setEliminando(true); await onEliminar(exp.id); setEliminando(false); }}
@@ -197,35 +210,49 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Trazabilidad del expediente</h3>
 
             <div className="overflow-x-auto -mx-1 px-1 pb-1">
-            {ramasFracasadas.map(rama => (
-              <div key={rama.item.id} className="grid gap-1 mb-1" style={{ gridTemplateColumns: `repeat(${columnasTrazabilidad}, minmax(9rem, 1fr))` }}>
+            {ramasFracasadas.length > 0 && (
+              <div className="grid gap-1 mb-1" style={{ gridTemplateColumns: `repeat(${columnasTrazabilidad}, minmax(9rem, 1fr))` }}>
                 {Array.from({ length: columnasTrazabilidad }).map((_, i) => {
-                  const activo = rama.item.id === exp.id;
+                  const ramasEnColumna = ramasFracasadas.filter(r => r.indice === i);
                   return (
-                    <div key={i} className="flex flex-col items-stretch">
-                      {i === rama.indice && (
-                        <>
-                          <button
-                            onClick={() => onNavegar(rama.item.id)}
-                            className={"text-left rounded-lg border px-3 py-2.5 transition-colors " +
-                              (activo ? "border-red-900 bg-red-900 text-white" : "border-red-300 bg-red-50 text-red-800 hover:border-red-400")}
-                          >
-                            <div className="text-xs font-mono">{rama.item.exp}</div>
-                            <div className={"text-[10px] mt-0.5 " + (activo ? "text-red-200" : "text-red-500")}>
-                              {fmtFecha(rama.item.fechaInicio)} — {fmtFecha(rama.item.fechaVencimiento)}
-                            </div>
-                            <div className={"text-[10px] font-semibold mt-0.5 " + (activo ? "text-red-100" : "text-red-700")}>
-                              {rama.item.estadoConvocatoria}
-                            </div>
-                          </button>
-                          <div className="w-px h-3 bg-red-300 self-center" />
-                        </>
-                      )}
+                    <div key={i} className="flex flex-col items-stretch gap-1">
+                      {ramasEnColumna.map(rama => {
+                        const activo = rama.item.id === exp.id;
+                        return (
+                          <div key={rama.item.id} className="flex flex-col items-stretch">
+                            <button
+                              onClick={() => onNavegar(rama.item.id)}
+                              className={"w-full min-h-[92px] text-left rounded-lg border px-3 py-2.5 transition-colors " +
+                                (rama.resuelta
+                                  ? (activo ? "border-orange-900 bg-orange-900 text-white" : "border-orange-300 bg-orange-50 text-orange-800 hover:border-orange-400")
+                                  : (activo ? "border-red-900 bg-red-900 text-white" : "border-red-300 bg-red-50 text-red-800 hover:border-red-400"))}
+                            >
+                              <div className="text-xs font-mono">{rama.item.exp}</div>
+                              <div className={"text-[10px] mt-0.5 " + (rama.resuelta
+                                ? (activo ? "text-orange-200" : "text-orange-500")
+                                : (activo ? "text-red-200" : "text-red-500"))}>
+                                {fmtFecha(rama.item.fechaInicio)} — {fmtFecha(rama.item.fechaVencimiento)}
+                              </div>
+                              <div className={"text-[10px] font-semibold mt-0.5 " + (rama.resuelta
+                                ? (activo ? "text-orange-100" : "text-orange-700")
+                                : (activo ? "text-red-100" : "text-red-700"))}>
+                                {rama.resuelta ? "Proyecto fracasado" : rama.item.estadoConvocatoria}
+                              </div>
+                              {rama.resuelta && rama.item.encuadreFracasado && (
+                                <div className={"text-[10px] mt-0.5 " + (activo ? "text-orange-200" : "text-orange-600")}>
+                                  {rama.item.encuadreFracasado}
+                                </div>
+                              )}
+                            </button>
+                            <div className={"w-px h-3 self-center " + (rama.resuelta ? "bg-orange-300" : "bg-red-300")} />
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
               </div>
-            ))}
+            )}
 
             <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${columnasTrazabilidad}, minmax(9rem, 1fr))` }}>
               {nodosPrincipales.map((nodo, idx) => {
@@ -235,7 +262,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                   <div key={nodo.key} className="relative">
                     <button
                       onClick={() => onNavegar(item.id)}
-                      className={"w-full text-left rounded-lg border px-3 py-2.5 transition-colors " +
+                      className={"w-full min-h-[92px] text-left rounded-lg border px-3 py-2.5 transition-colors " +
                         (activo ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-400 text-slate-700")}
                     >
                       <div className="text-[10px] uppercase tracking-wide opacity-70">{nodo.label}</div>

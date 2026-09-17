@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO, PRORROGA_MESES_OPCIONES, ESTADOS_CONVOCATORIA_FALLIDOS } from "@/lib/constants";
+import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES, ESTADOS_CONVOCATORIA_FALLIDOS } from "@/lib/constants";
 import { parseFechaHora } from "@/lib/utils";
 
 const ITEM_COTIZADOR_POLICIA = CHECKLIST_POLICIA_ADICIONAL[3]; // "Control con el cotizador de módulos (aprobado y vinculado)"
@@ -386,6 +386,64 @@ export async function PUT(request, { params }) {
               (esDescentralizada
                 ? " (descentralizada, mismo N° de contratación " + exp.nroContratacion + ")"
                 : " con nuevo N° de contratación " + nuevoNroContratacion) + ".",
+          },
+        },
+      },
+      include: INCLUDE_EXPEDIENTE,
+    });
+    return NextResponse.json({ expediente: actualizado });
+  }
+
+  // ---------- Generar contratación tras una convocatoria fracasada (sin dividir) ----------
+  // A diferencia de "Generar parche" (que crea un expediente nuevo), esto
+  // convierte la MISMA renovación fracasada en la contratación puente: sigue
+  // siendo el mismo N° de expediente, pero pasa a rol "parche" y arranca en
+  // ejecución (Vigente) de inmediato, igual que un parche clásico.
+  if (body.generarContratacionFracasada) {
+    const exp = await prisma.expediente.findUnique({ where: { id } });
+    if (!exp) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    if (exp.rol !== "renovacion" || exp.estadoConvocatoria !== "Proyecto fracasado") {
+      return NextResponse.json({ error: "Solo aplica a una convocatoria fracasada" }, { status: 400 });
+    }
+    const { modalidad, objeto, fechaInicio, fechaVencimiento, montoARS, ocResolucion, resolucionLlamado, resolucionAdjudicacion, tieneProrroga, mesesProrroga } = body.generarContratacionFracasada;
+    if (!MODALIDADES_FRACASADA.includes(modalidad)) {
+      return NextResponse.json({ error: "Elegí una modalidad válida" }, { status: 400 });
+    }
+    if (!fechaVencimiento) {
+      return NextResponse.json({ error: "Cargá la fecha de vencimiento" }, { status: 400 });
+    }
+    if (tieneProrroga && !PRORROGA_MESES_OPCIONES.includes(Number(mesesProrroga))) {
+      return NextResponse.json({ error: "Elegí cuántos meses de prórroga tiene el expediente" }, { status: 400 });
+    }
+    const esDescentralizada = modalidad === "Contratación Descentralizada";
+    const actualizado = await prisma.expediente.update({
+      where: { id },
+      data: {
+        rol: "parche",
+        parcheDeFracasada: true,
+        // El encuadre de la convocatoria fracasada se guarda aparte para
+        // seguir mostrándolo en su tarjeta elevada — el campo "encuadre" en
+        // vivo pasa a ser el de la nueva modalidad (lo necesitan otras
+        // pantallas, ej. Gestionar prórroga, para saber si es descentralizada).
+        encuadreFracasado: exp.encuadre,
+        encuadre: modalidad,
+        estadoGeneral: "Vigente",
+        etapa: "En ejecución",
+        estadoConvocatoria: null,
+        objeto: objeto || exp.objeto,
+        fechaInicio: fechaInicio ? new Date(fechaInicio) : null,
+        fechaVencimiento: new Date(fechaVencimiento),
+        montoARS: Number(montoARS) || 0,
+        ocResolucion: esDescentralizada ? null : (ocResolucion || null),
+        resolucionLlamado: resolucionLlamado || null,
+        resolucionAdjudicacion: resolucionAdjudicacion || null,
+        tieneProrroga: !!tieneProrroga,
+        mesesProrroga: tieneProrroga ? Number(mesesProrroga) : null,
+        observaciones: {
+          create: {
+            usuario: session.user.name,
+            tipo: "general",
+            texto: "Convocatoria fracasada: se genera contratación (" + modalidad + ") bajo el mismo N° de expediente.",
           },
         },
       },
