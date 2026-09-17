@@ -5,6 +5,28 @@ import { prisma } from "@/lib/prisma";
 import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES, ESTADOS_CONVOCATORIA_FALLIDOS } from "@/lib/constants";
 import { parseFechaHora } from "@/lib/utils";
 
+function normalizarNumeros(valor, max) {
+  if (!Array.isArray(valor)) return [];
+  return [...new Set(valor.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n >= 1 && n <= max))].sort((a, b) => a - b);
+}
+
+// { "Talcahuano 550": { ascensores: [1,2], montacargas: [1] }, ... } — se
+// acota a los domicilios que efectivamente quedan cargados en el
+// expediente, y se descartan entradas vacías (sin ascensores ni montacargas).
+function normalizarAscensoresPorDomicilio(valor, domiciliosValidos) {
+  if (!valor || typeof valor !== "object") return null;
+  const validos = new Set(domiciliosValidos || []);
+  const resultado = {};
+  for (const [domicilio, datos] of Object.entries(valor)) {
+    if (!validos.has(domicilio) || !datos || typeof datos !== "object") continue;
+    const ascensores = normalizarNumeros(datos.ascensores, 8);
+    const montacargas = normalizarNumeros(datos.montacargas, 4);
+    if (ascensores.length === 0 && montacargas.length === 0) continue;
+    resultado[domicilio] = { ascensores, montacargas };
+  }
+  return Object.keys(resultado).length > 0 ? resultado : null;
+}
+
 const ITEM_COTIZADOR_POLICIA = CHECKLIST_POLICIA_ADICIONAL[3]; // "Control con el cotizador de módulos (aprobado y vinculado)"
 
 const INCLUDE_EXPEDIENTE = {
@@ -544,6 +566,10 @@ export async function PUT(request, { params }) {
   }
 
   // ---------- Edición normal de campos del expediente ----------
+  const domiciliosActualizados = Array.isArray(body.domiciliosRenglones)
+    ? body.domiciliosRenglones.map((v) => String(v).trim()).filter(Boolean)
+    : undefined;
+
   const actualizado = await prisma.expediente.update({
     where: { id },
     data: {
@@ -589,9 +615,11 @@ export async function PUT(request, { params }) {
         : (typeof body.tieneProrroga === "boolean" ? (body.tieneProrroga ? Number(body.mesesProrroga) : null) : undefined),
       tipoParche: body.tipoParche ?? undefined,
       detalleParche: body.detalleParche ?? undefined,
-      domiciliosRenglones: Array.isArray(body.domiciliosRenglones)
-        ? body.domiciliosRenglones.map((v) => String(v).trim()).filter(Boolean)
-        : undefined,
+      domiciliosRenglones: domiciliosActualizados,
+      ascensoresPorDomicilio: body.tipo === "Ascensores"
+        ? normalizarAscensoresPorDomicilio(body.ascensoresPorDomicilio, domiciliosActualizados)
+        : null,
+      tieneAdecuaciones: body.tipo === "Ascensores" ? !!body.tieneAdecuaciones : false,
       adjudicacionPorRenglon: body.adjudicacionPorRenglon && typeof body.adjudicacionPorRenglon === "object"
         ? body.adjudicacionPorRenglon
         : undefined,

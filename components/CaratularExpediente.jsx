@@ -28,6 +28,8 @@ function formVacio(esServicios, departamentoSlug) {
     estadoGeneral: "En trámite de renovación",
     antecedenteExp: "",
     domiciliosRenglones: [],
+    ascensoresPorDomicilio: {},
+    tieneAdecuaciones: false,
   };
 }
 
@@ -39,6 +41,7 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
   const [f, setF] = useState(() => formVacio(esServicios, departamentoSlug));
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
+  const esAscensores = esServicios && f.tipo === "Ascensores";
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
 
@@ -73,6 +76,10 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
     }
     if (f.organismos.length === 0) {
       setError("Agregá al menos un organismo.");
+      return;
+    }
+    if (esAscensores && !Object.values(f.ascensoresPorDomicilio || {}).some(d => (d.ascensores || []).length > 0 || (d.montacargas || []).length > 0)) {
+      setError("Elegí los ascensores o montacargas de al menos un domicilio.");
       return;
     }
     if (fechaMinima && f.fechaInicio && new Date(f.fechaInicio) < new Date(fechaMinima)) {
@@ -112,11 +119,31 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
             </div>
 
             <div className="col-span-2">
-              <CampoDomiciliosRenglones valores={f.domiciliosRenglones} onChange={v => set("domiciliosRenglones", v)} />
+              <CampoDomiciliosRenglones
+                valores={f.domiciliosRenglones}
+                onChange={v => set("domiciliosRenglones", v)}
+                conAscensores={esAscensores}
+                ascensoresPorDomicilio={f.ascensoresPorDomicilio}
+                onChangeAscensoresPorDomicilio={v => set("ascensoresPorDomicilio", v)}
+              />
             </div>
 
             {esServicios && (
               <CampoFuero id="lista-fueros-caratular" organismos={f.organismos} fueros={f.fuero} onChange={v => set("fuero", v)} />
+            )}
+
+            {esAscensores && (
+              <div className="col-span-3 border border-slate-200 rounded-md p-3 bg-slate-50">
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={f.tieneAdecuaciones}
+                    onChange={e => set("tieneAdecuaciones", e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-slate-800 focus:ring-slate-800"
+                  />
+                  <span className="text-xs font-medium text-slate-700">Tiene adecuaciones</span>
+                </label>
+              </div>
             )}
 
             <Campo_Input label="Fecha de inicio" type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />

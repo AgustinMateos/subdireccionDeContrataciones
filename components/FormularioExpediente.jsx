@@ -26,6 +26,8 @@ function formVacio(esServicios) {
     tieneProrroga: false,
     mesesProrroga: null,
     domiciliosRenglones: [],
+    ascensoresPorDomicilio: {},
+    tieneAdecuaciones: false,
   };
 }
 
@@ -41,6 +43,10 @@ function normalizarInicial(inicial, esServicios) {
       ? inicial.fuero
       : inicial.fuero ? [inicial.fuero] : [],
     domiciliosRenglones: Array.isArray(inicial.domiciliosRenglones) ? inicial.domiciliosRenglones : [],
+    ascensoresPorDomicilio: inicial.ascensoresPorDomicilio && typeof inicial.ascensoresPorDomicilio === "object"
+      ? inicial.ascensoresPorDomicilio
+      : {},
+    tieneAdecuaciones: !!inicial.tieneAdecuaciones,
     esPoliciaAdicional: !!inicial.esPoliciaAdicional,
     fuerzaSeguridad: inicial.fuerzaSeguridad || "",
     tieneProrroga: !!inicial.tieneProrroga,
@@ -53,6 +59,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
   const [f, setF] = useState(() => normalizarInicial(inicial, esServicios));
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
+  const esAscensores = esServicios && f.tipo === "Ascensores";
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
 
@@ -87,6 +94,10 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
     }
     if (f.esPoliciaAdicional && !f.fuerzaSeguridad) {
       setError("Elegí la fuerza de seguridad para el expediente de policía adicional.");
+      return;
+    }
+    if (esAscensores && !Object.values(f.ascensoresPorDomicilio || {}).some(d => (d.ascensores || []).length > 0 || (d.montacargas || []).length > 0)) {
+      setError("Elegí los ascensores o montacargas de al menos un domicilio.");
       return;
     }
     if (f.tieneProrroga && !PRORROGA_MESES_OPCIONES.includes(Number(f.mesesProrroga))) {
@@ -133,7 +144,13 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
               <SelectorOrganismos organismos={f.organismos} onChange={v => set("organismos", v)} />
             </div>
             <div className="col-span-2">
-              <CampoDomiciliosRenglones valores={f.domiciliosRenglones} onChange={v => set("domiciliosRenglones", v)} />
+              <CampoDomiciliosRenglones
+                valores={f.domiciliosRenglones}
+                onChange={v => set("domiciliosRenglones", v)}
+                conAscensores={esAscensores}
+                ascensoresPorDomicilio={f.ascensoresPorDomicilio}
+                onChangeAscensoresPorDomicilio={v => set("ascensoresPorDomicilio", v)}
+              />
             </div>
             <Campo_Select label="Sector actual" value={f.sector} onChange={v => set("sector", v)}
               opciones={["", ...SECTORES]} labels={{ "": "— Sin definir —" }} />
@@ -145,6 +162,19 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
                 <Campo_Select label="Estado de convocatoria" value={f.estadoConvocatoria} onChange={v => set("estadoConvocatoria", v)}
                   opciones={["", ...ESTADOS_CONVOCATORIA]} labels={{ "": "— Sin definir —" }} />
               </>
+            )}
+            {esAscensores && (
+              <div className="col-span-2 border border-slate-200 rounded-md p-3 bg-slate-50">
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={f.tieneAdecuaciones}
+                    onChange={e => set("tieneAdecuaciones", e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-slate-800 focus:ring-slate-800"
+                  />
+                  <span className="text-xs font-medium text-slate-700">Tiene adecuaciones</span>
+                </label>
+              </div>
             )}
             {f.tipoParche !== "Legítimo abono" && (
               <div className="col-span-2 border border-slate-200 rounded-md p-3 bg-slate-50">

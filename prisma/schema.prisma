@@ -144,6 +144,16 @@ model Expediente {
   codigoInterno      String? // código corto de la planilla, ej "02ID", "01LA"
   estadoConvocatoria String? // vocabulario propio de Servicios (string libre, la lista puede crecer)
 
+  // Solo aplica cuando tipo === "Ascensores". tieneAdecuaciones es del
+  // expediente completo (además de mantenimiento, incluye obra/adaptación).
+  // ascensoresPorDomicilio detalla, para cada domicilio ya cargado en
+  // domiciliosRenglones, qué ascensores (1-8) y qué montacargas (1-4)
+  // puntuales tramita — { "Talcahuano 550": { "ascensores": [1,2],
+  // "montacargas": [1] } }. Domicilios sin entrada no tienen ascensores ni
+  // montacargas cargados todavía.
+  tieneAdecuaciones      Boolean @default(false)
+  ascensoresPorDomicilio Json?
+
   // Adjudicación parcial: cuando algunos domicilios/renglones de una
   // convocatoria no se adjudican (quedan desiertos/fracasados), se separan en
   // un expediente propio ("Dividir expediente") que referencia de dónde

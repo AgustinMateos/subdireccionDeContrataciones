@@ -27,7 +27,7 @@ export default function CampoFuero({ organismos, fueros, onChange, id = "lista-f
   return (
     <div>
       <label className="block text-xs font-medium text-slate-600 mb-1">
-        Fuero {valores.length > 0 && <span className="text-slate-400">({valores.length})</span>}
+        Fuero (opcional) {valores.length > 0 && <span className="text-slate-400">({valores.length})</span>}
       </label>
       {valores.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2">

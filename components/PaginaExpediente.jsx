@@ -370,18 +370,36 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             </p>
           )}
 
-          {((exp.fuero || []).length > 0 || exp.zona || exp.codigoInterno || exp.estadoConvocatoria || exp.tipoParche || exp.tipoContratacionProrroga || exp.fechaNotificacionProrroga || exp.nroResolucion) && (
+          {((exp.fuero || []).length > 0 || exp.zona || exp.codigoInterno || exp.estadoConvocatoria || exp.tipoParche || exp.tipoContratacionProrroga || exp.fechaNotificacionProrroga || exp.nroResolucion || exp.tipo === "Ascensores") && (
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm border-t border-slate-100 pt-4">
               {exp.zona && <Campo label="Zona" valor={exp.zona} />}
               {(exp.fuero || []).length > 0 && <Campo label={exp.fuero.length > 1 ? "Fueros" : "Fuero"} valor={exp.fuero.join(", ")} />}
               {exp.codigoInterno && <Campo label="Código interno" valor={exp.codigoInterno} />}
               {exp.estadoConvocatoria && <Campo label="Estado de convocatoria" valor={exp.estadoConvocatoria} />}
+              {exp.tipo === "Ascensores" && <Campo label="Tiene adecuaciones" valor={exp.tieneAdecuaciones ? "Sí" : "No"} />}
               {exp.tipoParche && <Campo label="Tipo de parche" valor={exp.detalleParche ? exp.tipoParche + " — " + exp.detalleParche : exp.tipoParche} />}
               {exp.tipoContratacionProrroga && <Campo label="Prórroga (departamento) — tipo de contratación" valor={exp.tipoContratacionProrroga} />}
               {exp.nroResolucion && (
                 <Campo label={esProrrogaDepto ? "N° de resolución (prórroga por departamento)" : "N° de resolución"} valor={exp.nroResolucion} />
               )}
               {exp.fechaNotificacionProrroga && <Campo label="Notificación de recepción (organismo)" valor={fmtFecha(exp.fechaNotificacionProrroga)} />}
+            </div>
+          )}
+
+          {exp.tipo === "Ascensores" && exp.ascensoresPorDomicilio && Object.keys(exp.ascensoresPorDomicilio).length > 0 && (
+            <div className="border-t border-slate-100 pt-4 space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ascensores por domicilio</h3>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {Object.entries(exp.ascensoresPorDomicilio).map(([dom, datos]) => (
+                  <div key={dom} className="flex items-center justify-between gap-2 border border-slate-200 rounded-md px-3 py-1.5">
+                    <span className="text-slate-500 truncate" title={dom}>{dom}</span>
+                    <span className="font-medium text-slate-800 truncate text-right">
+                      {(datos.ascensores || []).length > 0 ? "Ascensores " + datos.ascensores.join(", ") : "Sin ascensores"}
+                      {(datos.montacargas || []).length > 0 ? " · Montacargas " + datos.montacargas.join(", ") : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

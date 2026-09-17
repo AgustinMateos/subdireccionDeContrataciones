@@ -30,6 +30,28 @@ function normalizarLista(valor) {
   return valor ? [String(valor).trim()].filter(Boolean) : [];
 }
 
+function normalizarNumeros(valor, max) {
+  if (!Array.isArray(valor)) return [];
+  return [...new Set(valor.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n >= 1 && n <= max))].sort((a, b) => a - b);
+}
+
+// { "Talcahuano 550": { ascensores: [1,2], montacargas: [1] }, ... } — se
+// acota a los domicilios que efectivamente quedan cargados en el
+// expediente, y se descartan entradas vacías (sin ascensores ni montacargas).
+function normalizarAscensoresPorDomicilio(valor, domiciliosValidos) {
+  if (!valor || typeof valor !== "object") return null;
+  const validos = new Set(domiciliosValidos || []);
+  const resultado = {};
+  for (const [domicilio, datos] of Object.entries(valor)) {
+    if (!validos.has(domicilio) || !datos || typeof datos !== "object") continue;
+    const ascensores = normalizarNumeros(datos.ascensores, 8);
+    const montacargas = normalizarNumeros(datos.montacargas, 4);
+    if (ascensores.length === 0 && montacargas.length === 0) continue;
+    resultado[domicilio] = { ascensores, montacargas };
+  }
+  return Object.keys(resultado).length > 0 ? resultado : null;
+}
+
 export async function GET(request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -735,6 +757,8 @@ export async function POST(request) {
     return NextResponse.json({ error: "Elegí cuántos meses de prórroga tiene el expediente" }, { status: 400 });
   }
 
+  const domiciliosNormalizados = normalizarLista(body.domiciliosRenglones);
+
   const nuevo = await prisma.expediente.create({
     data: {
       cadenaId: body.cadenaId || "c" + Date.now(),
@@ -772,7 +796,9 @@ export async function POST(request) {
       estadoConvocatoria: body.estadoConvocatoria || null,
       tieneProrroga: !!body.tieneProrroga,
       mesesProrroga: body.tieneProrroga ? Number(body.mesesProrroga) : null,
-      domiciliosRenglones: normalizarLista(body.domiciliosRenglones),
+      domiciliosRenglones: domiciliosNormalizados,
+      ascensoresPorDomicilio: body.tipo === "Ascensores" ? normalizarAscensoresPorDomicilio(body.ascensoresPorDomicilio, domiciliosNormalizados) : null,
+      tieneAdecuaciones: body.tipo === "Ascensores" ? !!body.tieneAdecuaciones : false,
       observaciones: sectorInicial
         ? {
             create: [{
