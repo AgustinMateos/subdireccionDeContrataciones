@@ -10,6 +10,8 @@ import { direccionesDe } from "@/lib/organismosFueros";
 // (mismo tipo de servicio, mismo fuero y misma zona) con distinto N° de
 // expediente se agrupan en una sola card, para no repetir la misma info una
 // y otra vez en el listado.
+const ROL_ORDEN = { antecedente: 0, vigente: 1, parche: 2, renovacion: 3 };
+
 export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
   const { tipo, zona, fuero, organismos, items } = grupo;
   const direcciones = direccionesDe(organismos, fuero);
@@ -24,6 +26,26 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
   }
   function mesesProrrogaTopeDe(exp) {
     return vigenteDe(exp)?.mesesProrroga || Math.max(...PRORROGA_MESES_OPCIONES);
+  }
+  // Subdivisiones de la card: cada trámite (cadena) va en su propio bloque —
+  // el vigente con su renovación/parche, o un vigente solo — para que se vea
+  // qué expediente cubre qué domicilios/renglones y en qué estado está.
+  const cadenas = [];
+  for (const exp of items) {
+    let cadena = cadenas.find(c => c.cadenaId === exp.cadenaId);
+    if (!cadena) { cadena = { cadenaId: exp.cadenaId, items: [] }; cadenas.push(cadena); }
+    cadena.items.push(exp);
+  }
+  for (const c of cadenas) c.items.sort((a, b) => (ROL_ORDEN[a.rol] ?? 9) - (ROL_ORDEN[b.rol] ?? 9));
+  // En Ascensores, el domicilio se acompaña de qué ascensores/montacargas
+  // puntuales cubre ese expediente.
+  function detalleAscensores(exp, domicilio) {
+    const datos = exp.tipo === "Ascensores" ? exp.ascensoresPorDomicilio?.[domicilio] : null;
+    if (!datos) return "";
+    const partes = [];
+    if ((datos.ascensores || []).length > 0) partes.push("Asc. " + datos.ascensores.join(", "));
+    if ((datos.montacargas || []).length > 0) partes.push("Mont. " + datos.montacargas.join(", "));
+    return partes.length > 0 ? " (" + partes.join(" · ") + ")" : "";
   }
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-3">
@@ -62,92 +84,98 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
       )}
 
       {abierto && (
-      <div className="divide-y divide-slate-100 border-t border-slate-100">
-        {items.map(exp => {
-          const esRenovacion = exp.rol === "renovacion";
-          const dias = diasRestantes(exp.fechaVencimiento);
-          const niv = alerta(dias);
-          const frenado = esRenovacion ? diasFrenado(exp.observaciones, exp.creadoEn) : null;
-          const hijos = (todos || []).filter(e => e.divisionDeId === exp.id);
-          const adjudicados = hijos.length > 0
-            ? (exp.domiciliosRenglones || []).filter(d => !hijos.some(h => (h.domiciliosRenglones || []).includes(d)))
-            : null;
-          return (
-            <button
-              key={exp.id}
-              onClick={() => onVer(exp.id)}
-              className="w-full text-left py-2 flex items-center justify-between gap-2 hover:bg-slate-50 -mx-1 px-1 rounded transition-colors"
-            >
-              <div className="min-w-0">
-                <div className="font-mono text-xs font-semibold text-slate-900">{exp.exp}</div>
-                {esRenovacion && (
-                  <div className="text-[11px] text-slate-500">
-                    {exp.sector || "Sin sector"} · {exp.estadoConvocatoria || "Sin estado de convocatoria"}
+      <div className="flex flex-col gap-3 border-t border-slate-100 pt-3">
+        {cadenas.map(cadena => (
+          <div key={cadena.cadenaId} className="border border-slate-200 rounded-lg divide-y divide-slate-100">
+            {cadena.items.map(exp => {
+              const esRenovacion = exp.rol === "renovacion";
+              const dias = diasRestantes(exp.fechaVencimiento);
+              const niv = alerta(dias);
+              const frenado = esRenovacion ? diasFrenado(exp.observaciones, exp.creadoEn) : null;
+              const fracasada = esConvocatoriaFracasada(exp);
+              const hijos = (todos || []).filter(e => e.divisionDeId === exp.id);
+              const adjudicados = hijos.length > 0
+                ? (exp.domiciliosRenglones || []).filter(d => !hijos.some(h => (h.domiciliosRenglones || []).includes(d)))
+                : null;
+              const rolTexto = exp.rol === "parche"
+                ? (exp.tipoParche || (exp.tipoContratacionProrroga
+                    ? "Prórroga (departamento) · " + (mesesProrrogaUsadosDe(exp) || 0) + "/" + mesesProrrogaTopeDe(exp) + " meses"
+                    : ROL_LABEL.parche))
+                : ROL_LABEL[exp.rol];
+              return (
+                <button
+                  key={exp.id}
+                  onClick={() => onVer(exp.id)}
+                  className="w-full text-left p-2.5 flex items-start justify-between gap-2 hover:bg-slate-50 transition-colors first:rounded-t-lg last:rounded-b-lg"
+                >
+                  <div className="min-w-0 flex flex-col gap-0.5">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      {rolTexto}{exp.encuadre ? " · " + exp.encuadre : ""}
+                    </div>
+                    <div className="font-mono text-xs font-semibold text-slate-900">{exp.exp}</div>
+                    {!fracasada && (
+                      <div className="text-[11px] text-slate-500">
+                        {exp.fechaInicio ? fmtFecha(exp.fechaInicio) : "Sin fecha de inicio"} — {fmtFecha(exp.fechaVencimiento)}
+                      </div>
+                    )}
+                    {esRenovacion && (
+                      <div className="text-[11px] text-slate-500">
+                        {exp.sector || "Sin sector"} · {exp.estadoConvocatoria || "Sin estado de convocatoria"}
+                      </div>
+                    )}
+                    <div className="flex items-start gap-1 text-[11px] text-slate-500">
+                      <MapPin size={11} className="mt-0.5 shrink-0" />
+                      <span>
+                        {esRenovacion ? "Renueva: " : "Tramita: "}
+                        {(exp.domiciliosRenglones || []).length > 0
+                          ? exp.domiciliosRenglones.map(d => d + detalleAscensores(exp, d)).join(" · ")
+                          : "sin domicilios/renglones cargados"}
+                      </span>
+                    </div>
+                    {adjudicados && (
+                      <div className="flex items-start gap-1 text-[11px] text-slate-500">
+                        <MapPin size={11} className="mt-0.5 shrink-0" />
+                        <span>
+                          Adjudicado: {adjudicados.length > 0
+                            ? adjudicados.map(d => {
+                                const datos = exp.adjudicacionPorRenglon?.[d];
+                                if (!datos) return d;
+                                return d + " (" + datos.firma + (datos.monto ? " · " + fmtMoneda(datos.monto) : "") + (datos.oc ? " · OC " + datos.oc : "") + ")";
+                              }).join(" · ")
+                            : "ningún domicilio/renglón"}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
-                {exp.divisionDeId && exp.domiciliosRenglones?.length > 0 && (
-                  <div className="flex items-start gap-1 text-[11px] text-slate-500">
-                    <MapPin size={11} className="mt-0.5 shrink-0" />
-                    <span>Tramita: {exp.domiciliosRenglones.join(" · ")}</span>
-                  </div>
-                )}
-                {adjudicados && (
-                  <div className="flex items-start gap-1 text-[11px] text-slate-500">
-                    <MapPin size={11} className="mt-0.5 shrink-0" />
-                    <span>
-                      Adjudicado: {adjudicados.length > 0
-                        ? adjudicados.map(d => {
-                            const datos = exp.adjudicacionPorRenglon?.[d];
-                            if (!datos) return d;
-                            return d + " (" + datos.firma + (datos.monto ? " · " + fmtMoneda(datos.monto) : "") + (datos.oc ? " · OC " + datos.oc : "") + ")";
-                          }).join(" · ")
-                        : "ningún domicilio/renglón"}
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ESTADO_ESTILO[estadoGeneralMostrado(exp)]}>
+                      {estadoGeneralMostrado(exp)}
                     </span>
+                    {esRenovacion ? (
+                      frenado != null && (
+                        <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[alertaFrenado(frenado)]}>
+                          Frenado hace {frenado} día{frenado !== 1 ? "s" : ""}
+                        </span>
+                      )
+                    ) : (
+                      <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[niv]}>
+                        {dias >= 0 ? "Vence " + fmtFecha(exp.fechaVencimiento) : Math.abs(dias) + " días vencido"}
+                      </span>
+                    )}
+                    {!esRenovacion && exp.tieneProrroga && (
+                      <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border flex items-center gap-1 " +
+                        (exp.mesesProrrogaUsados > 0 ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800")}>
+                        <Clock size={10} /> {exp.mesesProrrogaUsados > 0
+                          ? `Prórroga activada (${exp.mesesProrrogaUsados}/${exp.mesesProrroga || Math.max(...PRORROGA_MESES_OPCIONES)})`
+                          : "Puede activar prórroga"}
+                      </span>
+                    )}
                   </div>
-                )}
-                <div className="text-[11px] text-slate-400">
-                  {exp.rol === "parche"
-                    ? (exp.tipoParche || (exp.tipoContratacionProrroga
-                        ? "Prórroga (departamento) · " + (mesesProrrogaUsadosDe(exp) || 0) + "/" + mesesProrrogaTopeDe(exp) + " meses"
-                        : ROL_LABEL.parche))
-                    : ROL_LABEL[exp.rol]}
-                  {exp.encuadre ? " · " + exp.encuadre : ""}
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ESTADO_ESTILO[estadoGeneralMostrado(exp)]}>
-                  {estadoGeneralMostrado(exp)}
-                </span>
-                {esRenovacion ? (
-                  <>
-                    {!esConvocatoriaFracasada(exp) && (
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-slate-300 text-slate-600">
-                        {exp.fechaInicio ? "Arranca " + fmtFecha(exp.fechaInicio) : "Sin fecha de inicio"}
-                      </span>
-                    )}
-                    {frenado != null && (
-                      <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[alertaFrenado(frenado)]}>
-                        Frenado hace {frenado} día{frenado !== 1 ? "s" : ""}
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[niv]}>
-                    {dias >= 0 ? "Vence " + fmtFecha(exp.fechaVencimiento) : Math.abs(dias) + " días vencido"}
-                  </span>
-                )}
-                {!esRenovacion && exp.tieneProrroga && (
-                  <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border flex items-center gap-1 " +
-                    (exp.mesesProrrogaUsados > 0 ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800")}>
-                    <Clock size={10} /> {exp.mesesProrrogaUsados > 0
-                      ? `Prórroga activada (${exp.mesesProrrogaUsados}/${exp.mesesProrroga || Math.max(...PRORROGA_MESES_OPCIONES)})`
-                      : "Puede activar prórroga"}
-                  </span>
-                )}
-              </div>
-            </button>
-          );
-        })}
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
       )}
     </div>
