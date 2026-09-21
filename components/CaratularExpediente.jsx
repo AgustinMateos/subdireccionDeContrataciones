@@ -20,7 +20,9 @@ function formVacio(esServicios, departamentoSlug) {
     sector: SECTOR_INICIAL_POR_DEPARTAMENTO[departamentoSlug] || "",
     zona: ZONAS[0],
     fuero: [],
-    estadoConvocatoria: esServicios ? ESTADOS_CONVOCATORIA[0] : "",
+    // Al caratular, el trámite ya arranca en el paso siguiente — la
+    // caratulación es justamente lo que se acaba de hacer.
+    estadoConvocatoria: esServicios ? ESTADOS_CONVOCATORIA[1] : "",
     objeto: "",
     etapa: "En ejecución",
     fechaInicio: "",

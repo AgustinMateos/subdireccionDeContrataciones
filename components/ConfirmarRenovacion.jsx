@@ -3,16 +3,16 @@
 import { useState } from "react";
 import BotonAccion from "./BotonAccion";
 import CampoDomiciliosRenglones from "./CampoDomiciliosRenglones";
-import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
+import { fechaMinimaRenovacion, diaSiguiente, fmtFecha } from "@/lib/utils";
 
 export default function ConfirmarRenovacion({ exp, expedientes, onCerrar, onConfirmar }) {
-  const [f, setF] = useState({ exp: "", fechaInicio: "", fechaVencimiento: "", domiciliosRenglones: exp.domiciliosRenglones || [] });
+  const fechaMinima = fechaMinimaRenovacion(exp, expedientes || []);
+  // La renovación arranca el día siguiente a que termina la cobertura vigente.
+  const [f, setF] = useState({ exp: "", fechaInicio: diaSiguiente(fechaMinima), fechaVencimiento: "", domiciliosRenglones: exp.domiciliosRenglones || [] });
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); setError(""); }
-
-  const fechaMinima = fechaMinimaRenovacion(exp, expedientes || []);
 
   async function confirmar() {
     if (!f.exp.trim()) {

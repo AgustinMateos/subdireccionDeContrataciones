@@ -1,7 +1,18 @@
 "use client";
 
 import { Plus, Filter, FilePlus2 } from "lucide-react";
-import { ORGANISMOS, AREA_LABEL, TIPOS_SERVICIOS, ZONAS } from "@/lib/constants";
+import { AREA_LABEL, TIPOS_SERVICIOS, ZONAS } from "@/lib/constants";
+import FiltroDesplegable from "./FiltroDesplegable";
+import FiltroOrganismo from "./FiltroOrganismo";
+
+const CLASE_VENCIMIENTO = {
+  Todos: "bg-white border-slate-300 text-slate-700",
+  criticos: "bg-red-50 border-red-300 text-red-700",
+  proximos: "bg-amber-50 border-amber-300 text-amber-700",
+  vencidos: "bg-gray-100 border-gray-300 text-gray-700",
+  enPlazo: "bg-emerald-50 border-emerald-300 text-emerald-700",
+};
+
 export default function FiltroBar({ areaFiltro, setAreaFiltro, tipoFiltro, setTipoFiltro, estadoFiltro, setEstadoFiltro, organismoFiltro, setOrganismoFiltro, vencimientoFiltro, setVencimientoFiltro, nombreCortoFiltro, setNombreCortoFiltro, zonaFiltro, setZonaFiltro, total, puedeEditar, onNuevo, onCaratular, departamentoSlug }) {
   const esServicios = departamentoSlug === "servicios";
   return (
@@ -35,51 +46,40 @@ export default function FiltroBar({ areaFiltro, setAreaFiltro, tipoFiltro, setTi
         <div className="flex items-center gap-1.5 text-xs text-slate-500">
           <Filter size={13} /> Filtros:
         </div>
-        <select value={tipoFiltro} onChange={e => setTipoFiltro(e.target.value)} className="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
-          <option value="Todos">Todos los tipos</option>
-          {esServicios
-            ? TIPOS_SERVICIOS.map(t => <option key={t} value={t}>{t}</option>)
-            : (
-              <>
-                <option value="Servicios">Servicios</option>
-                <option value="Provisiones">Provisiones</option>
-                <option value="Servicios Temporales">Servicios Temporales</option>
-              </>
-            )}
-        </select>
-        <select value={zonaFiltro} onChange={e => setZonaFiltro(e.target.value)} className="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
-          <option value="Todas">Todas las zonas</option>
-          {ZONAS.map(z => <option key={z} value={z}>{z}</option>)}
-        </select>
-        <select value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value)} className="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
-          <option value="Todos">Todos los estados</option>
-          <option value="Vigente">Vigente</option>
-          <option value="En trámite de renovación">En trámite de renovación</option>
-          <option value="Finalizado">Finalizado</option>
-          <option value="Archivado">Archivado</option>
-        </select>
-        <select value={vencimientoFiltro} onChange={e => setVencimientoFiltro(e.target.value)}
-          className={"text-xs border rounded-md px-2.5 py-1.5 " +
-            (vencimientoFiltro === "criticos" ? "bg-red-50 border-red-300 text-red-700" :
-              vencimientoFiltro === "proximos" ? "bg-amber-50 border-amber-300 text-amber-700" :
-              vencimientoFiltro === "vencidos" ? "bg-gray-100 border-gray-300 text-gray-700" :
-              vencimientoFiltro === "enPlazo" ? "bg-emerald-50 border-emerald-300 text-emerald-700" :
-              "bg-white border-slate-300")}>
-          <option value="Todos">Cualquier vencimiento</option>
-          <option value="proximos">Próximos a vencer (&lt; 90 días)</option>
-          <option value="criticos">Críticos (&lt; 30 días)</option>
-          <option value="enPlazo">En plazo (&ge; 90 días)</option>
-          <option value="vencidos">Vencidos</option>
-        </select>
-        <select value={organismoFiltro} onChange={e => setOrganismoFiltro(e.target.value)} className="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white max-w-[220px]">
-          <option value="Todos">Todos los organismos</option>
-          {ORGANISMOS.map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
-        {organismoFiltro !== "Todos" && (
-          <button onClick={() => setOrganismoFiltro("Todos")} className="text-[11px] text-slate-500 hover:text-slate-800 underline">
-            Quitar organismo
-          </button>
-        )}
+        <FiltroDesplegable
+          valor={tipoFiltro}
+          onChange={setTipoFiltro}
+          opciones={[
+            { valor: "Todos", etiqueta: "Todos los tipos" },
+            ...(esServicios ? TIPOS_SERVICIOS : ["Servicios", "Provisiones", "Servicios Temporales"]).map(t => ({ valor: t, etiqueta: t })),
+          ]}
+        />
+        <FiltroDesplegable
+          valor={zonaFiltro}
+          onChange={setZonaFiltro}
+          opciones={[{ valor: "Todas", etiqueta: "Todas las zonas" }, ...ZONAS.map(z => ({ valor: z, etiqueta: z }))]}
+        />
+        <FiltroDesplegable
+          valor={estadoFiltro}
+          onChange={setEstadoFiltro}
+          opciones={[
+            { valor: "Todos", etiqueta: "Todos los estados" },
+            ...["Vigente", "En trámite de renovación", "Finalizado", "Archivado"].map(e => ({ valor: e, etiqueta: e })),
+          ]}
+        />
+        <FiltroDesplegable
+          valor={vencimientoFiltro}
+          onChange={setVencimientoFiltro}
+          clase={CLASE_VENCIMIENTO[vencimientoFiltro] || CLASE_VENCIMIENTO.Todos}
+          opciones={[
+            { valor: "Todos", etiqueta: "Cualquier vencimiento" },
+            { valor: "proximos", etiqueta: "Próximos a vencer (< 90 días)" },
+            { valor: "criticos", etiqueta: "Críticos (< 30 días)" },
+            { valor: "enPlazo", etiqueta: "En plazo (≥ 90 días)" },
+            { valor: "vencidos", etiqueta: "Vencidos" },
+          ]}
+        />
+        <FiltroOrganismo valor={organismoFiltro} onChange={setOrganismoFiltro} />
         {!esServicios && (
           <>
             <input

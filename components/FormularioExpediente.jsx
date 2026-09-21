@@ -22,7 +22,9 @@ function formVacio(esServicios) {
     esPoliciaAdicional: false, fuerzaSeguridad: "",
     antecedenteExp: "",
     fuero: [], zona: ZONAS[0], codigoInterno: "",
-    estadoConvocatoria: esServicios ? ESTADOS_CONVOCATORIA[0] : "",
+    // Al caratular, el trámite ya arranca en el paso siguiente — la
+    // caratulación es justamente lo que se acaba de hacer.
+    estadoConvocatoria: esServicios ? ESTADOS_CONVOCATORIA[1] : "",
     tieneProrroga: false,
     mesesProrroga: null,
     domiciliosRenglones: [],

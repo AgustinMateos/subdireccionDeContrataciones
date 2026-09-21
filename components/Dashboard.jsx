@@ -196,9 +196,10 @@ export default function App() {
     }).sort((a, b) => new Date(b.fechaVencimiento) - new Date(a.fechaVencimiento));
   }, [expedientes, areaFiltro, tipoFiltro, estadoFiltro, organismoFiltro, zonaFiltro, vencimientoFiltro, nombreCortoFiltro, busqueda]);
 
-  // En Servicios, varios expedientes con el mismo tipo de servicio, fuero y
-  // zona son la misma prestación repetida con distinto N° de expediente —
-  // se agrupan en una sola card en vez de repetir tarjetas casi idénticas.
+  // En Servicios, varios expedientes con el mismo tipo de servicio, organismo
+  // (cámara), fuero y zona son la misma prestación repetida con distinto N°
+  // de expediente — se agrupan en una sola card en vez de repetir tarjetas
+  // casi idénticas. Cámaras distintas nunca comparten card.
   const itemsListado = useMemo(() => {
     if (sesion?.departamentoSlug !== "servicios") {
       return filtrados.map(e => ({ tipo: "individual", exp: e }));
@@ -206,7 +207,7 @@ export default function App() {
     const grupos = new Map();
     const orden = [];
     for (const e of filtrados) {
-      const clave = e.tipo + "||" + (e.zona || "") + "||" + [...(e.fuero || [])].sort().join(",");
+      const clave = e.tipo + "||" + (e.zona || "") + "||" + [...(e.fuero || [])].sort().join(",") + "||" + [...(e.organismos || [])].sort().join(",");
       if (!grupos.has(clave)) { grupos.set(clave, []); orden.push(clave); }
       grupos.get(clave).push(e);
     }

@@ -250,6 +250,7 @@ export async function POST(request) {
           resolucionAdjudicacion: esLegitimoAbono ? null : (body.resolucionAdjudicacion || null),
           sector: origen.sector,
           estadoGeneral: "Vigente",
+          domiciliosRenglones: origen.domiciliosRenglones || [],
           tipoParche: body.tipoParche || null,
           detalleParche: body.detalleParche || null,
           tieneProrroga: esLegitimoAbono ? false : !!body.tieneProrroga,
@@ -484,8 +485,12 @@ export async function POST(request) {
     if (!origen || origen.departamentoId !== session.user.departamentoId) {
       return NextResponse.json({ error: "Expediente de origen no encontrado" }, { status: 404 });
     }
-    if (origen.rol !== "renovacion" || origen.estadoGeneral !== "En trámite de renovación") {
-      return NextResponse.json({ error: "Solo se puede dividir una renovación en trámite" }, { status: 400 });
+    // Resuelven adjudicación las renovaciones en trámite y todos los parches
+    // salvo el legítimo abono y la prórroga por departamento.
+    const esRenovacionEnTramite = origen.rol === "renovacion" && origen.estadoGeneral === "En trámite de renovación";
+    const esParcheConAdjudicacion = origen.rol === "parche" && origen.tipoParche !== "Legítimo abono" && !origen.tipoContratacionProrroga;
+    if (!esRenovacionEnTramite && !esParcheConAdjudicacion) {
+      return NextResponse.json({ error: "Solo se puede dividir una renovación en trámite o un parche (salvo legítimo abono)" }, { status: 400 });
     }
     for (const g of grupos) {
       if (!g.exp || !String(g.exp).trim()) {

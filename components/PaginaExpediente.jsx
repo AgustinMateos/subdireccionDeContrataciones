@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil, Trash2, Shield, Clock } from "lucide-react";
+import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil, Trash2, Shield, Clock, MapPin } from "lucide-react";
 import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, SECTORES, MODALIDADES_CONTRATACION, ENCUADRE_FUNDAMENTO_LEGAL, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
 import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtFechaHora, fmtMoneda, documentacionDeExpediente, diasFrenado, estadoGeneralMostrado, esConvocatoriaFracasada } from "@/lib/utils";
 import BotonAccion from "./BotonAccion";
@@ -18,11 +18,9 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   // Todos los parches se muestran en la línea de tiempo — a diferencia de los
   // antecedentes, nunca quedan ocultos detrás de un "ver más": si hubo que
   // cubrir el período varias veces, se tiene que ver. Los que resolvieron una
-  // convocatoria fracasada (parcheDeFracasada) aparecen ACÁ TAMBIÉN, en su
-  // lugar normal de la línea — además de la tarjeta elevada que queda
-  // colgada arriba marcando de dónde salieron (ver ramasFracasadas).
+  // misma convocatoria fracasada con el mismo período van juntos, apilados en
+  // una sola columna (ver nodosPrincipales).
   const parches = cadena.filter(e => e.rol === "parche");
-  const parchesDeFracasada = cadena.filter(e => e.rol === "parche" && e.parcheDeFracasada);
   // Una renovación cuya convocatoria fracasó/quedó desierta ya no es "la"
   // renovación de la cadena — el vigente puede volver a crear una nueva
   // (por eso "renovacion" acá es la única que sigue en curso, si la hay) y
@@ -42,6 +40,24 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
     if (p.parcheDeFracasada && p.encuadre) return p.encuadre;
     return ROL_LABEL.parche;
   }
+  // Domicilios/renglones que tramita cada nodo de la trazabilidad. Un parche
+  // cargado sin lista propia (ej. legítimo abono) cubre lo mismo que el
+  // vigente de la cadena, así que se muestra esa.
+  function domiciliosDe(e) {
+    const propios = e.domiciliosRenglones || [];
+    if (propios.length > 0 || e.rol !== "parche") return propios;
+    return vigente?.domiciliosRenglones || [];
+  }
+  function ListaDomicilios({ item, clase }) {
+    const doms = domiciliosDe(item);
+    if (doms.length === 0) return null;
+    return (
+      <div className={"flex items-start gap-1 text-[10px] mt-1 " + clase}>
+        <MapPin size={10} className="mt-0.5 shrink-0" />
+        <span>{doms.join(" · ")}</span>
+      </div>
+    );
+  }
   // El orden de las tarjetas de la línea principal es siempre por fecha
   // real, no por rol: un parche cargado con fechas anteriores al vigente (o
   // lo que sea) tiene que aparecer antes en la línea, no fijo al final.
@@ -54,15 +70,34 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
     const fa = new Date(a.item.fechaInicio || a.item.fechaVencimiento);
     const fb = new Date(b.item.fechaInicio || b.item.fechaVencimiento);
     return fa - fb;
-  });
+  }).reduce((nodos, nodo) => {
+    // Las contrataciones que salieron de una misma convocatoria fracasada y
+    // cubren el mismo período van encapsuladas en un solo nodo, una arriba
+    // de la otra, en vez de ocupar una columna cada una.
+    const hermano = nodo.item.parcheDeFracasada && nodos.find(n =>
+      n.item.parcheDeFracasada
+      && n.item.fechaInicio === nodo.item.fechaInicio
+      && n.item.fechaVencimiento === nodo.item.fechaVencimiento);
+    if (hermano) hermano.nodos.push(nodo);
+    else nodos.push({ ...nodo, nodos: [nodo] });
+    return nodos;
+  }, []);
   // Para cada fracasada: la columna de la línea principal debajo de la cual
   // cuelga es la del primer expediente que arranca en la misma fecha en que
   // hubiera arrancado esa renovación (típicamente el parche o la nueva
   // renovación que se generó después para cubrir el hueco) o después. Si no
   // hay ninguno todavía, queda colgada al final.
+  // Los que resolvieron la convocatoria fracasada bajo el mismo N° de
+  // expediente (la fila misma pasó a parche) dejan además una tarjeta
+  // elevada marcando de dónde salieron. Los que se generaron como
+  // expedientes nuevos NO: la fracasada de origen sigue en la cadena con su
+  // propia tarjeta, y ellos ya están en la línea principal.
+  const parchesMismoExpDeFracasada = renovacionesFracasadas.length > 0
+    ? []
+    : cadena.filter(e => e.rol === "parche" && e.parcheDeFracasada);
   const ramasFracasadas = [
     ...renovacionesFracasadas.map(r => ({ item: r, resuelta: false })),
-    ...parchesDeFracasada.map(p => ({ item: p, resuelta: true })),
+    ...parchesMismoExpDeFracasada.map(p => ({ item: p, resuelta: true })),
   ].map(rama => {
     const fRama = new Date(rama.item.fechaInicio || rama.item.fechaVencimiento);
     const idx = nodosPrincipales.findIndex(n => new Date(n.item.fechaInicio || n.item.fechaVencimiento) >= fRama);
@@ -80,6 +115,11 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   // departamento — se etiquetan distinto para no confundirlas en la ficha.
   const esProrrogaDepto = !!exp.tipoContratacionProrroga;
   const esAdjudicacion = exp.rol === "vigente" || exp.rol === "renovacion";
+  // Todos los parches resuelven adjudicación salvo el legítimo abono (que
+  // hereda al adjudicatario del anterior) y la prórroga habilitada por el
+  // departamento (no es una contratación nueva).
+  const esRenovacionEnTramite = exp.rol === "renovacion" && exp.estadoGeneral === "En trámite de renovación";
+  const esParcheConAdjudicacion = exp.rol === "parche" && exp.tipoParche !== "Legítimo abono" && !exp.tipoContratacionProrroga;
 
   // División por adjudicación parcial: expediente del que salió (si es una
   // división) y los que salieron de éste (si tiene domicilios/renglones
@@ -178,7 +218,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                 Gestionar prórroga
               </button>
             )}
-            {exp.rol === "renovacion" && exp.estadoGeneral === "En trámite de renovación"
+            {(esRenovacionEnTramite || esParcheConAdjudicacion)
               && exp.estadoConvocatoria !== "Adjudicación íntegra" && !esConvocatoriaFracasada(exp)
               && !expedientes.some(e => e.divisionDeId === exp.id) && (
               <button onClick={onDividir} className="px-3 py-2 rounded-md border border-indigo-300 bg-indigo-50 text-indigo-800 text-xs font-medium hover:bg-indigo-100">
@@ -238,6 +278,9 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                                 : (activo ? "text-red-100" : "text-red-700"))}>
                                 {rama.resuelta ? "Proyecto fracasado" : rama.item.estadoConvocatoria}
                               </div>
+                              <ListaDomicilios item={rama.item} clase={rama.resuelta
+                                ? (activo ? "text-orange-200" : "text-orange-600")
+                                : (activo ? "text-red-200" : "text-red-600")} />
                               {rama.resuelta && rama.item.encuadreFracasado && (
                                 <div className={"text-[10px] mt-0.5 " + (activo ? "text-orange-200" : "text-orange-600")}>
                                   {rama.item.encuadreFracasado}
@@ -255,28 +298,31 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             )}
 
             <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${columnasTrazabilidad}, minmax(9rem, 1fr))` }}>
-              {nodosPrincipales.map((nodo, idx) => {
-                const item = nodo.item;
-                const activo = item.id === exp.id;
-                return (
-                  <div key={nodo.key} className="relative">
-                    <button
-                      onClick={() => onNavegar(item.id)}
-                      className={"w-full min-h-[92px] text-left rounded-lg border px-3 py-2.5 transition-colors " +
-                        (activo ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-400 text-slate-700")}
-                    >
-                      <div className="text-[10px] uppercase tracking-wide opacity-70">{nodo.label}</div>
-                      <div className="text-xs font-mono mt-0.5">{item.exp}</div>
-                      <div className={"text-[10px] mt-0.5 " + (activo ? "text-slate-300" : "text-slate-400")}>
-                        {fmtFecha(item.fechaInicio)} — {fmtFecha(item.fechaVencimiento)}
-                      </div>
-                    </button>
-                    {idx < nodosPrincipales.length - 1 && (
-                      <ChevronRight size={14} className="text-slate-300 absolute top-1/2 -right-3 -translate-y-1/2 z-10 bg-white rounded-full" />
-                    )}
-                  </div>
-                );
-              })}
+              {nodosPrincipales.map((nodo, idx) => (
+                <div key={nodo.key} className="relative flex flex-col gap-1">
+                  {nodo.nodos.map(({ key, label, item }) => {
+                    const activo = item.id === exp.id;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => onNavegar(item.id)}
+                        className={"w-full min-h-[92px] text-left rounded-lg border px-3 py-2.5 transition-colors " +
+                          (activo ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 hover:border-slate-400 text-slate-700")}
+                      >
+                        <div className="text-[10px] uppercase tracking-wide opacity-70">{label}</div>
+                        <div className="text-xs font-mono mt-0.5">{item.exp}</div>
+                        <div className={"text-[10px] mt-0.5 " + (activo ? "text-slate-300" : "text-slate-400")}>
+                          {fmtFecha(item.fechaInicio)} — {fmtFecha(item.fechaVencimiento)}
+                        </div>
+                        <ListaDomicilios item={item} clase={activo ? "text-slate-300" : "text-slate-500"} />
+                      </button>
+                    );
+                  })}
+                  {idx < nodosPrincipales.length - 1 && (
+                    <ChevronRight size={14} className="text-slate-300 absolute top-1/2 -right-3 -translate-y-1/2 z-10 bg-white rounded-full" />
+                  )}
+                </div>
+              ))}
             </div>
             </div>
 
