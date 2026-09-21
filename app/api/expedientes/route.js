@@ -764,11 +764,29 @@ export async function POST(request) {
 
   const domiciliosNormalizados = normalizarLista(body.domiciliosRenglones);
 
+  // Legítimo abono caratulado como parche: no tiene N° de expediente propio,
+  // toma el del antecedente. Como `exp` es único en la base, se le agrega el
+  // sufijo "-LA" (y un contador si hiciera falta), igual que en "Generar
+  // parche". Nunca lleva OC, resoluciones ni prórroga.
+  const esLegitimoAbono = body.rol === "parche" && body.tipoParche === "Legítimo abono";
+  let expFinal = body.exp;
+  if (esLegitimoAbono) {
+    const base = String(body.exp || "").trim().replace(/-LA\d*$/, "");
+    if (!base) return NextResponse.json({ error: "Cargá el N° de expediente del antecedente" }, { status: 400 });
+    let candidato = base + "-LA";
+    let sufijo = 1;
+    while (await prisma.expediente.findUnique({ where: { exp: candidato } })) {
+      sufijo++;
+      candidato = base + "-LA" + sufijo;
+    }
+    expFinal = candidato;
+  }
+
   const nuevo = await prisma.expediente.create({
     data: {
       cadenaId: body.cadenaId || "c" + Date.now(),
       rol: body.rol || "vigente",
-      exp: body.exp,
+      exp: expFinal,
       nombreCorto: body.nombreCorto || null,
       nroContratacion: esRenovacionVinculada ? null : (body.nroContratacion || null),
       nroResolucion: body.nroResolucion || null,
@@ -788,10 +806,10 @@ export async function POST(request) {
       fechaVencimiento: new Date(body.fechaVencimiento),
       fechaPublicacion: body.fechaPublicacion ? new Date(body.fechaPublicacion) : null,
       fechaApertura: parseFechaHora(body.fechaApertura),
-      ocResolucion: esRenovacionVinculada ? null : (body.ocResolucion || null),
-      resolucionLlamado: esRenovacionVinculada ? null : (body.resolucionLlamado || null),
-      resolucionAdjudicacion: esRenovacionVinculada ? null : (body.resolucionAdjudicacion || null),
-      adjudicatario: esRenovacionVinculada ? null : (body.adjudicatario || null),
+      ocResolucion: esRenovacionVinculada || esLegitimoAbono ? null : (body.ocResolucion || null),
+      resolucionLlamado: esRenovacionVinculada || esLegitimoAbono ? null : (body.resolucionLlamado || null),
+      resolucionAdjudicacion: esRenovacionVinculada || esLegitimoAbono ? null : (body.resolucionAdjudicacion || null),
+      adjudicatario: esRenovacionVinculada || esLegitimoAbono ? null : (body.adjudicatario || null),
       sector: sectorInicial,
       etapa: body.etapa || null,
       estadoGeneral: body.estadoGeneral || "Vigente",
@@ -799,8 +817,8 @@ export async function POST(request) {
       zona: esRenovacionVinculada ? (referenciaVigente.zona || null) : (body.zona || null),
       codigoInterno: body.codigoInterno || null,
       estadoConvocatoria: body.estadoConvocatoria || null,
-      tieneProrroga: !!body.tieneProrroga,
-      mesesProrroga: body.tieneProrroga ? Number(body.mesesProrroga) : null,
+      tieneProrroga: !esLegitimoAbono && !!body.tieneProrroga,
+      mesesProrroga: !esLegitimoAbono && body.tieneProrroga ? Number(body.mesesProrroga) : null,
       domiciliosRenglones: domiciliosNormalizados,
       tipoParche: body.rol === "parche" ? (body.tipoParche || null) : null,
       ascensoresPorDomicilio: body.tipo === "Ascensores" ? normalizarAscensoresPorDomicilio(body.ascensoresPorDomicilio, domiciliosNormalizados) : null,

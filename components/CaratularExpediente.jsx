@@ -11,10 +11,6 @@ import BotonAccion from "./BotonAccion";
 import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
 import { direccionesDe } from "@/lib/organismosFueros";
 
-// El legítimo abono no se caratula acá: no tiene N° de expediente propio (usa
-// el de la contratación anterior) y se genera desde "Generar parche".
-const TIPOS_PARCHE_CARATULA = TIPOS_PARCHE.filter(t => t !== "Legítimo abono");
-
 function formVacio(esServicios, departamentoSlug) {
   return {
     exp: "",
@@ -34,7 +30,7 @@ function formVacio(esServicios, departamentoSlug) {
     estadoGeneral: "En trámite de renovación",
     antecedenteExp: "",
     esParche: false,
-    tipoParche: TIPOS_PARCHE_CARATULA[0],
+    tipoParche: TIPOS_PARCHE[0],
     domiciliosRenglones: [],
     ascensoresPorDomicilio: {},
     tieneAdecuaciones: false,
@@ -76,13 +72,17 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
   // cuelga de esa cadena.
   const esParche = f.esParche && !!coincidenciaAntecedente;
 
+  // El legítimo abono no tiene N° de expediente propio: toma el del
+  // antecedente (el sistema le agrega un sufijo interno porque el N° es único).
+  const esLegitimoAbono = esParche && f.tipoParche === "Legítimo abono";
+
   function handleAntecedenteExpChange(valor) {
     set("antecedenteExp", valor);
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!f.exp || !f.objeto || !f.fechaVencimiento) {
+    if ((!esLegitimoAbono && !f.exp) || !f.objeto || !f.fechaVencimiento) {
       setError("Completá al menos N° de expediente, objeto y fecha de vencimiento.");
       return;
     }
@@ -99,7 +99,7 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
       return;
     }
     setGuardando(true);
-    await onGuardar({ ...f, esParche });
+    await onGuardar({ ...f, esParche, exp: esLegitimoAbono ? coincidenciaAntecedente.exp : f.exp });
     setGuardando(false);
   }
 
@@ -120,7 +120,7 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
             <Campo_Input label="Objeto" value={f.objeto} onChange={v => set("objeto", v)} />
           </div>
           <div className="grid grid-cols-3 gap-4">
-            <Campo_Input label="N° de expediente" value={f.exp} onChange={v => set("exp", v)} placeholder="13-00000/26" />
+            <Campo_Input label="N° de expediente" value={esLegitimoAbono ? coincidenciaAntecedente.exp : f.exp} onChange={v => set("exp", v)} placeholder="13-00000/26" disabled={esLegitimoAbono} />
             <Campo_Select label="Tipo" value={f.tipo} onChange={v => set("tipo", v)}
               opciones={esServicios ? TIPOS_SERVICIOS : ["Servicios", "Provisiones", "Servicios Temporales"]} />
             <Campo_Input label="Agente" value={f.agente} onChange={v => set("agente", v)} placeholder="CB" />
@@ -198,7 +198,13 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
                         </label>
                         {f.esParche && (
                           <div className="mt-2">
-                            <Campo_Select label="Tipo de parche" value={f.tipoParche} onChange={v => set("tipoParche", v)} opciones={TIPOS_PARCHE_CARATULA} />
+                            <Campo_Select label="Tipo de parche" value={f.tipoParche} onChange={v => set("tipoParche", v)} opciones={TIPOS_PARCHE} />
+                            {esLegitimoAbono && (
+                              <p className="text-[11px] text-amber-700 mt-1.5">
+                                El legítimo abono no tiene N° de expediente propio: toma el del antecedente
+                                ({coincidenciaAntecedente.exp}) y no lleva OC ni resoluciones.
+                              </p>
+                            )}
                           </div>
                         )}
                       </div>
