@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { CheckCircle2 } from "lucide-react";
 
-import { HOY, ROL_USUARIO_LABEL } from "@/lib/constants";
+import { HOY, ROL_USUARIO_LABEL, ENCUADRE_POR_TIPO_PARCHE } from "@/lib/constants";
 import { diasRestantes, alerta, documentacionDeExpediente, fmtFecha, soloFechaLocal, esConvocatoriaFracasada } from "@/lib/utils";
 
 // Prisma serializa las fechas como ISO ("2026-09-10T00:00:00.000Z"), pero los
@@ -820,7 +820,12 @@ export default function App() {
             const inicio = resto.fechaInicio ? new Date(resto.fechaInicio + "T00:00:00") : null;
 
             let rolFinal, estadoGeneralFinal;
-            if (vencimiento && vencimiento < HOY) {
+            if (resto.esParche && match) {
+              // Parche de la cadena referenciada: el usuario lo eligió
+              // explícitamente, no se deduce del período.
+              rolFinal = "parche";
+              estadoGeneralFinal = vencimiento && vencimiento < HOY ? "Finalizado" : "Vigente";
+            } else if (vencimiento && vencimiento < HOY) {
               rolFinal = "antecedente";
               estadoGeneralFinal = "Finalizado";
             } else if (inicio && inicio > HOY) {
@@ -837,7 +842,9 @@ export default function App() {
             // vinculada de verdad.
             const idVigenteAActualizarFinal = rolFinal === "renovacion" ? resuelto.idVigenteAActualizar : null;
 
-            const mensaje = rolFinal === "antecedente"
+            const mensaje = rolFinal === "parche"
+              ? "Expediente caratulado como parche (" + resto.tipoParche + ") de la cadena de " + match.exp + "."
+              : rolFinal === "antecedente"
               ? "Expediente caratulado como antecedente cerrado (el período cargado ya venció)."
               : rolFinal === "vigente"
                 ? "Expediente caratulado como Vigente (vence " + fmtFecha(resto.fechaVencimiento) + ")."
@@ -856,6 +863,7 @@ export default function App() {
                 rol: rolFinal,
                 estadoGeneral: estadoGeneralFinal,
                 idVigenteAActualizar: idVigenteAActualizarFinal,
+                ...(rolFinal === "parche" ? { encuadre: ENCUADRE_POR_TIPO_PARCHE[resto.tipoParche] || null } : {}),
               }),
             });
             if (!res.ok) {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
-import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTOR_INICIAL_POR_DEPARTAMENTO } from "@/lib/constants";
+import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTOR_INICIAL_POR_DEPARTAMENTO, TIPOS_PARCHE } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
 import CampoFuero from "./CampoFuero";
@@ -10,6 +10,10 @@ import CampoDomiciliosRenglones from "./CampoDomiciliosRenglones";
 import BotonAccion from "./BotonAccion";
 import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
 import { direccionesDe } from "@/lib/organismosFueros";
+
+// El legítimo abono no se caratula acá: no tiene N° de expediente propio (usa
+// el de la contratación anterior) y se genera desde "Generar parche".
+const TIPOS_PARCHE_CARATULA = TIPOS_PARCHE.filter(t => t !== "Legítimo abono");
 
 function formVacio(esServicios, departamentoSlug) {
   return {
@@ -29,6 +33,8 @@ function formVacio(esServicios, departamentoSlug) {
     fechaVencimiento: "",
     estadoGeneral: "En trámite de renovación",
     antecedenteExp: "",
+    esParche: false,
+    tipoParche: TIPOS_PARCHE_CARATULA[0],
     domiciliosRenglones: [],
     ascensoresPorDomicilio: {},
     tieneAdecuaciones: false,
@@ -66,6 +72,10 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
     : null;
   const fechaMinima = coincidenciaAntecedente ? fechaMinimaRenovacion(coincidenciaAntecedente, expedientes) : null;
 
+  // Solo se puede cargar como parche si el antecedente existe: el parche
+  // cuelga de esa cadena.
+  const esParche = f.esParche && !!coincidenciaAntecedente;
+
   function handleAntecedenteExpChange(valor) {
     set("antecedenteExp", valor);
   }
@@ -84,12 +94,12 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
       setError("Elegí los ascensores o montacargas de al menos un domicilio.");
       return;
     }
-    if (fechaMinima && f.fechaInicio && new Date(f.fechaInicio) < new Date(fechaMinima)) {
+    if (!esParche && fechaMinima && f.fechaInicio && new Date(f.fechaInicio) < new Date(fechaMinima)) {
       setError("La fecha de inicio de la renovación no puede ser anterior al " + fmtFecha(fechaMinima) + " (cuando termina la cobertura vigente).");
       return;
     }
     setGuardando(true);
-    await onGuardar(f);
+    await onGuardar({ ...f, esParche });
     setGuardando(false);
   }
 
@@ -171,7 +181,28 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
                   ? (
                     <>
                       <p className="text-[11px] text-emerald-700 mt-1">✓ Encontrado: {coincidenciaAntecedente.objeto}</p>
-                      {fechaMinima && (
+                      <div className="mt-2 border border-slate-200 rounded-md p-3 bg-white">
+                        <label className="flex items-start gap-2.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={f.esParche}
+                            onChange={e => set("esParche", e.target.checked)}
+                            className="w-4 h-4 mt-0.5 rounded border-slate-300 text-slate-800 focus:ring-slate-800"
+                          />
+                          <span className="flex-1">
+                            <span className="text-xs font-medium text-slate-700">Cargar como parche / contratación puente</span>
+                            <span className="block text-[11px] text-slate-500 mt-0.5">
+                              En vez de renovación o vigente, entra como parche de la cadena de {coincidenciaAntecedente.exp}.
+                            </span>
+                          </span>
+                        </label>
+                        {f.esParche && (
+                          <div className="mt-2">
+                            <Campo_Select label="Tipo de parche" value={f.tipoParche} onChange={v => set("tipoParche", v)} opciones={TIPOS_PARCHE_CARATULA} />
+                          </div>
+                        )}
+                      </div>
+                      {!esParche && fechaMinima && (
                         <p className="text-[11px] text-amber-700 mt-1">
                           La fecha de inicio no puede ser anterior al {fmtFecha(fechaMinima)}, cuando termina la
                           cobertura vigente. Dejá las fechas vacías y completalas vos mismo. N° de contratación,

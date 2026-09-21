@@ -802,6 +802,7 @@ export async function POST(request) {
       tieneProrroga: !!body.tieneProrroga,
       mesesProrroga: body.tieneProrroga ? Number(body.mesesProrroga) : null,
       domiciliosRenglones: domiciliosNormalizados,
+      tipoParche: body.rol === "parche" ? (body.tipoParche || null) : null,
       ascensoresPorDomicilio: body.tipo === "Ascensores" ? normalizarAscensoresPorDomicilio(body.ascensoresPorDomicilio, domiciliosNormalizados) : null,
       tieneAdecuaciones: body.tipo === "Ascensores" ? !!body.tieneAdecuaciones : false,
       observaciones: sectorInicial
