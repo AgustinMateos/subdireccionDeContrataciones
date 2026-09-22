@@ -70,6 +70,7 @@ import PaginaExpediente from "./PaginaExpediente";
 import FormularioExpediente from "./FormularioExpediente";
 import CaratularExpediente from "./CaratularExpediente";
 import ConfirmarRenovacion from "./ConfirmarRenovacion";
+import ConfirmarUnificarRenovacion from "./ConfirmarUnificarRenovacion";
 import GestionarProrroga from "./GestionarProrroga";
 import GenerarParche from "./GenerarParche";
 import RelanzarConvocatoria from "./RelanzarConvocatoria";
@@ -120,6 +121,10 @@ export default function App() {
   const [visibles, setVisibles] = useState(6);
   const [seleccionado, setSeleccionado] = useState(null);
   const [formAbierto, setFormAbierto] = useState(null); // 'nuevo' | 'editar' | 'renovacion'
+  // Orígenes elegidos en una tarjeta de Servicios para "Unificar renovación"
+  // (no depende de `seleccionado`/`formAbierto` porque son varios expedientes
+  // de distintas cadenas, no uno solo).
+  const [unificarOrigenes, setUnificarOrigenes] = useState(null);
   const [toast, setToast] = useState("");
 
   function mostrarToast(msg) {
@@ -433,6 +438,25 @@ export default function App() {
     mostrarToast("Renovación creada y vinculada a " + vigente.exp);
   }
 
+  // Une la cobertura activa de dos o más cadenas (trámites) que vencen el
+  // mismo período en una sola renovación nueva, con su propia tarjeta.
+  async function unificarRenovacion(origenes, datos) {
+    const res = await fetch("/api/expedientes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unificarDeIds: origenes.map((o) => o.id), ...datos }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      mostrarToast(data.error || "No se pudo unificar la renovación");
+      return;
+    }
+    const data = await res.json();
+    await refrescar(data.expediente?.id);
+    setUnificarOrigenes(null);
+    mostrarToast("Renovación unificada creada" + (data.expediente?.exp ? " — " + data.expediente.exp : ""));
+  }
+
   // El contrato anterior vence y la renovación pasa a ser el nuevo Vigente.
   async function activarRenovacion(renovacion) {
     const vigenteAnterior = expedientes.find(e => e.cadenaId === renovacion.cadenaId && e.rol === "vigente");
@@ -740,7 +764,7 @@ export default function App() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {itemsListado.slice(0, visibles).map(item =>
                 item.tipo === "grupo"
-                  ? <TarjetaGrupoServicios key={item.clave} grupo={item.grupo} todos={expedientes} onVer={verExpediente} />
+                  ? <TarjetaGrupoServicios key={item.clave} grupo={item.grupo} todos={expedientes} onVer={verExpediente} onUnificar={(origenes) => setUnificarOrigenes(origenes)} puedeEditar={puedeEditar} />
                   : <TarjetaExpediente key={item.exp.id} exp={item.exp} onVer={() => verExpediente(item.exp.id)} />
               )}
             </div>
@@ -907,6 +931,15 @@ export default function App() {
           expedientes={expedientes}
           onCerrar={() => setFormAbierto(null)}
           onConfirmar={(datos) => crearRenovacion(seleccionado, datos)}
+        />
+      )}
+
+      {unificarOrigenes && (
+        <ConfirmarUnificarRenovacion
+          origenes={unificarOrigenes}
+          expedientes={expedientes}
+          onCerrar={() => setUnificarOrigenes(null)}
+          onConfirmar={(datos) => unificarRenovacion(unificarOrigenes, datos)}
         />
       )}
 

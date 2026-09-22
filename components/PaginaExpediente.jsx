@@ -130,6 +130,12 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
     && exp.fechaInicio === divisionMadre.fechaInicio
     && exp.fechaVencimiento === divisionMadre.fechaVencimiento;
 
+  // Unificación de renovación: distinto de la división de arriba — acá dos o
+  // más cadenas confluyen en UNA renovación nueva (ver comentario en el
+  // schema, Expediente.unificadoEnId).
+  const unificadoEn = exp.unificadoEnId ? expedientes.find(e => e.id === exp.unificadoEnId) : null;
+  const unifica = expedientes.filter(e => e.unificadoEnId === exp.id);
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <button onClick={onVolver} className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
@@ -137,31 +143,42 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
       </button>
 
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+        <div className="border-b border-slate-200 px-6 py-4 flex items-start justify-between gap-3 flex-wrap">
           <div>
             <div className="font-mono text-base font-semibold text-slate-900">{exp.exp}</div>
             {exp.nombreCorto && <div className="text-sm font-medium text-slate-700">{exp.nombreCorto}</div>}
             <div className="text-xs text-slate-500">{exp.rol === "parche" ? labelParche(exp) : ROL_LABEL[exp.rol]}</div>
+            <div className="text-xs text-slate-500">{exp.tipo}</div>
+            {exp.sector && <div className="text-xs text-slate-500">Sector: {exp.sector}</div>}
           </div>
-        </div>
-
-        <div className="p-6 space-y-6">
-          <div className="flex flex-wrap gap-2">
-            {exp.area && (
-              <span className={"text-[11px] font-semibold uppercase tracking-wide px-2 py-1 rounded " + AREA_ESTILO[exp.area]}>{AREA_LABEL[exp.area]}</span>
-            )}
+          <div className="flex flex-wrap items-center gap-2">
             <span className={"text-[11px] font-medium px-2 py-1 rounded border " + ESTADO_ESTILO[estadoGeneralMostrado(exp)]}>{estadoGeneralMostrado(exp)}</span>
             {!esConvocatoriaFracasada(exp) && (
               <span className={"text-[11px] font-medium px-2 py-1 rounded border " + ALERTA_ESTILO[niv]}>
                 {dias >= 0 ? dias + " días restantes" : Math.abs(dias) + " días vencido"} · {ALERTA_LABEL[niv]}
               </span>
             )}
-            {exp.esPoliciaAdicional && (
-              <span className="text-[11px] font-semibold px-2 py-1 rounded border border-indigo-300 bg-indigo-50 text-indigo-800 flex items-center gap-1">
-                <Shield size={11} /> Policía adicional{exp.fuerzaSeguridad ? " · " + (FUERZA_LABEL[exp.fuerzaSeguridad] || exp.fuerzaSeguridad) : ""}
+            {frenado != null && (
+              <span className={"text-[11px] font-medium px-2 py-1 rounded border " + ALERTA_ESTILO[alertaFrenado(frenado)]}>
+                Frenado hace {frenado} día{frenado !== 1 ? "s" : ""}
               </span>
             )}
           </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {(exp.area || exp.esPoliciaAdicional) && (
+            <div className="flex flex-wrap gap-2">
+              {exp.area && (
+                <span className={"text-[11px] font-semibold uppercase tracking-wide px-2 py-1 rounded " + AREA_ESTILO[exp.area]}>{AREA_LABEL[exp.area]}</span>
+              )}
+              {exp.esPoliciaAdicional && (
+                <span className="text-[11px] font-semibold px-2 py-1 rounded border border-indigo-300 bg-indigo-50 text-indigo-800 flex items-center gap-1">
+                  <Shield size={11} /> Policía adicional{exp.fuerzaSeguridad ? " · " + (FUERZA_LABEL[exp.fuerzaSeguridad] || exp.fuerzaSeguridad) : ""}
+                </span>
+              )}
+            </div>
+          )}
 
           {exp.esPoliciaAdicional && exp.cotizacionPolicia && (
             <div className="bg-indigo-50/60 border border-indigo-100 rounded-lg p-4">
@@ -375,19 +392,10 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
 <div className="col-span-2">
   <Campo label="Objeto" valor={exp.objeto} /></div>
           <div className="grid grid-cols-4 gap-x-4 gap-y-3 text-sm">
-            <Campo label="Tipo de expediente" valor={exp.tipo} />
             <Campo label="Agente" valor={exp.agente} />
             <Campo label="N° de contratación" valor={exp.nroContratacion} />
             <Campo label={(exp.organismos || []).length > 1 ? "Organismos" : "Organismo"} valor={(exp.organismos || []).join(", ")} />
             <Campo label="Domicilios/renglones" valor={(exp.domiciliosRenglones || []).join(", ")} />
-            <Campo label="Sector actual" valor={exp.sector} />
-            {frenado != null && (
-              <Campo label="Días frenado" valor={
-                <span className={"text-[11px] font-medium px-2 py-0.5 rounded border " + ALERTA_ESTILO[alertaFrenado(frenado)]}>
-                  {frenado + " día" + (frenado !== 1 ? "s" : "")}
-                </span>
-              } />
-            )}
             <Campo label="Encuadre" valor={exp.encuadre} />
             <Campo
               label={esProrrogaDepto ? "OC (prórroga por departamento)" : esAdjudicacion ? "OC (adjudicación)" : "OC"}
@@ -509,6 +517,32 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                           Reunificado
                         </span>
                       )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {(unificadoEn || unifica.length > 0) && (
+            <div className="border-t border-slate-100 pt-4 space-y-2.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Unificación de renovación
+              </h3>
+              {unificadoEn && (
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="text-slate-500">Unificado en</span>
+                  <button onClick={() => onNavegar(unificadoEn.id)} className="font-mono text-slate-900 font-semibold hover:underline">
+                    {unificadoEn.exp}
+                  </button>
+                </div>
+              )}
+              {unifica.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="text-slate-500">Unifica la renovación de</span>
+                  {unifica.map(u => (
+                    <button key={u.id} onClick={() => onNavegar(u.id)} className="font-mono text-slate-900 font-semibold hover:underline">
+                      {u.exp}
                     </button>
                   ))}
                 </div>

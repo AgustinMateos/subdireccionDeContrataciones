@@ -191,6 +191,153 @@ export async function POST(request) {
     return NextResponse.json({ expediente: nuevo }, { status: 201 });
   }
 
+  // ---------- Unificar renovación de varios trámites que vencen en el mismo período ----------
+  // Dos o más cadenas del mismo grupo (mismo tipo/zona/fuero/organismos, cada
+  // una con su propio N° de expediente) pueden terminar el mismo período y
+  // conviene tramitarlas juntas de ahí en más: se genera UN expediente nuevo,
+  // con su propia cadenaId (una tarjeta nueva), que suma los
+  // domicilios/renglones de todos los orígenes. El N° de la renovación
+  // unificada puede ser uno nuevo o el mismo que ya tenía uno de los
+  // orígenes — como `exp` es único, en ese caso el origen elegido se
+  // renombra (mismo mecanismo que el sufijo "-LA" de Legítimo abono) para
+  // liberar el número, y queda como antecedente histórico bajo el número
+  // nuevo. Ninguno de los orígenes cambia de rol ni de estado: solo quedan
+  // marcados con `unificadoEnId` para la trazabilidad.
+  if (Array.isArray(body.unificarDeIds) && body.unificarDeIds.length > 0) {
+    const ids = [...new Set(body.unificarDeIds)];
+    if (ids.length < 2) {
+      return NextResponse.json({ error: "Elegí al menos dos trámites para unificar" }, { status: 400 });
+    }
+    if (!body.exp || !body.exp.trim()) {
+      return NextResponse.json({ error: "Cargá el N° de expediente de la renovación unificada" }, { status: 400 });
+    }
+    if (!body.fechaInicio || !body.fechaVencimiento) {
+      return NextResponse.json({ error: "Cargá la fecha de inicio y de vencimiento de la renovación unificada" }, { status: 400 });
+    }
+
+    const origenes = await prisma.expediente.findMany({ where: { id: { in: ids } } });
+    if (origenes.length !== ids.length || origenes.some((o) => o.departamentoId !== session.user.departamentoId)) {
+      return NextResponse.json({ error: "Alguno de los expedientes de origen no se encontró" }, { status: 404 });
+    }
+    if (origenes.some((o) => o.rol !== "vigente" && o.rol !== "parche")) {
+      return NextResponse.json({ error: "Solo se puede unificar la cobertura activa (vigente o parche) de cada trámite" }, { status: 400 });
+    }
+    if (origenes.some((o) => o.unificadoEnId)) {
+      return NextResponse.json({ error: "Alguno de los expedientes ya fue unificado en otra renovación" }, { status: 400 });
+    }
+
+    // No puede empezar antes de que termine la cobertura de NINGUNA de las
+    // cadenas que se unen (igual que una renovación simple, pero mirando
+    // todas las cadenas involucradas).
+    const cadenaIds = [...new Set(origenes.map((o) => o.cadenaId))];
+    const cadenasCompletas = await prisma.expediente.findMany({
+      where: { cadenaId: { in: cadenaIds }, rol: { in: ["vigente", "parche"] } },
+    });
+    const fechaMinima = cadenasCompletas.reduce(
+      (max, e) => (!max || e.fechaVencimiento > max ? e.fechaVencimiento : max),
+      null
+    );
+    if (fechaMinima && new Date(body.fechaInicio) < fechaMinima) {
+      return NextResponse.json({
+        error: "La fecha de inicio de la renovación unificada no puede ser anterior a " + fechaMinima.toISOString().slice(0, 10),
+      }, { status: 400 });
+    }
+
+    const expPedido = body.exp.trim();
+    const origenARenombrar = origenes.find((o) => o.exp.trim().toLowerCase() === expPedido.toLowerCase());
+    const base = origenes[0];
+    const domiciliosUnificados = normalizarLista(
+      Array.isArray(body.domiciliosRenglones) && body.domiciliosRenglones.length > 0
+        ? body.domiciliosRenglones
+        : origenes.flatMap((o) => o.domiciliosRenglones || [])
+    );
+
+    let nuevo;
+    try {
+      nuevo = await prisma.$transaction(async (tx) => {
+        // Si se reutiliza el N° de uno de los orígenes, ese origen se
+        // renombra primero para liberar el string (exp es único).
+        if (origenARenombrar) {
+          let candidato = origenARenombrar.exp + "-ANT";
+          let sufijo = 1;
+          while (await tx.expediente.findUnique({ where: { exp: candidato } })) {
+            sufijo++;
+            candidato = origenARenombrar.exp + "-ANT" + sufijo;
+          }
+          await tx.expediente.update({
+            where: { id: origenARenombrar.id },
+            data: {
+              exp: candidato,
+              observaciones: {
+                create: [{
+                  usuario: session.user.name,
+                  tipo: "general",
+                  texto: "Expediente renombrado a " + candidato + " para liberar el N° " + expPedido +
+                    ", reutilizado en la renovación unificada.",
+                }],
+              },
+            },
+          });
+        }
+
+        const creado = await tx.expediente.create({
+          data: {
+            cadenaId: "c" + Date.now(),
+            rol: "renovacion",
+            exp: expPedido,
+            nombreCorto: base.nombreCorto,
+            nroResolucion: base.nroResolucion,
+            departamentoId: session.user.departamentoId,
+            area: base.area,
+            tipo: base.tipo,
+            agente: base.agente,
+            organismos: base.organismos,
+            destinatario: base.destinatario,
+            domicilio: base.domicilio,
+            objeto: base.objeto,
+            // Igual que una renovación simple: sin encuadre ni monto todavía,
+            // se define recién al resolver la adjudicación.
+            encuadre: null,
+            presupuestoOficial: 0,
+            montoARS: 0,
+            montoUSD: 0,
+            esPoliciaAdicional: base.esPoliciaAdicional,
+            fuerzaSeguridad: base.fuerzaSeguridad,
+            fechaInicio: new Date(body.fechaInicio),
+            fechaVencimiento: new Date(body.fechaVencimiento),
+            sector: base.sector,
+            zona: base.zona,
+            fuero: base.fuero,
+            codigoInterno: base.codigoInterno,
+            domiciliosRenglones: domiciliosUnificados,
+            etapa: "En trámite - carátula inicial",
+            estadoGeneral: "En trámite de renovación",
+          },
+          include: INCLUDE_EXPEDIENTE,
+        });
+
+        await tx.expediente.updateMany({ where: { id: { in: ids } }, data: { unificadoEnId: creado.id } });
+        await tx.observacion.createMany({
+          data: ids.map((id) => ({
+            expedienteId: id,
+            usuario: session.user.name,
+            tipo: "general",
+            texto: "Unificado con " + (ids.length - 1) + " trámite(s) más en la renovación " + expPedido + ".",
+          })),
+        });
+
+        return creado;
+      });
+    } catch (e) {
+      if (e.code === "P2002") {
+        return NextResponse.json({ error: "Ya existe un expediente con ese número" }, { status: 409 });
+      }
+      throw e;
+    }
+
+    return NextResponse.json({ expediente: nuevo }, { status: 201 });
+  }
+
   // ---------- Generar un parche (contratación puente) vinculado a la cadena ----------
   // A diferencia de la renovación, el parche no copia fechas/monto del origen:
   // es una contratación corta con sus propios términos. Puede haber más de uno

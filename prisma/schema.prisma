@@ -135,7 +135,7 @@ model Expediente {
   // a ser el de la nueva modalidad — el que tenía la convocatoria fracasada
   // se guarda en encuadreFracasado para poder seguir mostrándolo en esa
   // tarjeta elevada.
-  parcheDeFracasada        Boolean  @default(false)
+  parcheDeFracasada        Boolean @default(false)
   encuadreFracasado        String?
 
   // --- Campos exclusivos del departamento Servicios (nullable, sin uso en Informática y Varios) ---
@@ -160,7 +160,7 @@ model Expediente {
   // surgió (divisionDeId) sin perder esa relación. Si más adelante los
   // períodos de ambos vuelven a coincidir, se marcan como `unificado` — solo
   // se vinculan visualmente, no se fusionan las filas.
-  domiciliosRenglones String[]     @default([])
+  domiciliosRenglones    String[]     @default([])
   // Firma y monto adjudicados por domicilio/renglón:
   // { "domicilio": { "firma": "...", "monto": 1234 } }. Un mismo expediente
   // puede adjudicar distintos renglones a distintas empresas y por distintos
@@ -168,10 +168,22 @@ model Expediente {
   // para todo el expediente) — se completa al resolver la adjudicación
   // (íntegra o lo que queda adjudicado en una parcial).
   adjudicacionPorRenglon Json?
-  divisionDeId        String?
-  divisionDe          Expediente?  @relation("DivisionExpediente", fields: [divisionDeId], references: [id])
-  divisiones          Expediente[] @relation("DivisionExpediente")
-  unificado           Boolean      @default(false)
+  divisionDeId           String?
+  divisionDe             Expediente?  @relation("DivisionExpediente", fields: [divisionDeId], references: [id])
+  divisiones             Expediente[] @relation("DivisionExpediente")
+  unificado              Boolean      @default(false)
+
+  // Unificación de renovación: distinto de `unificado` de arriba (que solo
+  // vincula visualmente una división con su origen). Acá dos o más trámites
+  // (cadenas distintas) del mismo grupo vencen en el mismo período y se
+  // renuevan juntos bajo UN SOLO expediente nuevo que arranca su propia
+  // cadenaId (una tarjeta nueva) con la suma de los domicilios/renglones de
+  // todos. Cada origen queda con `unificadoEnId` apuntando al expediente
+  // unificado — su propia fila y su cadena no se tocan ni se cierran, solo
+  // quedan marcadas como absorbidas por la renovación nueva.
+  unificadoEnId String?
+  unificadoEn   Expediente?  @relation("UnificacionRenovacion", fields: [unificadoEnId], references: [id])
+  unificaciones Expediente[] @relation("UnificacionRenovacion")
 
   // Al día siguiente de la fecha de apertura, se pregunta si se presentaron
   // ofertas: si no, la convocatoria queda "Desierta" y se puede relanzar UNA
@@ -187,6 +199,7 @@ model Expediente {
 
   @@index([cadenaId])
   @@index([divisionDeId])
+  @@index([unificadoEnId])
   @@index([departamentoId])
   @@index([area])
   @@index([estadoGeneral])
@@ -208,9 +221,9 @@ model Observacion {
   // Detalle estructurado de una activación puntual de prórroga, además del
   // resumen en `texto` — permite reconstruir el historial completo cuando la
   // prórroga se usó en más de una tanda (ver comentario en Expediente.mesesProrrogaUsados).
-  mesesProrroga             Int?      // organismo: meses usados en ESTA activación
+  mesesProrroga             Int? // organismo: meses usados en ESTA activación
   fechaNotificacionProrroga DateTime? // organismo: fecha de notificación de ESTA activación
-  ocResolucion              String?   // departamento: OC generada en ESTA subdivisión
+  ocResolucion              String? // departamento: OC generada en ESTA subdivisión
 
   @@index([expedienteId])
 }

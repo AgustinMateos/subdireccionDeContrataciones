@@ -12,10 +12,17 @@ import { direccionesDe } from "@/lib/organismosFueros";
 // y otra vez en el listado.
 const ROL_ORDEN = { antecedente: 0, vigente: 1, parche: 2, renovacion: 3 };
 
-export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
+export default function TarjetaGrupoServicios({ grupo, todos, onVer, onUnificar, puedeEditar }) {
   const { tipo, zona, fuero, organismos, items } = grupo;
   const direcciones = direccionesDe(organismos, fuero);
   const [abierto, setAbierto] = useState(false);
+  // Cada subtarjeta (trámite) se abre y cierra desde su título, igual que la
+  // card grande. Arrancan abiertas al desplegar la card.
+  const [cerradas, setCerradas] = useState({});
+  // Selección para "Unificar renovación": ids de expedientes (la cobertura
+  // activa de cada cadena) marcados para renovarse juntos en una sola
+  // tarjeta nueva. Se limpia si se cierra la card.
+  const [seleccion, setSeleccion] = useState([]);
   // El acumulado de meses de prórroga vive en el vigente de la cadena, no en
   // el parche de departamento (ver Expediente.mesesProrrogaUsados).
   function vigenteDe(exp) {
@@ -47,6 +54,53 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
     if ((datos.montacargas || []).length > 0) partes.push("Mont. " + datos.montacargas.join(", "));
     return partes.length > 0 ? " (" + partes.join(" · ") + ")" : "";
   }
+  // Título de cada subtarjeta: los domicilios/renglones que tramita ese
+  // trámite (la unión de los de todos sus expedientes, sin repetir).
+  function tituloCadena(cadena) {
+    const domicilios = [];
+    for (const e of cadena.items) {
+      for (const d of e.domiciliosRenglones || []) {
+        if (!domicilios.includes(d)) domicilios.push(d);
+      }
+    }
+    if (domicilios.length === 0) return "Sin domicilios/renglones cargados";
+    return domicilios.map(d => d + detalleAscensores(cadena.items.find(e => (e.domiciliosRenglones || []).includes(d)), d)).join(" · ");
+  }
+  // "Unificar renovación": un ítem es unificable si es cobertura activa
+  // (vigente o parche) que nadie más adelante en su propia cadena ya
+  // reemplazó, su cadena no tiene una renovación en trámite propia, y todavía
+  // no fue unificado en otra tarjeta. Ojo: una cadena puede tener MÁS de un
+  // ítem unificable a la vez — ej. una convocatoria fracasada dividida en
+  // varias contrataciones (parcheDeFracasada) que cubren domicilios
+  // distintos y vencen el mismo día, sin que una reemplace a la otra.
+  function esUnificable(cadena, item) {
+    if ((item.rol !== "vigente" && item.rol !== "parche") || item.unificadoEnId) return false;
+    const tieneRenovacionPropia = cadena.items.some(e => e.rol === "renovacion" && !esConvocatoriaFracasada(e));
+    if (tieneRenovacionPropia) return false;
+    const reemplazadoPorOtro = cadena.items.some(e =>
+      e.id !== item.id && (e.rol === "vigente" || e.rol === "parche")
+      && new Date(e.fechaVencimiento) > new Date(item.fechaVencimiento));
+    return !reemplazadoPorOtro;
+  }
+  // Solo se ofrece unificar cuando hay 2+ ítems unificables (de la misma
+  // cadena o de cadenas distintas) que vencen exactamente el mismo día — si
+  // no coinciden, no tiene sentido la unificación.
+  const fechaVencKey = e => String(e.fechaVencimiento).slice(0, 10);
+  const conteoPorPeriodo = {};
+  for (const c of cadenas) {
+    for (const item of c.items) {
+      if (!esUnificable(c, item)) continue;
+      const k = fechaVencKey(item);
+      conteoPorPeriodo[k] = (conteoPorPeriodo[k] || 0) + 1;
+    }
+  }
+  const periodosUnificables = new Set(Object.keys(conteoPorPeriodo).filter(k => conteoPorPeriodo[k] >= 2));
+  function toggleSeleccion(id) {
+    setSeleccion(sel => sel.includes(id) ? sel.filter(x => x !== id) : [...sel, id]);
+  }
+  const origenesSeleccionados = seleccion.map(id => items.find(e => e.id === id)).filter(Boolean);
+  const seleccionValida = origenesSeleccionados.length >= 2
+    && origenesSeleccionados.every(e => fechaVencKey(e) === fechaVencKey(origenesSeleccionados[0]));
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-3">
       <button
@@ -87,7 +141,21 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
       <div className="flex flex-col gap-3 border-t border-slate-100 pt-3">
         {cadenas.map(cadena => (
           <div key={cadena.cadenaId} className="border border-slate-200 rounded-lg divide-y divide-slate-100">
-            {cadena.items.map(exp => {
+            <button
+              type="button"
+              onClick={() => setCerradas(c => ({ ...c, [cadena.cadenaId]: !c[cadena.cadenaId] }))}
+              className={"w-full px-2.5 py-2 bg-slate-50 hover:bg-slate-100 transition-colors rounded-t-lg flex items-start justify-between gap-2 text-left " + (cerradas[cadena.cadenaId] ? "rounded-b-lg" : "")}
+            >
+              <span className="flex items-start gap-1.5 text-xs font-semibold text-slate-800">
+                <MapPin size={12} className="mt-0.5 shrink-0 text-slate-500" />
+                <span>{tituloCadena(cadena)}</span>
+              </span>
+              <span className="flex items-center gap-1.5 shrink-0 text-[11px] font-normal text-slate-400">
+                {cadena.items.length} exp.
+                <ChevronDown size={14} className={"transition-transform " + (cerradas[cadena.cadenaId] ? "" : "rotate-180")} />
+              </span>
+            </button>
+            {!cerradas[cadena.cadenaId] && cadena.items.map(exp => {
               const esRenovacion = exp.rol === "renovacion";
               const dias = diasRestantes(exp.fechaVencimiento);
               const niv = alerta(dias);
@@ -102,12 +170,30 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
                     ? "Prórroga (departamento) · " + (mesesProrrogaUsadosDe(exp) || 0) + "/" + mesesProrrogaTopeDe(exp) + " meses"
                     : ROL_LABEL.parche))
                 : ROL_LABEL[exp.rol];
+              const esPuntaUnificable = puedeEditar
+                && esUnificable(cadena, exp)
+                && periodosUnificables.has(fechaVencKey(exp));
+              const unificadoEn = exp.unificadoEnId ? (todos || []).find(e => e.id === exp.unificadoEnId) : null;
               return (
-                <button
-                  key={exp.id}
-                  onClick={() => onVer(exp.id)}
-                  className="w-full text-left p-2.5 flex items-start justify-between gap-2 hover:bg-slate-50 transition-colors first:rounded-t-lg last:rounded-b-lg"
-                >
+                <div key={exp.id} className="flex items-stretch first:rounded-t-lg last:rounded-b-lg hover:bg-slate-50 transition-colors">
+                  {esPuntaUnificable && (
+                    <label
+                      className="flex items-center pl-2.5 shrink-0 cursor-pointer"
+                      onClick={e => e.stopPropagation()}
+                      title="Marcar para unificar la renovación con otro trámite que vence el mismo período"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={seleccion.includes(exp.id)}
+                        onChange={() => toggleSeleccion(exp.id)}
+                        className="w-3.5 h-3.5 rounded border-slate-300 text-slate-800 focus:ring-slate-800"
+                      />
+                    </label>
+                  )}
+                  <button
+                    onClick={() => onVer(exp.id)}
+                    className={"flex-1 min-w-0 text-left p-2.5 flex items-start justify-between gap-2 " + (esPuntaUnificable ? "" : "first:rounded-t-lg last:rounded-b-lg")}
+                  >
                   <div className="min-w-0 flex flex-col gap-0.5">
                     <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                       {rolTexto}{exp.encuadre ? " · " + exp.encuadre : ""}
@@ -151,6 +237,11 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
                     <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ESTADO_ESTILO[estadoGeneralMostrado(exp)]}>
                       {estadoGeneralMostrado(exp)}
                     </span>
+                    {unificadoEn && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-800">
+                        Unificado en {unificadoEn.exp}
+                      </span>
+                    )}
                     {esRenovacion ? (
                       frenado != null && (
                         <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[alertaFrenado(frenado)]}>
@@ -171,11 +262,35 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer }) {
                       </span>
                     )}
                   </div>
-                </button>
+                  </button>
+                </div>
               );
             })}
           </div>
         ))}
+        {seleccionValida && (
+          <div className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 sticky bottom-0">
+            <span className="text-[11px] text-slate-600">
+              {origenesSeleccionados.length} trámites seleccionados para unificar — vencen el {fmtFecha(origenesSeleccionados[0].fechaVencimiento)}
+            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setSeleccion([])}
+                className="text-[11px] font-medium text-slate-500 hover:text-slate-800 underline"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => { onUnificar(origenesSeleccionados); setSeleccion([]); }}
+                className="px-3 py-1.5 rounded-md bg-slate-900 text-white text-[11px] font-medium hover:bg-slate-800"
+              >
+                Unificar renovación
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       )}
     </div>
