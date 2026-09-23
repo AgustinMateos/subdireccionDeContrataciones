@@ -244,9 +244,14 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer, onUnificar,
                         </span>
                       )
                     ) : (
-                      <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[niv]}>
-                        {dias >= 0 ? "Vence " + fmtFecha(exp.fechaVencimiento) : Math.abs(dias) + " días vencido"}
-                      </span>
+                      // Un Finalizado/Archivado ya está cerrado — no tiene
+                      // sentido avisar "vencido hace N días", esa alerta es
+                      // para lo que debería seguir corriendo y no lo está.
+                      estadoGeneralMostrado(exp) !== "Finalizado" && estadoGeneralMostrado(exp) !== "Archivado" && (
+                        <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[niv]}>
+                          {dias >= 0 ? "Vence " + fmtFecha(exp.fechaVencimiento) : Math.abs(dias) + " días vencido"}
+                        </span>
+                      )
                     )}
                     {unificadoEn && (
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-violet-300 bg-violet-50 text-violet-800 text-right">

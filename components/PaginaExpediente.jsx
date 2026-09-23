@@ -164,7 +164,10 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className={"text-[11px] font-medium px-2 py-1 rounded border " + ESTADO_ESTILO[estadoGeneralMostrado(exp)]}>{estadoGeneralMostrado(exp)}</span>
-            {!esConvocatoriaFracasada(exp) && (
+            {/* Un Finalizado/Archivado ya está cerrado — no tiene sentido
+                avisar "vencido hace N días", esa alerta es para lo que
+                debería seguir corriendo y no lo está. */}
+            {!esConvocatoriaFracasada(exp) && estadoGeneralMostrado(exp) !== "Finalizado" && estadoGeneralMostrado(exp) !== "Archivado" && (
               <span className={"text-[11px] font-medium px-2 py-1 rounded border " + ALERTA_ESTILO[niv]}>
                 {dias >= 0 ? dias + " días restantes" : Math.abs(dias) + " días vencido"} · {ALERTA_LABEL[niv]}
               </span>

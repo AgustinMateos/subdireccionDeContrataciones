@@ -5,6 +5,10 @@ import { diasRestantes, alerta, fmtFecha, fmtMoneda, estadoGeneralMostrado } fro
 export default function TarjetaExpediente({ exp, onVer }) {
   const dias = diasRestantes(exp.fechaVencimiento);
   const niv = alerta(dias);
+  // Un Finalizado/Archivado ya está cerrado — no tiene sentido avisar
+  // "vencido", esa alerta es para lo que debería seguir corriendo y no lo está.
+  const estado = estadoGeneralMostrado(exp);
+  const yaCerrado = estado === "Finalizado" || estado === "Archivado";
   return (
     <button onClick={onVer} className="text-left bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-400 hover:shadow-sm transition-all flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
@@ -13,9 +17,11 @@ export default function TarjetaExpediente({ exp, onVer }) {
             {AREA_LABEL[exp.area]}
           </span>
         ) : <span />}
-        <span className={"text-[10px] font-medium uppercase tracking-wide px-2 py-1 rounded border " + ALERTA_ESTILO[niv]}>
-          {ALERTA_LABEL[niv]}
-        </span>
+        {!yaCerrado && (
+          <span className={"text-[10px] font-medium uppercase tracking-wide px-2 py-1 rounded border " + ALERTA_ESTILO[niv]}>
+            {ALERTA_LABEL[niv]}
+          </span>
+        )}
       </div>
       {exp.esPoliciaAdicional && (
         <span className="self-start text-[10px] font-medium px-2 py-0.5 rounded border border-indigo-300 bg-indigo-50 text-indigo-800">
