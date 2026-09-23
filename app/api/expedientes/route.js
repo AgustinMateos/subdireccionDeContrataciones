@@ -65,8 +65,19 @@ function normalizarAscensoresPorDomicilio(valor, domiciliosValidos) {
 // programadas en este proyecto, y así igual queda al día apenas alguien
 // entra, sin depender de que ese alguien haga clic en nada.
 async function activarRenovacionesVencidas(departamentoId) {
-  const hoy = new Date();
-  hoy.setUTCHours(0, 0, 0, 0);
+  // Las fechas se cargan desde inputs "YYYY-MM-DD" en el navegador del
+  // usuario (huso horario de Argentina, UTC-3, sin horario de verano) y
+  // terminan guardadas como la medianoche de ESE huso, que en UTC es
+  // "día T03:00:00Z" — no "día T00:00:00Z". El servidor corre en UTC, así
+  // que para el corte "hoy" hay que reconstruir la fecha de calendario de
+  // Argentina (restando 3hs a la hora UTC actual) y recién ahí armar su
+  // medianoche en UTC — si no, el corte queda 3hs adelantado y una fecha de
+  // inicio de HOY no se reconoce como llegada hasta la noche.
+  const ahoraArgentina = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const hoy = new Date(Date.UTC(
+    ahoraArgentina.getUTCFullYear(), ahoraArgentina.getUTCMonth(), ahoraArgentina.getUTCDate(),
+    3, 0, 0, 0
+  ));
   const candidatas = await prisma.expediente.findMany({
     where: {
       departamentoId,
