@@ -212,7 +212,7 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer, onUnificar,
                     <div className="flex items-start gap-1 text-[11px] text-slate-500">
                       <MapPin size={11} className="mt-0.5 shrink-0" />
                       <span>
-                        {esRenovacion ? "Renueva: " : "Tramita: "}
+                        {esRenovacion ? "Renueva: " : exp.rol === "vigente" ? "Contratado: " : "Tramita: "}
                         {(exp.domiciliosRenglones || []).length > 0
                           ? exp.domiciliosRenglones.map(d => d + detalleAscensores(exp, d)).join(" · ")
                           : "sin domicilios/renglones cargados"}
