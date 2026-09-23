@@ -4,7 +4,6 @@ import { useState } from "react";
 import { MapPin, Clock, ChevronDown } from "lucide-react";
 import { ALERTA_ESTILO, ESTADO_ESTILO, ROL_LABEL, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
 import { diasRestantes, alerta, fmtFecha, fmtMoneda, diasFrenado, alertaFrenado, estadoGeneralMostrado, esConvocatoriaFracasada } from "@/lib/utils";
-import { direccionesDe } from "@/lib/organismosFueros";
 
 // Varios expedientes de Servicios que son "la misma prestación" repetida
 // (mismo tipo de servicio, mismo fuero y misma zona) con distinto N° de
@@ -14,7 +13,6 @@ const ROL_ORDEN = { antecedente: 0, vigente: 1, parche: 2, renovacion: 3 };
 
 export default function TarjetaGrupoServicios({ grupo, todos, onVer, onUnificar, puedeEditar }) {
   const { tipo, zona, fuero, organismos, items } = grupo;
-  const direcciones = direccionesDe(organismos, fuero);
   const [abierto, setAbierto] = useState(false);
   // Cada subtarjeta (trámite) se abre y cierra desde su título, igual que la
   // card grande. Arrancan abiertas al desplegar la card.
@@ -70,6 +68,16 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer, onUnificar,
     }
     if (domicilios.length === 0) return "Sin domicilios/renglones cargados";
     return domicilios.map(d => d + detalleAscensores(cadena.items.find(e => (e.domiciliosRenglones || []).includes(d)), d)).join(" · ");
+  }
+  // Domicilios que se ven arriba de la card grande: la unión de los que
+  // titulan cada subtarjeta (todas las cadenas del grupo), sin repetir.
+  const domiciliosDelGrupo = [];
+  for (const c of cadenas) {
+    for (const e of c.items) {
+      for (const d of e.domiciliosRenglones || []) {
+        if (!domiciliosDelGrupo.includes(d)) domiciliosDelGrupo.push(d);
+      }
+    }
   }
   // "Unificar renovación": un ítem es unificable si es cobertura activa
   // (vigente o parche) que nadie más adelante en su propia cadena ya
@@ -127,10 +135,10 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer, onUnificar,
       {fuero.length > 0 && (
         <div className="text-[11px] text-slate-500">{fuero.join(" · ")}</div>
       )}
-      {direcciones.length > 0 && (
+      {domiciliosDelGrupo.length > 0 && (
         <div className="flex items-start gap-1.5 text-[11px] text-slate-400">
           <MapPin size={12} className="mt-0.5 shrink-0" />
-          <span>{direcciones.join(" · ")}</span>
+          <span>{domiciliosDelGrupo.join(" · ")}</span>
         </div>
       )}
       </button>
