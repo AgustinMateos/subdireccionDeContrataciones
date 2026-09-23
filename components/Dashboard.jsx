@@ -761,7 +761,7 @@ export default function App() {
               departamentoSlug={sesion.departamentoSlug}
             />
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
               {itemsListado.slice(0, visibles).map(item =>
                 item.tipo === "grupo"
                   ? <TarjetaGrupoServicios key={item.clave} grupo={item.grupo} todos={expedientes} onVer={verExpediente} onUnificar={(origenes) => setUnificarOrigenes(origenes)} puedeEditar={puedeEditar} />
