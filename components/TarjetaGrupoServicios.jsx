@@ -36,14 +36,19 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer, onUnificar,
   }
   // Subdivisiones de la card: cada trámite (cadena) va en su propio bloque —
   // el vigente con su renovación/parche, o un vigente solo — para que se vea
-  // qué expediente cubre qué domicilios/renglones y en qué estado está.
+  // qué expediente cubre qué domicilios/renglones y en qué estado está. Los
+  // antecedentes (cobertura ya cerrada, reemplazada) no se muestran acá —
+  // esto es un resumen de lo que está en curso, no la trazabilidad completa
+  // (para eso está la ficha del expediente).
   const cadenas = [];
   for (const exp of items) {
+    if (exp.rol === "antecedente") continue;
     let cadena = cadenas.find(c => c.cadenaId === exp.cadenaId);
     if (!cadena) { cadena = { cadenaId: exp.cadenaId, items: [] }; cadenas.push(cadena); }
     cadena.items.push(exp);
   }
   for (const c of cadenas) c.items.sort((a, b) => (ROL_ORDEN[a.rol] ?? 9) - (ROL_ORDEN[b.rol] ?? 9));
+  const cadenasCount = cadenas.reduce((suma, c) => suma + c.items.length, 0);
   // En Ascensores, el domicilio se acompaña de qué ascensores/montacargas
   // puntuales cubre ese expediente.
   function detalleAscensores(exp, domicilio) {
@@ -133,7 +138,7 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer, onUnificar,
 
       {!abierto && (
         <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2">
-          {items.length} expediente{items.length !== 1 ? "s" : ""} · tocá para ver el detalle
+          {cadenasCount} expediente{cadenasCount !== 1 ? "s" : ""} · tocá para ver el detalle
         </div>
       )}
 
