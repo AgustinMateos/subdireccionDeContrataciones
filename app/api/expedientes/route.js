@@ -52,9 +52,75 @@ function normalizarAscensoresPorDomicilio(valor, domiciliosValidos) {
   return Object.keys(resultado).length > 0 ? resultado : null;
 }
 
+// Activación automática de renovaciones: si una renovación ya está
+// adjudicada (íntegra, o con adjudicatario cargado aunque sea una
+// adjudicación parcial) y su fecha de inicio ya llegó, no tiene sentido
+// seguir esperando el clic manual de "Activar como Vigente" — se activa
+// sola, con la misma lógica de esa acción (el vigente anterior de la cadena
+// pasa a "antecedente" / "Finalizado"). Una convocatoria fracasada/desierta
+// nunca se activa así, aunque tenga fecha de inicio vencida — sigue
+// necesitando resolverse a mano (relanzar, generar contratación, etc.).
+// Se corre al listar expedientes (se llama en cada carga/refresco de la
+// pantalla) en vez de con un cron: no hay infraestructura de tareas
+// programadas en este proyecto, y así igual queda al día apenas alguien
+// entra, sin depender de que ese alguien haga clic en nada.
+async function activarRenovacionesVencidas(departamentoId) {
+  const hoy = new Date();
+  hoy.setUTCHours(0, 0, 0, 0);
+  const candidatas = await prisma.expediente.findMany({
+    where: {
+      departamentoId,
+      rol: "renovacion",
+      fechaInicio: { lte: hoy },
+      NOT: { estadoConvocatoria: { in: ESTADOS_CONVOCATORIA_FALLIDOS } },
+      OR: [
+        { estadoConvocatoria: "Adjudicación íntegra" },
+        { adjudicatario: { not: null } },
+      ],
+    },
+  });
+  for (const renovacion of candidatas) {
+    const vigenteAnterior = await prisma.expediente.findFirst({
+      where: { cadenaId: renovacion.cadenaId, rol: "vigente", departamentoId, NOT: { id: renovacion.id } },
+    });
+    const ops = [];
+    if (vigenteAnterior) {
+      ops.push(prisma.expediente.update({
+        where: { id: vigenteAnterior.id },
+        data: { rol: "antecedente", estadoGeneral: "Finalizado", etapa: "Finalizado" },
+      }));
+    }
+    ops.push(prisma.expediente.update({
+      where: { id: renovacion.id },
+      data: {
+        rol: "vigente",
+        estadoGeneral: "Vigente",
+        etapa: "En ejecución",
+        observaciones: {
+          create: {
+            usuario: "Sistema",
+            tipo: "general",
+            texto: "Activada automáticamente como Vigente: ya estaba adjudicada y llegó la fecha de inicio (" +
+              renovacion.fechaInicio.toISOString().slice(0, 10) + ").",
+          },
+        },
+      },
+    }));
+    await prisma.$transaction(ops);
+  }
+}
+
 export async function GET(request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  try {
+    await activarRenovacionesVencidas(session.user.departamentoId);
+  } catch (e) {
+    // No bloquea el listado si esto falla — es una corrección automática,
+    // no el propósito principal del endpoint.
+    console.error("No se pudieron activar renovaciones vencidas:", e);
+  }
 
   const { searchParams } = new URL(request.url);
   const area = searchParams.get("area");
