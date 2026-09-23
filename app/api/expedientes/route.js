@@ -310,6 +310,9 @@ export async function POST(request) {
             fuero: base.fuero,
             codigoInterno: base.codigoInterno,
             domiciliosRenglones: domiciliosUnificados,
+            ascensoresPorDomicilio: base.tipo === "Ascensores"
+              ? normalizarAscensoresPorDomicilio(body.ascensoresPorDomicilio, domiciliosUnificados)
+              : null,
             etapa: "En trámite - carátula inicial",
             estadoGeneral: "En trámite de renovación",
           },
@@ -929,10 +932,30 @@ export async function POST(request) {
     expFinal = candidato;
   }
 
+  // "En trámite de renovación" es un estado que solo tiene sentido para el
+  // rol "renovacion" (define, entre otras cosas, si esConvocatoriaFracasada
+  // puede aplicar) — si el cliente lo manda para cualquier otro rol (ej. el
+  // desplegable "Estado general" del alta manual, elegido sin pensar en qué
+  // rol termina resolviendo la cadena), se corrige a "Vigente" para no dejar
+  // guardar una combinación inconsistente.
+  let rolFinal = body.rol || "vigente";
+  // Tampoco tiene sentido un "vigente" cuyo período todavía no arrancó — ya
+  // está la cobertura corriendo o no lo es. Mismo criterio que aplica
+  // "Caratular": si la fecha de inicio es futura, pasa a ser una renovación
+  // en trámite (avisa cuándo arranca) hasta que llegue esa fecha.
+  const hoy = new Date();
+  hoy.setUTCHours(0, 0, 0, 0);
+  if (rolFinal === "vigente" && body.fechaInicio && new Date(body.fechaInicio) > hoy) {
+    rolFinal = "renovacion";
+  }
+  const estadoGeneralFinal = rolFinal === "renovacion"
+    ? "En trámite de renovación"
+    : (body.estadoGeneral === "En trámite de renovación" ? "Vigente" : (body.estadoGeneral || "Vigente"));
+
   const nuevo = await prisma.expediente.create({
     data: {
       cadenaId: body.cadenaId || "c" + Date.now(),
-      rol: body.rol || "vigente",
+      rol: rolFinal,
       exp: expFinal,
       nombreCorto: body.nombreCorto || null,
       nroContratacion: esRenovacionVinculada ? null : (body.nroContratacion || null),
@@ -959,7 +982,7 @@ export async function POST(request) {
       adjudicatario: esRenovacionVinculada || esLegitimoAbono ? null : (body.adjudicatario || null),
       sector: sectorInicial,
       etapa: body.etapa || null,
-      estadoGeneral: body.estadoGeneral || "Vigente",
+      estadoGeneral: estadoGeneralFinal,
       fuero: normalizarFuero(body),
       zona: esRenovacionVinculada ? (referenciaVigente.zona || null) : (body.zona || null),
       codigoInterno: body.codigoInterno || null,

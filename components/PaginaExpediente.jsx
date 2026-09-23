@@ -15,12 +15,16 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   const antecedente = antecedentes[0];
   const antecedentesAnteriores = antecedentes.slice(1);
   const vigente = cadena.find(e => e.rol === "vigente");
-  // Todos los parches se muestran en la línea de tiempo — a diferencia de los
-  // antecedentes, nunca quedan ocultos detrás de un "ver más": si hubo que
-  // cubrir el período varias veces, se tiene que ver. Los que resolvieron una
-  // misma convocatoria fracasada con el mismo período van juntos, apilados en
-  // una sola columna (ver nodosPrincipales).
-  const parches = cadena.filter(e => e.rol === "parche");
+  // Todos los parches en curso se muestran en la línea de tiempo — a
+  // diferencia de los antecedentes, nunca quedan ocultos detrás de un "ver
+  // más": si hubo que cubrir el período varias veces, se tiene que ver. Los
+  // que resolvieron una misma convocatoria fracasada con el mismo período
+  // van juntos, apilados en una sola columna (ver nodosPrincipales). Un
+  // parche cuya propia adjudicación se resolvió como fracasada/desierta (ej.
+  // una de las contrataciones que salió de dividir una convocatoria
+  // fracasada, y que a su vez fracasa) deja de estar "en curso" — se cuelga
+  // arriba junto con las renovaciones fracasadas (ver parchesFracasados).
+  const parches = cadena.filter(e => e.rol === "parche" && !esConvocatoriaFracasada(e));
   // Una renovación cuya convocatoria fracasó/quedó desierta ya no es "la"
   // renovación de la cadena — el vigente puede volver a crear una nueva
   // (por eso "renovacion" acá es la única que sigue en curso, si la hay) y
@@ -30,6 +34,12 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   const renovacion = cadena.find(e => e.rol === "renovacion" && !esConvocatoriaFracasada(e));
   const renovacionesFracasadas = cadena
     .filter(e => e.rol === "renovacion" && esConvocatoriaFracasada(e))
+    .sort((a, b) => new Date(a.fechaInicio || a.fechaVencimiento) - new Date(b.fechaInicio || b.fechaVencimiento));
+  // Mismo tratamiento que una renovación fracasada, pero para un parche: se
+  // cuelga arriba, sin resolver (resuelta: false, ver ramasFracasadas) hasta
+  // que se relance la convocatoria o se genere otra contratación.
+  const parchesFracasados = cadena
+    .filter(e => e.rol === "parche" && esConvocatoriaFracasada(e))
     .sort((a, b) => new Date(a.fechaInicio || a.fechaVencimiento) - new Date(b.fechaInicio || b.fechaVencimiento));
   // El acumulado de meses de prórroga vive en el vigente (origen), no en el
   // parche de departamento — ver comentario en el schema (Expediente.mesesProrrogaUsados).
@@ -97,6 +107,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
     : cadena.filter(e => e.rol === "parche" && e.parcheDeFracasada);
   const ramasFracasadas = [
     ...renovacionesFracasadas.map(r => ({ item: r, resuelta: false })),
+    ...parchesFracasados.map(p => ({ item: p, resuelta: false })),
     ...parchesMismoExpDeFracasada.map(p => ({ item: p, resuelta: true })),
   ].map(rama => {
     const fRama = new Date(rama.item.fechaInicio || rama.item.fechaVencimiento);
@@ -242,7 +253,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                 Resolver adjudicación
               </button>
             )}
-            {exp.rol === "renovacion" && exp.estadoConvocatoria === "Desierta" && !exp.convocatoriaRelanzada && (
+            {(exp.rol === "renovacion" || exp.rol === "parche") && exp.estadoConvocatoria === "Desierta" && !exp.convocatoriaRelanzada && (
               <button onClick={onRelanzarConvocatoria} className="px-3 py-2 rounded-md border border-orange-300 bg-orange-50 text-orange-800 text-xs font-medium hover:bg-orange-100">
                 Relanzar convocatoria
               </button>

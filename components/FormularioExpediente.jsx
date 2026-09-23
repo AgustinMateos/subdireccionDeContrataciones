@@ -79,6 +79,13 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
     : null;
   const fechaMinima = coincidenciaAntecedente ? fechaMinimaRenovacion(coincidenciaAntecedente, expedientes) : null;
   const esVinculoAVigente = coincidenciaAntecedente?.rol === "vigente" || coincidenciaAntecedente?.rol === "parche";
+  // "En trámite de renovación" solo tiene sentido cuando el rol termina
+  // siendo "renovacion" — acá (a diferencia de "Caratular") el rol no lo
+  // elige el usuario directamente, lo resuelve el antecedente referenciado
+  // (ver resolverCadena en Dashboard.jsx), así que ese estado solo se
+  // ofrece cuando ese vínculo va a dar una renovación (esVinculoAVigente) o,
+  // al editar, cuando el expediente ya es una renovación.
+  const puedeEstarEnTramiteDeRenovacion = esNuevo ? esVinculoAVigente : inicial?.rol === "renovacion";
 
   function handleAntecedenteExpChange(valor) {
     set("antecedenteExp", valor);
@@ -303,7 +310,9 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
             <Campo_Input label="Fecha de publicación" type="date" value={f.fechaPublicacion} onChange={v => set("fechaPublicacion", v)} />
             <Campo_Input label="Fecha y hora de apertura" type="datetime-local" value={f.fechaApertura} onChange={v => set("fechaApertura", v)} />
             <Campo_Select label="Estado general" value={f.estadoGeneral} onChange={v => set("estadoGeneral", v)}
-              opciones={["Vigente", "En trámite de renovación", "Finalizado", "Archivado"]} />
+              opciones={puedeEstarEnTramiteDeRenovacion
+                ? ["Vigente", "En trámite de renovación", "Finalizado", "Archivado"]
+                : ["Vigente", "Finalizado", "Archivado"]} />
           </div>
 
           {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>}

@@ -73,7 +73,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  const existente = await prisma.expediente.findUnique({ where: { id }, select: { departamentoId: true } });
+  const existente = await prisma.expediente.findUnique({ where: { id }, select: { departamentoId: true, rol: true } });
   if (!existente || existente.departamentoId !== session.user.departamentoId) {
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
@@ -373,11 +373,13 @@ export async function PUT(request, { params }) {
   // cualquier otro caso. Solo se puede relanzar una vez — si la segunda
   // convocatoria también queda desierta, no hay una tercera oportunidad (se
   // inicia un expediente nuevo desde el flujo normal de alta, referenciando
-  // este como antecedente).
+  // este como antecedente). Aplica tanto a una renovación en trámite como a
+  // un parche cuya propia adjudicación quedó desierta (ej. una de las
+  // contrataciones que salió de dividir una convocatoria fracasada).
   if (body.relanzarConvocatoria) {
     const exp = await prisma.expediente.findUnique({ where: { id } });
     if (!exp) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-    if (exp.rol !== "renovacion" || exp.estadoConvocatoria !== "Desierta") {
+    if ((exp.rol !== "renovacion" && exp.rol !== "parche") || exp.estadoConvocatoria !== "Desierta") {
       return NextResponse.json({ error: "Solo se puede relanzar una convocatoria desierta" }, { status: 400 });
     }
     if (exp.convocatoriaRelanzada) {
@@ -570,9 +572,22 @@ export async function PUT(request, { params }) {
     ? body.domiciliosRenglones.map((v) => String(v).trim()).filter(Boolean)
     : undefined;
 
+  // Tampoco tiene sentido un "vigente" cuyo período todavía no arrancó (ver
+  // comentario equivalente en el alta normal, POST /api/expedientes) — si
+  // desde acá se edita la fecha de inicio a una fecha futura, pasa a ser una
+  // renovación en trámite. El rol no se toca en ningún otro caso: no es un
+  // campo editable más que por esta corrección puntual.
+  const hoy = new Date();
+  hoy.setUTCHours(0, 0, 0, 0);
+  let rolFinal = existente.rol;
+  if (rolFinal === "vigente" && body.fechaInicio && new Date(body.fechaInicio) > hoy) {
+    rolFinal = "renovacion";
+  }
+
   const actualizado = await prisma.expediente.update({
     where: { id },
     data: {
+      rol: rolFinal,
       exp: body.exp,
       nombreCorto: body.nombreCorto ?? undefined,
       nroContratacion: body.nroContratacion ?? undefined,
@@ -602,7 +617,15 @@ export async function PUT(request, { params }) {
       adjudicatario: body.adjudicatario ?? undefined,
       sector: body.sector ?? undefined,
       etapa: body.etapa ?? undefined,
-      estadoGeneral: body.estadoGeneral,
+      // "En trámite de renovación" solo tiene sentido para el rol
+      // "renovacion" (ver comentario equivalente en el alta normal) — si el
+      // desplegable "Estado general" lo manda para cualquier otro rol, se
+      // corrige a "Vigente"; y al revés, si el rol se acaba de corregir a
+      // "renovacion" por la fecha de inicio (rolFinal, arriba), el estado
+      // tiene que acompañar aunque el formulario siguiera mandando "Vigente".
+      estadoGeneral: rolFinal === "renovacion"
+        ? "En trámite de renovación"
+        : (body.estadoGeneral === "En trámite de renovación" ? "Vigente" : body.estadoGeneral),
       fuero: Array.isArray(body.fuero)
         ? body.fuero.map((f) => String(f).trim()).filter(Boolean)
         : undefined,

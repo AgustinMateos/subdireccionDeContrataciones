@@ -74,7 +74,7 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer, onUnificar,
   // varias contrataciones (parcheDeFracasada) que cubren domicilios
   // distintos y vencen el mismo día, sin que una reemplace a la otra.
   function esUnificable(cadena, item) {
-    if ((item.rol !== "vigente" && item.rol !== "parche") || item.unificadoEnId) return false;
+    if ((item.rol !== "vigente" && item.rol !== "parche") || item.unificadoEnId || esConvocatoriaFracasada(item)) return false;
     const tieneRenovacionPropia = cadena.items.some(e => e.rol === "renovacion" && !esConvocatoriaFracasada(e));
     if (tieneRenovacionPropia) return false;
     const reemplazadoPorOtro = cadena.items.some(e =>
@@ -204,7 +204,7 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer, onUnificar,
                         {exp.fechaInicio ? fmtFecha(exp.fechaInicio) : "Sin fecha de inicio"} — {fmtFecha(exp.fechaVencimiento)}
                       </div>
                     )}
-                    {esRenovacion && (
+                    {(esRenovacion || fracasada) && (
                       <div className="text-[11px] text-slate-500">
                         {exp.sector || "Sin sector"} · {exp.estadoConvocatoria || "Sin estado de convocatoria"}
                       </div>
@@ -237,11 +237,6 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer, onUnificar,
                     <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ESTADO_ESTILO[estadoGeneralMostrado(exp)]}>
                       {estadoGeneralMostrado(exp)}
                     </span>
-                    {unificadoEn && (
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-800">
-                        Unificado en {unificadoEn.exp}
-                      </span>
-                    )}
                     {esRenovacion ? (
                       frenado != null && (
                         <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[alertaFrenado(frenado)]}>
@@ -251,6 +246,12 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer, onUnificar,
                     ) : (
                       <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[niv]}>
                         {dias >= 0 ? "Vence " + fmtFecha(exp.fechaVencimiento) : Math.abs(dias) + " días vencido"}
+                      </span>
+                    )}
+                    {unificadoEn && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-violet-300 bg-violet-50 text-violet-800 text-right">
+                        <span className="block">Unificado en exp:{unificadoEn.exp}</span>
+                        {unificadoEn.fechaInicio && <span className="block">desde {fmtFecha(unificadoEn.fechaInicio)}</span>}
                       </span>
                     )}
                     {!esRenovacion && exp.tieneProrroga && (

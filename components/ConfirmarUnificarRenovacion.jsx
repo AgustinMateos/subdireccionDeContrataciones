@@ -12,10 +12,21 @@ import { fechaMinimaUnificacion, diaSiguiente, fmtFecha } from "@/lib/utils";
 // la API sobre cómo se libera ese número).
 export default function ConfirmarUnificarRenovacion({ origenes, expedientes, onCerrar, onConfirmar }) {
   const fechaMinima = fechaMinimaUnificacion(origenes, expedientes || []);
+  const esAscensores = origenes[0]?.tipo === "Ascensores";
   const domiciliosUnion = [];
   for (const o of origenes) {
     for (const d of o.domiciliosRenglones || []) {
       if (!domiciliosUnion.includes(d)) domiciliosUnion.push(d);
+    }
+  }
+  // En Ascensores, cada domicilio arrastra los ascensores/montacargas que ya
+  // tenía cargados en el trámite del que viene (el primer origen que lo
+  // tramitaba con ese detalle) — así no hay que volver a tipearlos.
+  const ascensoresPorDomicilioUnion = {};
+  if (esAscensores) {
+    for (const d of domiciliosUnion) {
+      const origenConDatos = origenes.find((o) => o.ascensoresPorDomicilio?.[d]);
+      if (origenConDatos) ascensoresPorDomicilioUnion[d] = origenConDatos.ascensoresPorDomicilio[d];
     }
   }
   const [modoExp, setModoExp] = useState("nuevo"); // 'nuevo' | 'existente'
@@ -25,6 +36,7 @@ export default function ConfirmarUnificarRenovacion({ origenes, expedientes, onC
     fechaInicio: diaSiguiente(fechaMinima),
     fechaVencimiento: "",
     domiciliosRenglones: domiciliosUnion,
+    ascensoresPorDomicilio: ascensoresPorDomicilioUnion,
   });
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
@@ -54,6 +66,7 @@ export default function ConfirmarUnificarRenovacion({ origenes, expedientes, onC
       fechaInicio: f.fechaInicio,
       fechaVencimiento: f.fechaVencimiento,
       domiciliosRenglones: f.domiciliosRenglones,
+      ...(esAscensores ? { ascensoresPorDomicilio: f.ascensoresPorDomicilio } : {}),
     });
     setCargando(false);
   }
@@ -137,6 +150,9 @@ export default function ConfirmarUnificarRenovacion({ origenes, expedientes, onC
             id="lista-domicilios-unificar"
             valores={f.domiciliosRenglones}
             onChange={(v) => set("domiciliosRenglones", v)}
+            conAscensores={esAscensores}
+            ascensoresPorDomicilio={f.ascensoresPorDomicilio}
+            onChangeAscensoresPorDomicilio={(v) => set("ascensoresPorDomicilio", v)}
           />
           {fechaMinima && (
             <p className="text-[11px] text-amber-700">
