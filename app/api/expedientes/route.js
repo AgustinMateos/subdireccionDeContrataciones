@@ -83,10 +83,15 @@ async function activarRenovacionesVencidas(departamentoId) {
       departamentoId,
       rol: "renovacion",
       fechaInicio: { lte: hoy },
-      NOT: { estadoConvocatoria: { in: ESTADOS_CONVOCATORIA_FALLIDOS } },
-      OR: [
-        { estadoConvocatoria: "Adjudicación íntegra" },
-        { adjudicatario: { not: null } },
+      // OJO: "NOT: { estadoConvocatoria: { in: [...] } }" excluye también las
+      // filas con estadoConvocatoria null (la mayoría — nunca se cargó nada
+      // ahí) por la semántica de NULL en SQL: "col IN (...)" da UNKNOWN si
+      // col es null, y "NOT UNKNOWN" sigue siendo UNKNOWN, no true. Por eso
+      // se admite null explícitamente, igual que en el resto del archivo
+      // (ver los otros lugares que buscan "renovacionEnTramite").
+      AND: [
+        { OR: [{ estadoConvocatoria: null }, { estadoConvocatoria: { notIn: ESTADOS_CONVOCATORIA_FALLIDOS } }] },
+        { OR: [{ estadoConvocatoria: "Adjudicación íntegra" }, { adjudicatario: { not: null } }] },
       ],
     },
   });
