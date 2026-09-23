@@ -250,7 +250,7 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer, onUnificar,
                     )}
                     {unificadoEn && (
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-violet-300 bg-violet-50 text-violet-800 text-right">
-                        <span className="block">Unificado en exp:{unificadoEn.exp}</span>
+                        <span className="block">Renov. unificada exp:{unificadoEn.exp}</span>
                         {unificadoEn.fechaInicio && <span className="block">desde {fmtFecha(unificadoEn.fechaInicio)}</span>}
                       </span>
                     )}
