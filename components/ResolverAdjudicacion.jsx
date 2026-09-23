@@ -8,7 +8,11 @@ import BotonAccion from "./BotonAccion";
 const OPCIONES = [
   { key: "integra", label: "Adjudicación íntegra", estado: "Adjudicación íntegra" },
   { key: "fracasada", label: "Fracasada", estado: "Proyecto fracasado" },
-  { key: "desierta", label: "Desierta", estado: "Desierta" },
+  // El estado que se guarda sigue siendo "Desierta" (de eso depende que
+  // "Relanzar convocatoria" quede disponible después) — solo cambia la
+  // etiqueta visible, porque en la práctica hay expedientes donde no está
+  // claro cuál de los dos términos corresponde.
+  { key: "desierta", label: "Desierta/Fracasada", estado: "Desierta" },
   { key: "parcial", label: "Adjudicación parcial" },
 ];
 
