@@ -88,70 +88,70 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
       <div className="overflow-x-auto">
         <table className="w-full text-sm min-w-[980px]">
           <thead>
-            <tr className="text-left text-[11px] uppercase tracking-wide text-slate-500 border-b border-slate-100">
-              <th className="py-2.5 px-5">Fuero</th>
-              <th className="py-2.5 px-5">Domicilio</th>
-              <th className="py-2.5 px-5">Zona</th>
-              <th className="py-2.5 px-5">Tipo</th>
-              <th className="py-2.5 px-5">Expediente</th>
-              <th className="py-2.5 px-5">Fecha inicio</th>
-              <th className="py-2.5 px-5">Fecha vencimiento</th>
-              <th className="py-2.5 px-5">Sector</th>
-              <th className="py-2.5 px-5">Estado de convocatoria</th>
-              <th className="py-2.5 px-5">Días restantes</th>
-              <th className="py-2.5 px-5">Días frenado</th>
-            </tr>
-            <tr className="border-b border-slate-100 bg-slate-50/40">
-              <th className="px-5 pb-2">
+            <tr className="text-left border-b border-slate-100 bg-slate-50/40">
+              <th className="py-2 px-5 align-top">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Fuero</div>
                 <input value={f.fuero} onChange={e => set("fuero", e.target.value)} placeholder="Buscar..."
                   className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-800" />
               </th>
-              <th className="px-5 pb-2">
+              <th className="py-2 px-5 align-top">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Domicilio</div>
                 <input value={f.domicilio} onChange={e => set("domicilio", e.target.value)} placeholder="Buscar..."
                   className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-800" />
               </th>
-              <th className="px-5 pb-2">
+              <th className="py-2 px-5 align-top">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Zona</div>
                 <select value={f.zona} onChange={e => set("zona", e.target.value)}
                   className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
                   <option value="Todas">Todas</option>
                   {ZONAS.map(z => <option key={z} value={z}>{z}</option>)}
                 </select>
               </th>
-              <th className="px-5 pb-2">
+              <th className="py-2 px-5 align-top">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Tipo</div>
                 <select value={f.tipo} onChange={e => set("tipo", e.target.value)}
                   className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
                   <option value="Todos">Todos</option>
                   {TIPOS_SERVICIOS.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </th>
-              <th className="px-5 pb-2">
+              <th className="py-2 px-5 align-top">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Expediente</div>
                 <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Buscar..."
                   className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-800" />
               </th>
-              <th className="px-5 pb-2" />
-              <th className="px-5 pb-2" />
-              <th className="px-5 pb-2">
+              <th className="py-2 px-5 align-top">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Fecha inicio</div>
+              </th>
+              <th className="py-2 px-5 align-top">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Fecha vencimiento</div>
+              </th>
+              <th className="py-2 px-5 align-top">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Sector</div>
                 <select value={f.sector} onChange={e => set("sector", e.target.value)}
                   className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
                   <option value="Todos">Todos</option>
                   {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </th>
-              <th className="px-5 pb-2">
+              <th className="py-2 px-5 align-top">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Estado de convocatoria</div>
                 <select value={f.estadoConvocatoria} onChange={e => set("estadoConvocatoria", e.target.value)}
                   className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
                   <option value="Todos">Todos</option>
                   {ESTADOS_CONVOCATORIA.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </th>
-              <th className="px-5 pb-2">
+              <th className="py-2 px-5 align-top">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Días restantes</div>
                 <select value={f.diasRestantes} onChange={e => set("diasRestantes", e.target.value)}
                   className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
                   <option value="Todos">Todos</option>
                   {Object.keys(ALERTA_LABEL).map(n => <option key={n} value={n}>{ALERTA_LABEL[n]}</option>)}
                 </select>
               </th>
-              <th className="px-5 pb-2">
+              <th className="py-2 px-5 align-top">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Días frenado</div>
                 <select value={f.diasFrenado} onChange={e => set("diasFrenado", e.target.value)}
                   className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
                   <option value="Todos">Todos</option>
