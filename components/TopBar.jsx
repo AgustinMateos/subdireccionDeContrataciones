@@ -30,7 +30,7 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-4">
+      <div className="px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-4">
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="w-8 h-8 bg-slate-900 text-white rounded flex items-center justify-center font-semibold text-xs">{inicialesDepto}</div>
           <div className="hidden sm:block leading-tight">
@@ -63,7 +63,7 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-1 h-11 border-t border-slate-100 relative">
+      <div className="px-4 sm:px-6 lg:px-8 flex items-center gap-1 h-11 border-t border-slate-100 relative">
         <button
           onClick={() => { setVista("expedientes"); setVariosAbierto(false); }}
           className={"h-full px-3 text-xs font-medium border-b-2 transition-colors " +

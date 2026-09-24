@@ -712,7 +712,7 @@ export default function App() {
 
       <TopBar sesion={sesion} onLogout={() => signOut()} busqueda={busqueda} setBusqueda={setBusqueda} vista={vista} setVista={setVista} mostrarToast={mostrarToast} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {vistaEfectiva === "valorModular" ? (
           <ValorModular
             moduloValor={moduloValor}

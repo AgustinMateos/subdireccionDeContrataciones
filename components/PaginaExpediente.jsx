@@ -148,7 +148,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   const unifica = expedientes.filter(e => e.unificadoEnId === exp.id);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="space-y-6">
       <button onClick={onVolver} className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
         <ChevronLeft size={16} /> Volver a Expedientes
       </button>
