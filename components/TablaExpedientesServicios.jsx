@@ -7,6 +7,14 @@ import { diasRestantes, alerta, alertaFrenado, diasFrenado, fmtFecha } from "@/l
 
 const norm = s => String(s || "").trim().toLowerCase();
 
+// El nombre de la columna es la primera opción del select — cuando esa es
+// la elegida (sin filtro aplicado), se ve gris como un placeholder; al
+// elegir un valor real, pasa a texto normal.
+function selectClase(esPlaceholder) {
+  return "w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800 " +
+    (esPlaceholder ? "text-slate-400" : "text-slate-900");
+}
+
 // Niveles de "Días frenado" — mismos colores que alerta() pero sin
 // "vencido" (acá no aplica: frenado mide días parado en un sector, no
 // vencimiento) y sumando "Sin frenar" para lo que no tiene nada frenado.
@@ -102,78 +110,68 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
           <thead>
             <tr className="text-left border-b border-slate-100 bg-slate-50/40">
               <th className="py-2 px-5 align-top">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Fuero</div>
-                <input value={f.fuero} onChange={e => set("fuero", e.target.value)} placeholder="Buscar..."
-                  className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-800" />
+                <input value={f.fuero} onChange={e => set("fuero", e.target.value)} placeholder="Fuero"
+                  className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-slate-800 placeholder:text-slate-400" />
               </th>
               <th className="py-2 px-5 align-top">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Domicilio</div>
-                <input value={f.domicilio} onChange={e => set("domicilio", e.target.value)} placeholder="Buscar..."
-                  className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-800" />
+                <input value={f.domicilio} onChange={e => set("domicilio", e.target.value)} placeholder="Domicilio"
+                  className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-slate-800 placeholder:text-slate-400" />
               </th>
               <th className="py-2 px-5 align-top">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Zona</div>
                 <select value={f.zona} onChange={e => set("zona", e.target.value)}
-                  className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
-                  <option value="Todas">Todas las zonas</option>
+                  className={selectClase(f.zona === "Todas")}>
+                  <option value="Todas">Zona</option>
                   {ZONAS.map(z => <option key={z} value={z}>{z}</option>)}
                 </select>
               </th>
               <th className="py-2 px-5 align-top">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Tipo</div>
                 <select value={f.tipo} onChange={e => set("tipo", e.target.value)}
-                  className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
-                  <option value="Todos">Todos los tipos</option>
+                  className={selectClase(f.tipo === "Todos")}>
+                  <option value="Todos">Tipo</option>
                   {TIPOS_SERVICIOS.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </th>
               <th className="py-2 px-5 align-top">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Expediente</div>
-                <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Buscar..."
-                  className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-800" />
+                <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Expediente"
+                  className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-slate-800 placeholder:text-slate-400" />
               </th>
               <th className="py-2 px-5 align-top">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Trámite</div>
                 <select value={f.rol} onChange={e => set("rol", e.target.value)}
-                  className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
-                  <option value="Todos">Todos</option>
+                  className={selectClase(f.rol === "Todos")}>
+                  <option value="Todos">Trámite</option>
                   <option value="vigente">{ROL_LABEL.vigente}</option>
                   <option value="parche">{ROL_LABEL.parche}</option>
                   <option value="renovacion">{ROL_LABEL.renovacion}</option>
                 </select>
               </th>
               <th className="py-2 px-5 align-top">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Período</div>
+                <span className="text-xs text-slate-400">Período</span>
               </th>
               <th className="py-2 px-5 align-top">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Sector</div>
                 <select value={f.sector} onChange={e => set("sector", e.target.value)}
-                  className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
-                  <option value="Todos">Todos los sectores</option>
+                  className={selectClase(f.sector === "Todos")}>
+                  <option value="Todos">Sector</option>
                   {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </th>
               <th className="py-2 px-5 align-top">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Estado de convocatoria</div>
                 <select value={f.estadoConvocatoria} onChange={e => set("estadoConvocatoria", e.target.value)}
-                  className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
-                  <option value="Todos">Todos los estados</option>
+                  className={selectClase(f.estadoConvocatoria === "Todos")}>
+                  <option value="Todos">Estado de convocatoria</option>
                   {ESTADOS_CONVOCATORIA.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </th>
               <th className="py-2 px-5 align-top">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Días restantes</div>
                 <select value={f.diasRestantes} onChange={e => set("diasRestantes", e.target.value)}
-                  className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
-                  <option value="Todos">Cualquier vencimiento</option>
+                  className={selectClase(f.diasRestantes === "Todos")}>
+                  <option value="Todos">Días restantes</option>
                   {Object.keys(ALERTA_LABEL).map(n => <option key={n} value={n}>{ALERTA_LABEL[n]}</option>)}
                 </select>
               </th>
               <th className="py-2 px-5 align-top">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Días frenado</div>
                 <select value={f.diasFrenado} onChange={e => set("diasFrenado", e.target.value)}
-                  className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
-                  <option value="Todos">Cualquier frenado</option>
+                  className={selectClase(f.diasFrenado === "Todos")}>
+                  <option value="Todos">Días frenado</option>
                   <option value="sinFrenar">Sin frenar</option>
                   {NIVELES_FRENADO.map(n => <option key={n} value={n}>{ALERTA_LABEL[n]}</option>)}
                 </select>
