@@ -173,7 +173,14 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
               const dias = diasRestantes(e.fechaVencimiento);
               const niv = alerta(dias);
               const frenado = diasFrenado(e.observaciones, e.creadoEn);
-              const domicilio = (e.domiciliosRenglones || []).join(" · ");
+              const domiciliosLista = e.domiciliosRenglones || [];
+              const domicilio = domiciliosLista.join(" · ");
+              // Compacto: se ve el primer domicilio + cuántos más hay, no la
+              // lista entera — el detalle completo queda en el título
+              // (tooltip) y es sobre eso que sigue filtrando la columna.
+              const domicilioCompacto = domiciliosLista.length > 1
+                ? domiciliosLista[0] + " +" + (domiciliosLista.length - 1) + " más"
+                : (domiciliosLista[0] || "");
               return (
                 <tr
                   key={e.id}
@@ -184,13 +191,13 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                     <td
                       rowSpan={span}
                       onClick={e2 => e2.stopPropagation()}
-                      className="py-2.5 px-5 text-slate-600 max-w-[200px] truncate align-top border-r border-slate-50 cursor-default"
+                      className="py-2.5 px-5 text-slate-600 max-w-[150px] truncate align-top border-r border-slate-50 cursor-default"
                       title={fuero}
                     >
                       {fuero || "-"}
                     </td>
                   )}
-                  <td className="py-2.5 px-5 text-slate-600 max-w-[240px] truncate" title={domicilio}>{domicilio || "-"}</td>
+                  <td className="py-2.5 px-5 text-slate-600 max-w-[170px] truncate" title={domicilio}>{domicilioCompacto || "-"}</td>
                   <td className="py-2.5 px-5 text-slate-600">{e.zona || "-"}</td>
                   <td className="py-2.5 px-5 text-slate-600">{e.tipo}</td>
                   <td className="py-2.5 px-5">
