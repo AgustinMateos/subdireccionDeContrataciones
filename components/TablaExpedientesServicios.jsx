@@ -103,7 +103,7 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                 <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Zona</div>
                 <select value={f.zona} onChange={e => set("zona", e.target.value)}
                   className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
-                  <option value="Todas">Todas</option>
+                  <option value="Todas">Todas las zonas</option>
                   {ZONAS.map(z => <option key={z} value={z}>{z}</option>)}
                 </select>
               </th>
@@ -111,7 +111,7 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                 <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Tipo</div>
                 <select value={f.tipo} onChange={e => set("tipo", e.target.value)}
                   className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
-                  <option value="Todos">Todos</option>
+                  <option value="Todos">Todos los tipos</option>
                   {TIPOS_SERVICIOS.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </th>
@@ -130,7 +130,7 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                 <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Sector</div>
                 <select value={f.sector} onChange={e => set("sector", e.target.value)}
                   className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
-                  <option value="Todos">Todos</option>
+                  <option value="Todos">Todos los sectores</option>
                   {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </th>
@@ -138,7 +138,7 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                 <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Estado de convocatoria</div>
                 <select value={f.estadoConvocatoria} onChange={e => set("estadoConvocatoria", e.target.value)}
                   className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
-                  <option value="Todos">Todos</option>
+                  <option value="Todos">Todos los estados</option>
                   {ESTADOS_CONVOCATORIA.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </th>
@@ -146,7 +146,7 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                 <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Días restantes</div>
                 <select value={f.diasRestantes} onChange={e => set("diasRestantes", e.target.value)}
                   className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
-                  <option value="Todos">Todos</option>
+                  <option value="Todos">Cualquier vencimiento</option>
                   {Object.keys(ALERTA_LABEL).map(n => <option key={n} value={n}>{ALERTA_LABEL[n]}</option>)}
                 </select>
               </th>
@@ -154,7 +154,7 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                 <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Días frenado</div>
                 <select value={f.diasFrenado} onChange={e => set("diasFrenado", e.target.value)}
                   className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
-                  <option value="Todos">Todos</option>
+                  <option value="Todos">Cualquier frenado</option>
                   <option value="sinFrenar">Sin frenar</option>
                   {NIVELES_FRENADO.map(n => <option key={n} value={n}>{ALERTA_LABEL[n]}</option>)}
                 </select>
