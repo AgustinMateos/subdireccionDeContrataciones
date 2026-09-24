@@ -90,10 +90,6 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
       setError("Agregá al menos un fuero.");
       return;
     }
-    if (f.organismos.length === 0) {
-      setError("Agregá al menos un organismo.");
-      return;
-    }
     if (esAscensores && !Object.values(f.ascensoresPorDomicilio || {}).some(d => (d.ascensores || []).length > 0 || (d.montacargas || []).length > 0)) {
       setError("Elegí los ascensores o montacargas de al menos un domicilio.");
       return;

@@ -101,10 +101,6 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
       setError("Agregá al menos un fuero.");
       return;
     }
-    if (f.organismos.length === 0) {
-      setError("Agregá al menos un organismo.");
-      return;
-    }
     if (f.esPoliciaAdicional && !f.fuerzaSeguridad) {
       setError("Elegí la fuerza de seguridad para el expediente de policía adicional.");
       return;
