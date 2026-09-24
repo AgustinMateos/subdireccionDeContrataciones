@@ -274,7 +274,7 @@ export async function POST(request) {
   }
 
   // ---------- Unificar renovación de varios trámites que vencen en el mismo período ----------
-  // Dos o más cadenas del mismo grupo (mismo tipo/zona/fuero/organismos, cada
+  // Dos o más cadenas del mismo grupo (mismo tipo/zona/fuero, cada
   // una con su propio N° de expediente) pueden terminar el mismo período y
   // conviene tramitarlas juntas de ahí en más: se genera UN expediente nuevo,
   // con su propia cadenaId (una tarjeta nueva), que suma los
@@ -373,7 +373,9 @@ export async function POST(request) {
             area: base.area,
             tipo: base.tipo,
             agente: base.agente,
-            organismos: base.organismos,
+            // Los orígenes pueden ser de organismos distintos (se agrupan por
+            // fuero): la renovación unificada los suma todos.
+            organismos: [...new Set(origenes.flatMap((o) => o.organismos || []))],
             destinatario: base.destinatario,
             domicilio: base.domicilio,
             objeto: base.objeto,
