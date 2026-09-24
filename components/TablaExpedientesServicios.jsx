@@ -26,7 +26,7 @@ function filtroVacio() {
 // por cada columna, independiente de los filtros generales de arriba. Los
 // antecedentes no se muestran, mismo criterio que las tarjetas de grupo (ya
 // es cobertura cerrada y reemplazada).
-export default function TablaExpedientesServicios({ expedientes, onVer }) {
+export default function TablaExpedientesServicios({ expedientes, onVer, puedeEditar, onCambiarSector, onCambiarEstadoConvocatoria }) {
   const [f, setF] = useState(filtroVacio);
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
   function limpiar() { setF(filtroVacio()); }
@@ -163,8 +163,30 @@ export default function TablaExpedientesServicios({ expedientes, onVer }) {
                   <td className="py-2.5 px-5 text-slate-600 max-w-[240px] truncate" title={domicilio}>{domicilio || "-"}</td>
                   <td className="py-2.5 px-5 text-slate-600">{e.zona || "-"}</td>
                   <td className="py-2.5 px-5 text-slate-600">{e.tipo}</td>
-                  <td className="py-2.5 px-5 text-slate-600">{e.sector || "-"}</td>
-                  <td className="py-2.5 px-5 text-slate-600">{e.estadoConvocatoria || "-"}</td>
+                  <td className="py-2.5 px-5 text-slate-600">
+                    {puedeEditar ? (
+                      <button
+                        type="button"
+                        onClick={e2 => { e2.stopPropagation(); onCambiarSector(e); }}
+                        className="underline decoration-dotted underline-offset-2 hover:text-slate-900 hover:decoration-solid"
+                        title="Cambiar sector"
+                      >
+                        {e.sector || "Sin definir"}
+                      </button>
+                    ) : (e.sector || "-")}
+                  </td>
+                  <td className="py-2.5 px-5 text-slate-600">
+                    {puedeEditar ? (
+                      <button
+                        type="button"
+                        onClick={e2 => { e2.stopPropagation(); onCambiarEstadoConvocatoria(e); }}
+                        className="underline decoration-dotted underline-offset-2 hover:text-slate-900 hover:decoration-solid"
+                        title="Cambiar estado de convocatoria"
+                      >
+                        {e.estadoConvocatoria || "Sin definir"}
+                      </button>
+                    ) : (e.estadoConvocatoria || "-")}
+                  </td>
                   <td className="py-2.5 px-5">
                     {yaCerrado ? "-" : (
                       <span className={"text-[11px] font-medium px-2 py-0.5 rounded border " + ALERTA_ESTILO[niv]}>

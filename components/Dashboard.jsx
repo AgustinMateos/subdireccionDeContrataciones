@@ -67,6 +67,8 @@ import FiltroBar from "./FiltroBar";
 import TarjetaExpediente from "./TarjetaExpediente";
 import TarjetaGrupoServicios from "./TarjetaGrupoServicios";
 import TablaExpedientesServicios from "./TablaExpedientesServicios";
+import ModalCambiarSector from "./ModalCambiarSector";
+import ModalCambiarEstadoConvocatoria from "./ModalCambiarEstadoConvocatoria";
 import PaginaExpediente from "./PaginaExpediente";
 import FormularioExpediente from "./FormularioExpediente";
 import CaratularExpediente from "./CaratularExpediente";
@@ -121,6 +123,10 @@ export default function App() {
   const [busqueda, setBusqueda] = useState("");
   const [visibles, setVisibles] = useState(6);
   const [vistaListado, setVistaListado] = useState("tarjetas"); // 'tarjetas' | 'tabla' (Servicios)
+  // Edición rápida de Sector/Estado de convocatoria desde la tabla (sin
+  // entrar a la ficha) — guarda el expediente sobre el que se abrió el modal.
+  const [cambiarSectorExp, setCambiarSectorExp] = useState(null);
+  const [cambiarEstadoExp, setCambiarEstadoExp] = useState(null);
   const [seleccionado, setSeleccionado] = useState(null);
   const [formAbierto, setFormAbierto] = useState(null); // 'nuevo' | 'editar' | 'renovacion'
   // Orígenes elegidos en una tarjeta de Servicios para "Unificar renovación"
@@ -313,6 +319,19 @@ export default function App() {
     if (!res.ok) { mostrarToast("No se pudo guardar la observación"); return; }
     await refrescar(id);
     mostrarToast(esMovimiento ? "Movimiento cargado, sector actualizado" : "Observación agregada");
+  }
+
+  // Edición rápida de estado de convocatoria (ej. desde la tabla), sin pasar
+  // por "Editar expediente" ni tocar el resto de los campos.
+  async function cambiarEstadoConvocatoria(exp, nuevo) {
+    const res = await fetch(`/api/expedientes/${exp.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cambiarEstadoConvocatoria: nuevo }),
+    });
+    if (!res.ok) { mostrarToast("No se pudo actualizar el estado de convocatoria"); return; }
+    await refrescar(exp.id);
+    mostrarToast("Estado de convocatoria actualizado");
   }
 
   async function editarObservacion(expId, obsId, cambios) {
@@ -785,7 +804,13 @@ export default function App() {
             )}
 
             {vistaListado === "tabla" && !esInformaticaYVarios ? (
-              <TablaExpedientesServicios expedientes={filtrados} onVer={verExpediente} />
+              <TablaExpedientesServicios
+                expedientes={filtrados}
+                onVer={verExpediente}
+                puedeEditar={puedeEditar}
+                onCambiarSector={(exp) => setCambiarSectorExp(exp)}
+                onCambiarEstadoConvocatoria={(exp) => setCambiarEstadoExp(exp)}
+              />
             ) : (
               <>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
@@ -969,6 +994,22 @@ export default function App() {
           expedientes={expedientes}
           onCerrar={() => setUnificarOrigenes(null)}
           onConfirmar={(datos) => unificarRenovacion(unificarOrigenes, datos)}
+        />
+      )}
+
+      {cambiarSectorExp && (
+        <ModalCambiarSector
+          exp={cambiarSectorExp}
+          onCerrar={() => setCambiarSectorExp(null)}
+          onConfirmar={async (datos) => { await guardarObservacion(cambiarSectorExp.id, datos); setCambiarSectorExp(null); }}
+        />
+      )}
+
+      {cambiarEstadoExp && (
+        <ModalCambiarEstadoConvocatoria
+          exp={cambiarEstadoExp}
+          onCerrar={() => setCambiarEstadoExp(null)}
+          onConfirmar={async (nuevo) => { await cambiarEstadoConvocatoria(cambiarEstadoExp, nuevo); setCambiarEstadoExp(null); }}
         />
       )}
 

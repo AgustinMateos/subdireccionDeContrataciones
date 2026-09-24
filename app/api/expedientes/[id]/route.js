@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES, ESTADOS_CONVOCATORIA_FALLIDOS } from "@/lib/constants";
+import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES, ESTADOS_CONVOCATORIA_FALLIDOS, ESTADOS_CONVOCATORIA } from "@/lib/constants";
 import { parseFechaHora } from "@/lib/utils";
 
 function normalizarNumeros(valor, max) {
@@ -123,6 +123,25 @@ export async function PUT(request, { params }) {
     }
 
     const actualizado = await prisma.expediente.findUnique({ where: { id }, include: INCLUDE_EXPEDIENTE });
+    return NextResponse.json({ expediente: actualizado });
+  }
+
+  // ---------- Cambiar el estado de convocatoria (edición rápida) ----------
+  // Endpoint dedicado, aparte de la edición genérica de abajo, para poder
+  // mandar solo este campo sin reenviar el expediente completo (la edición
+  // genérica pisa ascensoresPorDomicilio/tieneAdecuaciones si no viene
+  // `tipo` en el body). Los estados terminales (fracasada/desierta/íntegra/
+  // parcial) siguen resolviéndose desde "Resolver adjudicación".
+  if (body.cambiarEstadoConvocatoria !== undefined) {
+    const nuevo = body.cambiarEstadoConvocatoria || null;
+    if (nuevo && !ESTADOS_CONVOCATORIA.includes(nuevo)) {
+      return NextResponse.json({ error: "Estado de convocatoria inválido" }, { status: 400 });
+    }
+    const actualizado = await prisma.expediente.update({
+      where: { id },
+      data: { estadoConvocatoria: nuevo },
+      include: INCLUDE_EXPEDIENTE,
+    });
     return NextResponse.json({ expediente: actualizado });
   }
 
@@ -639,10 +658,14 @@ export async function PUT(request, { params }) {
       tipoParche: body.tipoParche ?? undefined,
       detalleParche: body.detalleParche ?? undefined,
       domiciliosRenglones: domiciliosActualizados,
-      ascensoresPorDomicilio: body.tipo === "Ascensores"
-        ? normalizarAscensoresPorDomicilio(body.ascensoresPorDomicilio, domiciliosActualizados)
-        : null,
-      tieneAdecuaciones: body.tipo === "Ascensores" ? !!body.tieneAdecuaciones : false,
+      // Si `tipo` no viene en el body (ediciones parciales, ej. desde un
+      // endpoint dedicado que solo manda un campo puntual), no se toca
+      // ninguno de los dos — antes se pisaban a null/false igual, borrando
+      // los ascensores cargados de un expediente que ni se estaba editando.
+      ascensoresPorDomicilio: body.tipo === undefined
+        ? undefined
+        : (body.tipo === "Ascensores" ? normalizarAscensoresPorDomicilio(body.ascensoresPorDomicilio, domiciliosActualizados) : null),
+      tieneAdecuaciones: body.tipo === undefined ? undefined : (body.tipo === "Ascensores" ? !!body.tieneAdecuaciones : false),
       adjudicacionPorRenglon: body.adjudicacionPorRenglon && typeof body.adjudicacionPorRenglon === "object"
         ? body.adjudicacionPorRenglon
         : undefined,
