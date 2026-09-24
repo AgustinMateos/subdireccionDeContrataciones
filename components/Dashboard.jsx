@@ -712,8 +712,7 @@ export default function App() {
   const vistaEfectiva = (!esInformaticaYVarios && VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS.includes(vista))
     ? "expedientes"
     : vista;
-  // La vista de tabla todavía se está probando — solo en local (npm run dev).
-  const enTabla = vistaListado === "tabla" && !esInformaticaYVarios && process.env.NODE_ENV === "development";
+  const enTabla = vistaListado === "tabla" && !esInformaticaYVarios;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -797,9 +796,8 @@ export default function App() {
               />
             )}
 
-            {/* La vista de tabla todavía se está probando — visible solo en
-                local (npm run dev), no en producción. */}
-            {!esInformaticaYVarios && process.env.NODE_ENV === "development" && (
+            {/* En Servicios se puede alternar entre tarjetas y tabla. */}
+            {!esInformaticaYVarios && (
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
