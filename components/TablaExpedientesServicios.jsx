@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { ALERTA_ESTILO, ALERTA_LABEL, ZONAS, TIPOS_SERVICIOS, SECTORES, ESTADOS_CONVOCATORIA } from "@/lib/constants";
-import { diasRestantes, alerta, alertaFrenado, diasFrenado } from "@/lib/utils";
+import { diasRestantes, alerta, alertaFrenado, diasFrenado, fmtFecha } from "@/lib/utils";
 
 const norm = s => String(s || "").trim().toLowerCase();
 
@@ -94,6 +94,8 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
               <th className="py-2.5 px-5">Zona</th>
               <th className="py-2.5 px-5">Tipo</th>
               <th className="py-2.5 px-5">Expediente</th>
+              <th className="py-2.5 px-5">Fecha inicio</th>
+              <th className="py-2.5 px-5">Fecha vencimiento</th>
               <th className="py-2.5 px-5">Sector</th>
               <th className="py-2.5 px-5">Estado de convocatoria</th>
               <th className="py-2.5 px-5">Días restantes</th>
@@ -126,6 +128,8 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                 <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Buscar..."
                   className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-800" />
               </th>
+              <th className="px-5 pb-2" />
+              <th className="px-5 pb-2" />
               <th className="px-5 pb-2">
                 <select value={f.sector} onChange={e => set("sector", e.target.value)}
                   className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
@@ -160,7 +164,7 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
           <tbody>
             {filasConFuero.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-10 text-center text-sm text-slate-500">
+                <td colSpan={11} className="py-10 text-center text-sm text-slate-500">
                   No se encontraron expedientes con esos filtros.
                 </td>
               </tr>
@@ -177,7 +181,12 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                   className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 cursor-pointer"
                 >
                   {esInicioGrupo && (
-                    <td rowSpan={span} className="py-2.5 px-5 text-slate-600 max-w-[200px] truncate align-top border-r border-slate-50" title={fuero}>
+                    <td
+                      rowSpan={span}
+                      onClick={e2 => e2.stopPropagation()}
+                      className="py-2.5 px-5 text-slate-600 max-w-[200px] truncate align-top border-r border-slate-50 cursor-default"
+                      title={fuero}
+                    >
                       {fuero || "-"}
                     </td>
                   )}
@@ -188,6 +197,8 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                     <div className="font-mono text-xs font-semibold text-slate-900">{e.exp}</div>
                     {e.nombreCorto && <div className="text-[11px] text-slate-500">{e.nombreCorto}</div>}
                   </td>
+                  <td className="py-2.5 px-5 text-slate-600">{e.fechaInicio ? fmtFecha(e.fechaInicio) : "-"}</td>
+                  <td className="py-2.5 px-5 text-slate-600">{fmtFecha(e.fechaVencimiento)}</td>
                   <td className="py-2.5 px-5 text-slate-600">
                     {puedeEditar ? (
                       <button
