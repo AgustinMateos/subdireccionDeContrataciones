@@ -782,7 +782,9 @@ export default function App() {
               departamentoSlug={sesion.departamentoSlug}
             />
 
-            {!esInformaticaYVarios && (
+            {/* La vista de tabla todavía se está probando — visible solo en
+                local (npm run dev), no en producción. */}
+            {!esInformaticaYVarios && process.env.NODE_ENV === "development" && (
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
@@ -803,7 +805,7 @@ export default function App() {
               </div>
             )}
 
-            {vistaListado === "tabla" && !esInformaticaYVarios ? (
+            {vistaListado === "tabla" && !esInformaticaYVarios && process.env.NODE_ENV === "development" ? (
               <TablaExpedientesServicios
                 expedientes={filtrados}
                 onVer={verExpediente}
