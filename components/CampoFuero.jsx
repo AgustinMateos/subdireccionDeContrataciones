@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { fuerosDeOrganismos } from "@/lib/organismosFueros";
+import { FUEROS } from "@/lib/constants";
 
-// Selector de fueros (puede haber más de uno), con sugerencias acotadas a los
-// organismos ya elegidos en el expediente (si ninguno coincide con el
-// padrón, sugiere todos los fueros conocidos). Sigue siendo texto libre: la
-// lista es una ayuda, no restringe.
-export default function CampoFuero({ organismos, fueros, onChange, id = "lista-fueros" }) {
+// Selector de fueros (puede haber más de uno) — la jurisdicción/rama
+// judicial (Civil, Comercial, Criminal, etc.), no una oficina puntual. Las
+// sugerencias son la lista fija de fueros conocidos; elegir uno acá acota
+// después las sugerencias de organismo (ver SelectorOrganismos). Sigue
+// siendo texto libre: la lista es una ayuda, no restringe.
+export default function CampoFuero({ fueros, onChange, id = "lista-fueros" }) {
   const [input, setInput] = useState("");
-  const opciones = fuerosDeOrganismos(organismos);
   const valores = fueros || [];
 
   function agregar() {
@@ -51,7 +51,7 @@ export default function CampoFuero({ organismos, fueros, onChange, id = "lista-f
           className="flex-1 text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800"
         />
         <datalist id={id}>
-          {opciones.map(f => <option key={f} value={f} />)}
+          {FUEROS.map(f => <option key={f} value={f} />)}
         </datalist>
         <button type="button" onClick={agregar} className="px-3 py-2 rounded-md border border-slate-300 text-xs font-medium hover:bg-slate-50 shrink-0">
           Agregar

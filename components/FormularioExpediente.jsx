@@ -149,8 +149,13 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
             <Campo_Select label="Tipo" value={f.tipo} onChange={v => set("tipo", v)}
               opciones={esServicios ? TIPOS_SERVICIOS : ["Servicios", "Provisiones", "Servicios Temporales"]} />
             <Campo_Input label="Agente" value={f.agente} onChange={v => set("agente", v)} placeholder="CB" />
+            {esServicios && (
+              <div className="col-span-2">
+                <CampoFuero id="lista-fueros-form" fueros={f.fuero} onChange={v => set("fuero", v)} />
+              </div>
+            )}
             <div className="col-span-2">
-              <SelectorOrganismos organismos={f.organismos} onChange={v => set("organismos", v)} />
+              <SelectorOrganismos organismos={f.organismos} fueros={f.fuero} onChange={v => set("organismos", v)} />
             </div>
             <div className="col-span-2">
               <CampoDomiciliosRenglones
@@ -166,7 +171,6 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
             <Campo_Select label="Zona" value={esVinculoAVigente ? (coincidenciaAntecedente.zona || "") : f.zona} onChange={v => set("zona", v)} opciones={ZONAS} disabled={esVinculoAVigente} />
             {esServicios && (
               <>
-                <CampoFuero id="lista-fueros-form" organismos={f.organismos} fueros={f.fuero} onChange={v => set("fuero", v)} />
                 <Campo_Input label="Código interno (planilla)" value={f.codigoInterno} onChange={v => set("codigoInterno", v)} placeholder="Ej: 02ID" />
                 <Campo_Select label="Estado de convocatoria" value={f.estadoConvocatoria} onChange={v => set("estadoConvocatoria", v)}
                   opciones={["", ...ESTADOS_CONVOCATORIA]} labels={{ "": "— Sin definir —" }} />

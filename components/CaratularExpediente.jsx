@@ -49,12 +49,12 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
 
-  // Al elegir organismo + fuero, las direcciones conocidas del padrón se
+  // Al elegir fuero + organismo, las direcciones conocidas del padrón se
   // suman como sugerencia a "Domicilios/renglones" — sin pisar las que el
   // usuario ya haya sacado o agregado a mano.
   useEffect(() => {
     if (!esServicios) return;
-    const sugeridas = direccionesDe(f.organismos, f.fuero);
+    const sugeridas = direccionesDe(f.fuero, f.organismos);
     if (sugeridas.length === 0) return;
     setF(prev => {
       const nuevas = sugeridas.filter(d => !prev.domiciliosRenglones.includes(d));
@@ -126,8 +126,14 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
             <Campo_Input label="Agente" value={f.agente} onChange={v => set("agente", v)} placeholder="CB" />
             <Campo_Select label="Zona" value={f.zona} onChange={v => set("zona", v)} opciones={ZONAS} />
 
+            {esServicios && (
+              <div className="col-span-2">
+                <CampoFuero id="lista-fueros-caratular" fueros={f.fuero} onChange={v => set("fuero", v)} />
+              </div>
+            )}
+
             <div className="col-span-2">
-              <SelectorOrganismos organismos={f.organismos} onChange={v => set("organismos", v)} />
+              <SelectorOrganismos organismos={f.organismos} fueros={f.fuero} onChange={v => set("organismos", v)} />
             </div>
 
             <div className="col-span-2">
@@ -139,10 +145,6 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
                 onChangeAscensoresPorDomicilio={v => set("ascensoresPorDomicilio", v)}
               />
             </div>
-
-            {esServicios && (
-              <CampoFuero id="lista-fueros-caratular" organismos={f.organismos} fueros={f.fuero} onChange={v => set("fuero", v)} />
-            )}
 
             {esAscensores && (
               <div className="col-span-3 border border-slate-200 rounded-md p-3 bg-slate-50">
