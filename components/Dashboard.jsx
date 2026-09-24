@@ -209,6 +209,16 @@ export default function App() {
     }).sort((a, b) => new Date(b.fechaVencimiento) - new Date(a.fechaVencimiento));
   }, [expedientes, areaFiltro, tipoFiltro, estadoFiltro, organismoFiltro, zonaFiltro, vencimientoFiltro, nombreCortoFiltro, busqueda]);
 
+  // La tabla tiene sus propios filtros por columna y no muestra la barra de
+  // filtros general: solo respeta la búsqueda de arriba, para que un filtro
+  // de la barra que quedó puesto no esconda filas sin que se vea.
+  const filtradosTabla = useMemo(() => {
+    if (!busqueda) return expedientes;
+    const q = busqueda.toLowerCase();
+    return expedientes.filter(e => [e.exp, e.nombreCorto, e.objeto, e.adjudicatario, ...(e.organismos || [])]
+      .some(c => String(c || "").toLowerCase().includes(q)));
+  }, [expedientes, busqueda]);
+
   // En Servicios, varios expedientes con el mismo tipo de servicio, fuero
   // (cámara) y zona son la misma prestación repetida con distinto N° de
   // expediente — se agrupan en una sola card en vez de repetir tarjetas casi
@@ -702,6 +712,8 @@ export default function App() {
   const vistaEfectiva = (!esInformaticaYVarios && VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS.includes(vista))
     ? "expedientes"
     : vista;
+  // La vista de tabla todavía se está probando — solo en local (npm run dev).
+  const enTabla = vistaListado === "tabla" && !esInformaticaYVarios && process.env.NODE_ENV === "development";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -768,20 +780,22 @@ export default function App() {
           <>
             <Resumen resumen={resumen} mostrarDesgloseArea={esInformaticaYVarios} />
 
-            <FiltroBar
-              areaFiltro={areaFiltro} setAreaFiltro={setAreaFiltro}
-              tipoFiltro={tipoFiltro} setTipoFiltro={setTipoFiltro}
-              estadoFiltro={estadoFiltro} setEstadoFiltro={setEstadoFiltro}
-              organismoFiltro={organismoFiltro} setOrganismoFiltro={setOrganismoFiltro}
-              vencimientoFiltro={vencimientoFiltro} setVencimientoFiltro={setVencimientoFiltro}
-              nombreCortoFiltro={nombreCortoFiltro} setNombreCortoFiltro={setNombreCortoFiltro}
-              zonaFiltro={zonaFiltro} setZonaFiltro={setZonaFiltro}
-              total={filtrados.length}
-              puedeEditar={puedeEditar}
-              onNuevo={() => setFormAbierto("nuevo")}
-              onCaratular={() => setFormAbierto("caratular")}
-              departamentoSlug={sesion.departamentoSlug}
-            />
+            {!enTabla && (
+              <FiltroBar
+                areaFiltro={areaFiltro} setAreaFiltro={setAreaFiltro}
+                tipoFiltro={tipoFiltro} setTipoFiltro={setTipoFiltro}
+                estadoFiltro={estadoFiltro} setEstadoFiltro={setEstadoFiltro}
+                organismoFiltro={organismoFiltro} setOrganismoFiltro={setOrganismoFiltro}
+                vencimientoFiltro={vencimientoFiltro} setVencimientoFiltro={setVencimientoFiltro}
+                nombreCortoFiltro={nombreCortoFiltro} setNombreCortoFiltro={setNombreCortoFiltro}
+                zonaFiltro={zonaFiltro} setZonaFiltro={setZonaFiltro}
+                total={filtrados.length}
+                puedeEditar={puedeEditar}
+                onNuevo={() => setFormAbierto("nuevo")}
+                onCaratular={() => setFormAbierto("caratular")}
+                departamentoSlug={sesion.departamentoSlug}
+              />
+            )}
 
             {/* La vista de tabla todavía se está probando — visible solo en
                 local (npm run dev), no en producción. */}
@@ -806,13 +820,15 @@ export default function App() {
               </div>
             )}
 
-            {vistaListado === "tabla" && !esInformaticaYVarios && process.env.NODE_ENV === "development" ? (
+            {enTabla ? (
               <TablaExpedientesServicios
-                expedientes={filtrados}
+                expedientes={filtradosTabla}
                 onVer={verExpediente}
                 puedeEditar={puedeEditar}
                 onCambiarSector={(exp) => setCambiarSectorExp(exp)}
                 onCambiarEstadoConvocatoria={(exp) => setCambiarEstadoExp(exp)}
+                onNuevo={() => setFormAbierto("nuevo")}
+                onCaratular={() => setFormAbierto("caratular")}
               />
             ) : (
               <>

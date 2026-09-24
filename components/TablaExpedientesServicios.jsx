@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { X, Plus, FilePlus2 } from "lucide-react";
 import { ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, ZONAS, TIPOS_SERVICIOS, SECTORES, ESTADOS_CONVOCATORIA } from "@/lib/constants";
 import { diasRestantes, alerta, alertaFrenado, diasFrenado, fmtFecha } from "@/lib/utils";
 
@@ -45,7 +45,7 @@ function filtroVacio() {
 // por cada columna, independiente de los filtros generales de arriba. Los
 // antecedentes no se muestran, mismo criterio que las tarjetas de grupo (ya
 // es cobertura cerrada y reemplazada).
-export default function TablaExpedientesServicios({ expedientes, onVer, puedeEditar, onCambiarSector, onCambiarEstadoConvocatoria }) {
+export default function TablaExpedientesServicios({ expedientes, onVer, puedeEditar, onCambiarSector, onCambiarEstadoConvocatoria, onNuevo, onCaratular }) {
   const [f, setF] = useState(filtroVacio);
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
   function limpiar() { setF(filtroVacio()); }
@@ -76,22 +76,34 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
   // Fuero se muestra "acoplado" — como una celda combinada de Excel: se
   // ordena por fuero para que las filas que comparten uno queden juntas, y
   // solo la primera fila de cada grupo dibuja la celda (con rowSpan);
-  // el resto la deja vacía en vez de repetir el mismo texto.
+  // el resto la deja vacía en vez de repetir el mismo texto. Dentro de cada
+  // fuero, los expedientes con los mismos edificios (mismo conjunto de
+  // domicilios, sin importar el orden) se acoplan igual en Domicilio.
   const filasConFuero = useMemo(() => {
+    const claveFuero = e => (e.fuero || []).join(" · ");
+    const claveDomicilios = e => claveFuero(e) + "||" + [...(e.domiciliosRenglones || [])].sort().join("|");
     const ordenadas = [...filas].sort((a, b) => {
-      const fa = (a.fuero || []).join(" · ");
-      const fb = (b.fuero || []).join(" · ");
+      const fa = claveFuero(a);
+      const fb = claveFuero(b);
       if (fa !== fb) return fa.localeCompare(fb);
+      const da = claveDomicilios(a);
+      const db = claveDomicilios(b);
+      if (da !== db) return da.localeCompare(db);
       return new Date(b.fechaVencimiento) - new Date(a.fechaVencimiento);
     });
-    return ordenadas.map((e, i) => {
-      const fuero = (e.fuero || []).join(" · ");
-      const esInicioGrupo = i === 0 || (ordenadas[i - 1].fuero || []).join(" · ") !== fuero;
+    // Cantidad de filas seguidas, desde i, con la misma clave (0 si la
+    // fila i no es la primera de su grupo).
+    function spanDesde(i, clave) {
+      if (i > 0 && clave(ordenadas[i - 1]) === clave(ordenadas[i])) return 0;
       let span = 0;
-      if (esInicioGrupo) {
-        for (let j = i; j < ordenadas.length && (ordenadas[j].fuero || []).join(" · ") === fuero; j++) span++;
-      }
-      return { exp: e, fuero, esInicioGrupo, span };
+      while (i + span < ordenadas.length && clave(ordenadas[i + span]) === clave(ordenadas[i])) span++;
+      return span;
+    }
+    return ordenadas.map((e, i) => {
+      // Sin domicilios cargados no hay edificios en común: no se acoplan.
+      const spanDomicilio = (e.domiciliosRenglones || []).length === 0 ? 1 : spanDesde(i, claveDomicilios);
+      const span = spanDesde(i, claveFuero);
+      return { exp: e, fuero: claveFuero(e), esInicioGrupo: span > 0, span, spanDomicilio };
     });
   }, [filas]);
 
@@ -99,11 +111,23 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-b border-slate-100 bg-slate-50/60">
         <span className="text-[11px] text-slate-500">{filas.length} de {base.length} expediente{base.length !== 1 ? "s" : ""}</span>
-        {hayFiltros && (
-          <button type="button" onClick={limpiar} className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-900">
-            <X size={12} /> Limpiar filtros de la tabla
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {hayFiltros && (
+            <button type="button" onClick={limpiar} className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-900">
+              <X size={12} /> Limpiar filtros de la tabla
+            </button>
+          )}
+          {puedeEditar && (
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={onCaratular} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50">
+                <FilePlus2 size={14} /> Caratular
+              </button>
+              <button type="button" onClick={onNuevo} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800">
+                <Plus size={14} /> Cargar expediente
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm min-w-[980px]">
@@ -185,7 +209,7 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                   No se encontraron expedientes con esos filtros.
                 </td>
               </tr>
-            ) : filasConFuero.map(({ exp: e, fuero, esInicioGrupo, span }) => {
+            ) : filasConFuero.map(({ exp: e, fuero, esInicioGrupo, span, spanDomicilio }) => {
               const yaCerrado = e.estadoGeneral === "Finalizado" || e.estadoGeneral === "Archivado";
               const dias = diasRestantes(e.fechaVencimiento);
               const niv = alerta(dias);
@@ -218,7 +242,24 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                       </div>
                     </td>
                   )}
-                  <td className="py-2.5 px-5 text-slate-600 max-w-[170px] truncate" title={domicilio}>{domicilioCompacto || "-"}</td>
+                  {spanDomicilio > 0 && (
+                    spanDomicilio > 1 ? (
+                      <td
+                        rowSpan={spanDomicilio}
+                        onClick={e2 => e2.stopPropagation()}
+                        className="py-2.5 px-3 align-top border-r border-slate-50 cursor-default"
+                      >
+                        <div
+                          title={domicilio}
+                          className="max-w-[170px] text-[11px] leading-snug text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1.5"
+                        >
+                          {domiciliosLista.map(d => <div key={d}>{d}</div>)}
+                        </div>
+                      </td>
+                    ) : (
+                      <td className="py-2.5 px-5 text-slate-600 max-w-[170px] truncate" title={domicilio}>{domicilioCompacto || "-"}</td>
+                    )
+                  )}
                   <td className="py-2.5 px-5 text-slate-600">{e.zona || "-"}</td>
                   <td className="py-2.5 px-5 text-slate-600">{e.tipo}</td>
                   <td className="py-2.5 px-5">
