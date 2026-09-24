@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { X } from "lucide-react";
-import { ALERTA_ESTILO, ALERTA_LABEL, ZONAS, TIPOS_SERVICIOS, SECTORES, ESTADOS_CONVOCATORIA } from "@/lib/constants";
+import { ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, ZONAS, TIPOS_SERVICIOS, SECTORES, ESTADOS_CONVOCATORIA } from "@/lib/constants";
 import { diasRestantes, alerta, alertaFrenado, diasFrenado, fmtFecha } from "@/lib/utils";
 
 const norm = s => String(s || "").trim().toLowerCase();
@@ -12,10 +12,21 @@ const norm = s => String(s || "").trim().toLowerCase();
 // vencimiento) y sumando "Sin frenar" para lo que no tiene nada frenado.
 const NIVELES_FRENADO = ["rojo", "amarillo", "verde"];
 
+// Mismo criterio que TarjetaGrupoServicios: un parche muestra su tipo
+// puntual (o "Parche / Contratación puente" si no tiene uno cargado), sin
+// entrar en el detalle de meses de prórroga por departamento (esta tabla no
+// tiene a mano el resto de la cadena para calcularlo).
+function rolTexto(e) {
+  if (e.rol === "parche") {
+    return e.tipoParche || (e.tipoContratacionProrroga ? "Prórroga (departamento)" : ROL_LABEL.parche);
+  }
+  return ROL_LABEL[e.rol];
+}
+
 function filtroVacio() {
   return {
     exp: "", fuero: "", domicilio: "",
-    zona: "Todas", tipo: "Todos", sector: "Todos", estadoConvocatoria: "Todos",
+    zona: "Todas", tipo: "Todos", rol: "Todos", sector: "Todos", estadoConvocatoria: "Todos",
     diasRestantes: "Todos", diasFrenado: "Todos",
   };
 }
@@ -41,6 +52,7 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
       if (f.domicilio && !norm((e.domiciliosRenglones || []).join(" ")).includes(norm(f.domicilio))) return false;
       if (f.zona !== "Todas" && e.zona !== f.zona) return false;
       if (f.tipo !== "Todos" && e.tipo !== f.tipo) return false;
+      if (f.rol !== "Todos" && e.rol !== f.rol) return false;
       if (f.sector !== "Todos" && e.sector !== f.sector) return false;
       if (f.estadoConvocatoria !== "Todos" && (e.estadoConvocatoria || "") !== f.estadoConvocatoria) return false;
       if (f.diasRestantes !== "Todos" && alerta(diasRestantes(e.fechaVencimiento)) !== f.diasRestantes) return false;
@@ -121,10 +133,17 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                   className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-800" />
               </th>
               <th className="py-2 px-5 align-top">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Fecha inicio</div>
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Trámite</div>
+                <select value={f.rol} onChange={e => set("rol", e.target.value)}
+                  className="w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800">
+                  <option value="Todos">Todos</option>
+                  <option value="vigente">{ROL_LABEL.vigente}</option>
+                  <option value="parche">{ROL_LABEL.parche}</option>
+                  <option value="renovacion">{ROL_LABEL.renovacion}</option>
+                </select>
               </th>
               <th className="py-2 px-5 align-top">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Fecha vencimiento</div>
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Período</div>
               </th>
               <th className="py-2 px-5 align-top">
                 <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Sector</div>
@@ -208,8 +227,10 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                     <div className="font-mono text-xs font-semibold text-slate-900">{e.exp}</div>
                     {e.nombreCorto && <div className="text-[11px] text-slate-500">{e.nombreCorto}</div>}
                   </td>
-                  <td className="py-2.5 px-5 text-slate-600">{e.fechaInicio ? fmtFecha(e.fechaInicio) : "-"}</td>
-                  <td className="py-2.5 px-5 text-slate-600">{fmtFecha(e.fechaVencimiento)}</td>
+                  <td className="py-2.5 px-5 text-slate-600">{rolTexto(e)}</td>
+                  <td className="py-2.5 px-5 text-slate-600 whitespace-nowrap">
+                    {e.fechaInicio ? fmtFecha(e.fechaInicio) : "Sin fecha de inicio"} — {fmtFecha(e.fechaVencimiento)}
+                  </td>
                   <td className="py-2.5 px-5 text-slate-600">
                     {puedeEditar ? (
                       <button
