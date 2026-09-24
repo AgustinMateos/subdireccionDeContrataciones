@@ -191,10 +191,14 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                     <td
                       rowSpan={span}
                       onClick={e2 => e2.stopPropagation()}
-                      className="py-2.5 px-5 text-slate-600 max-w-[150px] truncate align-top border-r border-slate-50 cursor-default"
-                      title={fuero}
+                      className="py-2.5 px-3 align-top border-r border-slate-50 cursor-default"
                     >
-                      {fuero || "-"}
+                      <div
+                        title={fuero}
+                        className="w-[110px] text-[11px] leading-snug text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1.5"
+                      >
+                        {fuero || "-"}
+                      </div>
                     </td>
                   )}
                   <td className="py-2.5 px-5 text-slate-600 max-w-[170px] truncate" title={domicilio}>{domicilioCompacto || "-"}</td>
