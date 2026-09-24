@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, LayoutGrid, Table2 } from "lucide-react";
 
 import { HOY, ROL_USUARIO_LABEL, ENCUADRE_POR_TIPO_PARCHE } from "@/lib/constants";
 import { diasRestantes, alerta, documentacionDeExpediente, fmtFecha, soloFechaLocal, esConvocatoriaFracasada } from "@/lib/utils";
@@ -66,6 +66,7 @@ import Resumen from "./Resumen";
 import FiltroBar from "./FiltroBar";
 import TarjetaExpediente from "./TarjetaExpediente";
 import TarjetaGrupoServicios from "./TarjetaGrupoServicios";
+import TablaExpedientesServicios from "./TablaExpedientesServicios";
 import PaginaExpediente from "./PaginaExpediente";
 import FormularioExpediente from "./FormularioExpediente";
 import CaratularExpediente from "./CaratularExpediente";
@@ -119,6 +120,7 @@ export default function App() {
   const [zonaFiltro, setZonaFiltro] = useState("Todas");
   const [busqueda, setBusqueda] = useState("");
   const [visibles, setVisibles] = useState(6);
+  const [vistaListado, setVistaListado] = useState("tarjetas"); // 'tarjetas' | 'tabla' (Servicios)
   const [seleccionado, setSeleccionado] = useState(null);
   const [formAbierto, setFormAbierto] = useState(null); // 'nuevo' | 'editar' | 'renovacion'
   // Orígenes elegidos en una tarjeta de Servicios para "Unificar renovación"
@@ -761,29 +763,56 @@ export default function App() {
               departamentoSlug={sesion.departamentoSlug}
             />
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
-              {itemsListado.slice(0, visibles).map(item =>
-                item.tipo === "grupo"
-                  ? <TarjetaGrupoServicios key={item.clave} grupo={item.grupo} todos={expedientes} onVer={verExpediente} onUnificar={(origenes) => setUnificarOrigenes(origenes)} puedeEditar={puedeEditar} />
-                  : <TarjetaExpediente key={item.exp.id} exp={item.exp} onVer={() => verExpediente(item.exp.id)} />
-              )}
-            </div>
-
-            {filtrados.length === 0 && (
-              <div className="text-center py-16 text-slate-500 text-sm">
-                No se encontraron expedientes con los filtros aplicados.
+            {!esInformaticaYVarios && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setVistaListado("tarjetas")}
+                  className={"flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md border transition-colors " +
+                    (vistaListado === "tarjetas" ? "bg-slate-900 text-white border-slate-900" : "border-slate-300 text-slate-600 hover:border-slate-500")}
+                >
+                  <LayoutGrid size={13} /> Tarjetas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVistaListado("tabla")}
+                  className={"flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md border transition-colors " +
+                    (vistaListado === "tabla" ? "bg-slate-900 text-white border-slate-900" : "border-slate-300 text-slate-600 hover:border-slate-500")}
+                >
+                  <Table2 size={13} /> Tabla
+                </button>
               </div>
             )}
 
-            {visibles < itemsListado.length && (
-              <div className="flex justify-center pt-2">
-                <button
-                  onClick={() => setVisibles(v => v + 6)}
-                  className="px-5 py-2.5 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:border-slate-500 transition-colors"
-                >
-                  Ver más expedientes ({itemsListado.length - visibles} restantes)
-                </button>
-              </div>
+            {vistaListado === "tabla" && !esInformaticaYVarios ? (
+              <TablaExpedientesServicios expedientes={filtrados} onVer={verExpediente} />
+            ) : (
+              <>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+                  {itemsListado.slice(0, visibles).map(item =>
+                    item.tipo === "grupo"
+                      ? <TarjetaGrupoServicios key={item.clave} grupo={item.grupo} todos={expedientes} onVer={verExpediente} onUnificar={(origenes) => setUnificarOrigenes(origenes)} puedeEditar={puedeEditar} />
+                      : <TarjetaExpediente key={item.exp.id} exp={item.exp} onVer={() => verExpediente(item.exp.id)} />
+                  )}
+                </div>
+
+                {filtrados.length === 0 && (
+                  <div className="text-center py-16 text-slate-500 text-sm">
+                    No se encontraron expedientes con los filtros aplicados.
+                  </div>
+                )}
+
+                {visibles < itemsListado.length && (
+                  <div className="flex justify-center pt-2">
+                    <button
+                      onClick={() => setVisibles(v => v + 6)}
+                      className="px-5 py-2.5 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:border-slate-500 transition-colors"
+                    >
+                      Ver más expedientes ({itemsListado.length - visibles} restantes)
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
