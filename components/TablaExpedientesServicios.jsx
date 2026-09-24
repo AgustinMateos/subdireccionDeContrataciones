@@ -53,6 +53,28 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
     });
   }, [base, f]);
 
+  // Fuero se muestra "acoplado" — como una celda combinada de Excel: se
+  // ordena por fuero para que las filas que comparten uno queden juntas, y
+  // solo la primera fila de cada grupo dibuja la celda (con rowSpan);
+  // el resto la deja vacía en vez de repetir el mismo texto.
+  const filasConFuero = useMemo(() => {
+    const ordenadas = [...filas].sort((a, b) => {
+      const fa = (a.fuero || []).join(" · ");
+      const fb = (b.fuero || []).join(" · ");
+      if (fa !== fb) return fa.localeCompare(fb);
+      return new Date(b.fechaVencimiento) - new Date(a.fechaVencimiento);
+    });
+    return ordenadas.map((e, i) => {
+      const fuero = (e.fuero || []).join(" · ");
+      const esInicioGrupo = i === 0 || (ordenadas[i - 1].fuero || []).join(" · ") !== fuero;
+      let span = 0;
+      if (esInicioGrupo) {
+        for (let j = i; j < ordenadas.length && (ordenadas[j].fuero || []).join(" · ") === fuero; j++) span++;
+      }
+      return { exp: e, fuero, esInicioGrupo, span };
+    });
+  }, [filas]);
+
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-b border-slate-100 bg-slate-50/60">
@@ -67,21 +89,17 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
         <table className="w-full text-sm min-w-[980px]">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wide text-slate-500 border-b border-slate-100">
-              <th className="py-2.5 px-5">Expediente</th>
               <th className="py-2.5 px-5">Fuero</th>
               <th className="py-2.5 px-5">Domicilio</th>
               <th className="py-2.5 px-5">Zona</th>
               <th className="py-2.5 px-5">Tipo</th>
+              <th className="py-2.5 px-5">Expediente</th>
               <th className="py-2.5 px-5">Sector</th>
               <th className="py-2.5 px-5">Estado de convocatoria</th>
               <th className="py-2.5 px-5">Días restantes</th>
               <th className="py-2.5 px-5">Días frenado</th>
             </tr>
             <tr className="border-b border-slate-100 bg-slate-50/40">
-              <th className="px-5 pb-2">
-                <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Buscar..."
-                  className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-800" />
-              </th>
               <th className="px-5 pb-2">
                 <input value={f.fuero} onChange={e => set("fuero", e.target.value)} placeholder="Buscar..."
                   className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-800" />
@@ -103,6 +121,10 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                   <option value="Todos">Todos</option>
                   {TIPOS_SERVICIOS.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
+              </th>
+              <th className="px-5 pb-2">
+                <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Buscar..."
+                  className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-800" />
               </th>
               <th className="px-5 pb-2">
                 <select value={f.sector} onChange={e => set("sector", e.target.value)}
@@ -136,18 +158,17 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
             </tr>
           </thead>
           <tbody>
-            {filas.length === 0 ? (
+            {filasConFuero.length === 0 ? (
               <tr>
                 <td colSpan={9} className="py-10 text-center text-sm text-slate-500">
                   No se encontraron expedientes con esos filtros.
                 </td>
               </tr>
-            ) : filas.map(e => {
+            ) : filasConFuero.map(({ exp: e, fuero, esInicioGrupo, span }) => {
               const yaCerrado = e.estadoGeneral === "Finalizado" || e.estadoGeneral === "Archivado";
               const dias = diasRestantes(e.fechaVencimiento);
               const niv = alerta(dias);
               const frenado = diasFrenado(e.observaciones, e.creadoEn);
-              const fuero = (e.fuero || []).join(" · ");
               const domicilio = (e.domiciliosRenglones || []).join(" · ");
               return (
                 <tr
@@ -155,14 +176,18 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                   onClick={() => onVer(e.id)}
                   className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 cursor-pointer"
                 >
+                  {esInicioGrupo && (
+                    <td rowSpan={span} className="py-2.5 px-5 text-slate-600 max-w-[200px] truncate align-top border-r border-slate-50" title={fuero}>
+                      {fuero || "-"}
+                    </td>
+                  )}
+                  <td className="py-2.5 px-5 text-slate-600 max-w-[240px] truncate" title={domicilio}>{domicilio || "-"}</td>
+                  <td className="py-2.5 px-5 text-slate-600">{e.zona || "-"}</td>
+                  <td className="py-2.5 px-5 text-slate-600">{e.tipo}</td>
                   <td className="py-2.5 px-5">
                     <div className="font-mono text-xs font-semibold text-slate-900">{e.exp}</div>
                     {e.nombreCorto && <div className="text-[11px] text-slate-500">{e.nombreCorto}</div>}
                   </td>
-                  <td className="py-2.5 px-5 text-slate-600 max-w-[200px] truncate" title={fuero}>{fuero || "-"}</td>
-                  <td className="py-2.5 px-5 text-slate-600 max-w-[240px] truncate" title={domicilio}>{domicilio || "-"}</td>
-                  <td className="py-2.5 px-5 text-slate-600">{e.zona || "-"}</td>
-                  <td className="py-2.5 px-5 text-slate-600">{e.tipo}</td>
                   <td className="py-2.5 px-5 text-slate-600">
                     {puedeEditar ? (
                       <button
