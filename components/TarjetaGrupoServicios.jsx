@@ -266,18 +266,18 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer, onUnificar,
                         </span>
                       )
                     )}
-                    {unificadoEn && (
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-violet-300 bg-violet-50 text-violet-800 text-right">
-                        <span className="block">Renov. unificada exp:{unificadoEn.exp}</span>
-                        {unificadoEn.fechaInicio && <span className="block">desde {fmtFecha(unificadoEn.fechaInicio)}</span>}
-                      </span>
-                    )}
                     {!esRenovacion && exp.tieneProrroga && (
                       <span className={"text-[10px] font-medium px-1.5 py-0.5 rounded border flex items-center gap-1 " +
                         (exp.mesesProrrogaUsados > 0 ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800")}>
                         <Clock size={10} /> {exp.mesesProrrogaUsados > 0
                           ? `Prórroga activada (${exp.mesesProrrogaUsados}/${exp.mesesProrroga || Math.max(...PRORROGA_MESES_OPCIONES)})`
                           : "Puede activar prórroga"}
+                      </span>
+                    )}
+                    {unificadoEn && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-violet-300 bg-violet-50 text-violet-800 text-right">
+                        <span className="block">Renov. unificada exp:{unificadoEn.exp}</span>
+                        {unificadoEn.fechaInicio && <span className="block">desde {fmtFecha(unificadoEn.fechaInicio)}</span>}
                       </span>
                     )}
                   </div>
