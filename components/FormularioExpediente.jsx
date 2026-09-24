@@ -97,6 +97,10 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
       setError("Completá al menos N° de expediente, objeto y fecha de vencimiento.");
       return;
     }
+    if (esServicios && f.fuero.length === 0) {
+      setError("Agregá al menos un fuero.");
+      return;
+    }
     if (f.organismos.length === 0) {
       setError("Agregá al menos un organismo.");
       return;

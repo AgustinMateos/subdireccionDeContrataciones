@@ -959,6 +959,12 @@ export async function POST(request) {
   }
 
   // ---------- Alta normal de expediente ----------
+  // El fuero es obligatorio en Servicios (identifica la jurisdicción/rama
+  // judicial del trámite) — no existe en Informática y Varios.
+  if (session.user.departamentoSlug === "servicios" && normalizarFuero(body).length === 0) {
+    return NextResponse.json({ error: "Agregá al menos un fuero" }, { status: 400 });
+  }
+
   // Si esto va a ser la renovación de una cadena, no puede empezar antes de
   // que termine la cobertura actual: el vencimiento del vigente (ya extendido
   // si tiene la prórroga activada) o el del parche más tardío — el que sea
