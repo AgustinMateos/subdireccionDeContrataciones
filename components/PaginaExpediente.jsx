@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil, Trash2, Shield, Clock, MapPin } from "lucide-react";
 import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, SECTORES, MODALIDADES_CONTRATACION, ENCUADRE_FUNDAMENTO_LEGAL, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
-import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtFechaHora, fmtMoneda, documentacionDeExpediente, diasFrenado, estadoGeneralMostrado, esConvocatoriaFracasada } from "@/lib/utils";
+import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtFechaHora, fmtMoneda, documentacionDeExpediente, diasFrenado, estadoGeneralMostrado, esConvocatoriaFracasada, linkOrdenDeCompra, ordenesDeCompra, linkActaApertura } from "@/lib/utils";
 import BotonAccion from "./BotonAccion";
 import SelectorMesesProrroga from "./SelectorMesesProrroga";
 export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onGestionarProrroga, onGenerarParche, onDividir, onReunificar, onRelanzarConvocatoria, onCambiarFechaCorteLegitimoAbono, onGenerarContratacionFracasada, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
@@ -413,7 +413,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <Campo label="Encuadre" valor={exp.encuadre} />
             <Campo
               label={esProrrogaDepto ? "OC (prórroga por departamento)" : esAdjudicacion ? "OC (adjudicación)" : "OC"}
-              valor={exp.ocResolucion}
+              valor={exp.ocResolucion && <LinksOrdenDeCompra texto={exp.ocResolucion} />}
             />
             <Campo label="Resolución de llamado" valor={exp.resolucionLlamado} />
             <Campo label="Resolución de adjudicación" valor={exp.resolucionAdjudicacion} />
@@ -422,7 +422,24 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <Campo label="Fecha inicio" valor={fmtFecha(exp.fechaInicio)} />
             {!esConvocatoriaFracasada(exp) && <Campo label="Fecha vencimiento" valor={fmtFecha(exp.fechaVencimiento)} />}
             <Campo label="Fecha de publicación" valor={fmtFecha(exp.fechaPublicacion)} />
-            <Campo label="Fecha y hora de apertura" valor={fmtFechaHora(exp.fechaApertura)} />
+            <Campo
+              label="Fecha y hora de apertura"
+              valor={
+                // Una vez hecha la apertura, la fecha lleva al acta en el
+                // sistema del PJN (se busca por N° de contratación).
+                exp.fechaApertura && new Date(exp.fechaApertura) <= new Date() && exp.nroContratacion ? (
+                  <a
+                    href={linkActaApertura(exp.nroContratacion)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-700 underline decoration-dotted underline-offset-2 hover:decoration-solid"
+                    title="Ver el acta de apertura en el sistema del PJN"
+                  >
+                    {fmtFechaHora(exp.fechaApertura)}
+                  </a>
+                ) : fmtFechaHora(exp.fechaApertura)
+              }
+            />
             <Campo label="Presupuesto oficial" valor={exp.presupuestoOficial ? fmtMoneda(exp.presupuestoOficial) : "-"} />
             <Campo
               label={esProrrogaDepto ? "Monto (prórroga por departamento)" : esAdjudicacion ? "Monto adjudicado" : "Monto"}
@@ -479,7 +496,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                   <div key={dom} className="flex items-center justify-between gap-2 border border-slate-200 rounded-md px-3 py-1.5">
                     <span className="text-slate-500 truncate" title={dom}>{dom}</span>
                     <span className="font-medium text-slate-800 truncate text-right" title={datos.firma}>
-                      {datos.firma}{datos.monto ? " · " + fmtMoneda(datos.monto) : ""}{datos.oc ? " · OC " + datos.oc : ""}
+                      {datos.firma}{datos.monto ? " · " + fmtMoneda(datos.monto) : ""}{datos.oc && <> · OC <LinksOrdenDeCompra texto={datos.oc} /></>}
                     </span>
                   </div>
                 ))}
@@ -915,6 +932,25 @@ function FormObservacion({ exp, onObservacion }) {
       </div>
     </div>
   );
+}
+
+// Cada OC cargada, como link a su búsqueda en el sistema de OC del PJN.
+function LinksOrdenDeCompra({ texto }) {
+  return ordenesDeCompra(texto).map((oc, i) => (
+    <span key={oc + i}>
+      {i > 0 && " / "}
+      <a
+        href={linkOrdenDeCompra(oc)}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={e => e.stopPropagation()}
+        className="text-blue-700 underline decoration-dotted underline-offset-2 hover:decoration-solid"
+        title="Ver la orden de compra en el sistema del PJN"
+      >
+        {oc}
+      </a>
+    </span>
+  ));
 }
 
 function Campo({ label, valor }) {
