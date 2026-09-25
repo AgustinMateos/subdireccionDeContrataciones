@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { ESTADOS_CONVOCATORIA } from "@/lib/constants";
 import BotonAccion from "./BotonAccion";
+import FiltroDesplegable from "./FiltroDesplegable";
 
 // Edición rápida del estado de convocatoria (ej. desde la tabla de
 // expedientes), sin pasar por "Editar expediente". Los estados terminales
@@ -37,11 +38,15 @@ export default function ModalCambiarEstadoConvocatoria({ exp, onCerrar, onConfir
 
         <div className="p-6">
           <label className="block text-xs font-medium text-slate-600 mb-1">Estado</label>
-          <select value={valor} onChange={e => setValor(e.target.value)}
-            className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800">
-            <option value="">— Sin definir —</option>
-            {ESTADOS_CONVOCATORIA.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <FiltroDesplegable
+            valor={valor}
+            onChange={setValor}
+            opciones={[{ valor: "", etiqueta: "— Sin definir —" }, ...ESTADOS_CONVOCATORIA.map(s => ({ valor: s, etiqueta: s }))]}
+            clase={"bg-white border-slate-300 " + (valor ? "text-slate-900" : "text-slate-400")}
+            anchoCompleto
+            flotante
+            grande
+          />
           <p className="text-[11px] text-slate-500 mt-2">
             Para Fracasada, Desierta o Adjudicación (íntegra o parcial) usá "Resolver adjudicación" desde la ficha del expediente.
           </p>

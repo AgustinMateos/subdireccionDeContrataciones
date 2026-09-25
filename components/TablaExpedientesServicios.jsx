@@ -1,40 +1,42 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { X, Plus, FilePlus2 } from "lucide-react";
-import { ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, ZONAS, TIPOS_SERVICIOS, SECTORES, ESTADOS_CONVOCATORIA } from "@/lib/constants";
+import { X, Plus, FilePlus2, ChevronDown } from "lucide-react";
+import { ALERTA_ESTILO, ALERTA_LABEL, ZONAS, TIPOS_SERVICIOS, SECTORES, ESTADOS_CONVOCATORIA } from "@/lib/constants";
+import FiltroDesplegable from "./FiltroDesplegable";
 import { diasRestantes, alerta, alertaFrenado, diasFrenado, fmtFecha } from "@/lib/utils";
 
 const norm = s => String(s || "").trim().toLowerCase();
 
-// El nombre de la columna es la primera opción del select — cuando esa es
-// la elegida (sin filtro aplicado), se ve gris como un placeholder; al
-// elegir un valor real, pasa a texto normal.
-function selectClase(esPlaceholder) {
-  return "w-full text-xs font-normal border border-slate-300 rounded px-1.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-slate-800 " +
-    (esPlaceholder ? "text-slate-400" : "text-slate-900");
+// Filtro de columna: el desplegable propio (el mismo de la barra de filtros)
+// con el nombre de la columna como primera opción — cuando esa es la
+// elegida (sin filtro aplicado), se ve gris como un placeholder; al elegir
+// un valor real, pasa a texto normal. Flota sobre la tabla para que el
+// scroll horizontal no recorte la lista.
+function FiltroColumna({ valor, vacio, etiqueta, opciones, onChange }) {
+  return (
+    <FiltroDesplegable
+      valor={valor}
+      onChange={onChange}
+      opciones={[{ valor: vacio, etiqueta }, ...opciones]}
+      clase={"bg-white border-slate-300 " + (valor === vacio ? "text-slate-400" : "text-slate-900")}
+      anchoCompleto
+      flotante
+    />
+  );
 }
+
+const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-900 hover:border-slate-500 transition-colors focus:outline-none focus:border-slate-500 placeholder:text-slate-400";
 
 // Niveles de "Días frenado" — mismos colores que alerta() pero sin
 // "vencido" (acá no aplica: frenado mide días parado en un sector, no
 // vencimiento) y sumando "Sin frenar" para lo que no tiene nada frenado.
 const NIVELES_FRENADO = ["rojo", "amarillo", "verde"];
 
-// Mismo criterio que TarjetaGrupoServicios: un parche muestra su tipo
-// puntual (o "Parche / Contratación puente" si no tiene uno cargado), sin
-// entrar en el detalle de meses de prórroga por departamento (esta tabla no
-// tiene a mano el resto de la cadena para calcularlo).
-function rolTexto(e) {
-  if (e.rol === "parche") {
-    return e.tipoParche || (e.tipoContratacionProrroga ? "Prórroga (departamento)" : ROL_LABEL.parche);
-  }
-  return ROL_LABEL[e.rol];
-}
-
 function filtroVacio() {
   return {
     exp: "", fuero: "", domicilio: "",
-    zona: "Todas", tipo: "Todos", rol: "Todos", sector: "Todos", estadoConvocatoria: "Todos",
+    zona: "Todas", tipo: "Todos", sector: "Todos", estadoConvocatoria: "Todos",
     diasRestantes: "Todos", diasFrenado: "Todos",
   };
 }
@@ -42,16 +44,26 @@ function filtroVacio() {
 // Vista alternativa a las tarjetas para el listado de Servicios: una fila
 // por expediente (sin agrupar por trámite), en el mismo estilo que la tabla
 // "Detalle de expedientes" del Informe de Servicios — con un filtro propio
-// por cada columna, independiente de los filtros generales de arriba. Los
-// antecedentes no se muestran, mismo criterio que las tarjetas de grupo (ya
-// es cobertura cerrada y reemplazada).
+// por cada columna, independiente de los filtros generales de arriba. Solo
+// muestra lo que está en trámite: renovaciones y parches (ni vigentes ni
+// antecedentes).
 export default function TablaExpedientesServicios({ expedientes, onVer, puedeEditar, onCambiarSector, onCambiarEstadoConvocatoria, onNuevo, onCaratular }) {
   const [f, setF] = useState(filtroVacio);
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
   function limpiar() { setF(filtroVacio()); }
+  // Celdas de Domicilio desplegadas (por id del expediente que dibuja la
+  // celda): cerradas muestran solo el primer domicilio.
+  const [domiciliosAbiertos, setDomiciliosAbiertos] = useState(() => new Set());
+  function alternarDomicilios(id) {
+    setDomiciliosAbiertos(prev => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id); else s.add(id);
+      return s;
+    });
+  }
   const hayFiltros = Object.entries(f).some(([k, v]) => v !== filtroVacio()[k]);
 
-  const base = useMemo(() => (expedientes || []).filter(e => e.rol !== "antecedente"), [expedientes]);
+  const base = useMemo(() => (expedientes || []).filter(e => e.rol === "renovacion" || e.rol === "parche"), [expedientes]);
 
   const filas = useMemo(() => {
     return base.filter(e => {
@@ -60,7 +72,6 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
       if (f.domicilio && !norm((e.domiciliosRenglones || []).join(" ")).includes(norm(f.domicilio))) return false;
       if (f.zona !== "Todas" && e.zona !== f.zona) return false;
       if (f.tipo !== "Todos" && e.tipo !== f.tipo) return false;
-      if (f.rol !== "Todos" && e.rol !== f.rol) return false;
       if (f.sector !== "Todos" && e.sector !== f.sector) return false;
       if (f.estadoConvocatoria !== "Todos" && (e.estadoConvocatoria || "") !== f.estadoConvocatoria) return false;
       if (f.diasRestantes !== "Todos" && alerta(diasRestantes(e.fechaVencimiento)) !== f.diasRestantes) return false;
@@ -110,7 +121,10 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-b border-slate-100 bg-slate-50/60">
-        <span className="text-[11px] text-slate-500">{filas.length} de {base.length} expediente{base.length !== 1 ? "s" : ""}</span>
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900">Renovaciones en trámite y parches</h3>
+          <span className="text-[11px] text-slate-500">{filas.length} de {base.length} expediente{base.length !== 1 ? "s" : ""}</span>
+        </div>
         <div className="flex items-center gap-3">
           {hayFiltros && (
             <button type="button" onClick={limpiar} className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-900">
@@ -134,78 +148,47 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
           <thead>
             <tr className="text-left border-b border-slate-100 bg-slate-50/40">
               <th className="py-2 px-5 align-top">
-                <input value={f.fuero} onChange={e => set("fuero", e.target.value)} placeholder="Fuero"
-                  className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-slate-800 placeholder:text-slate-400" />
+                <input value={f.fuero} onChange={e => set("fuero", e.target.value)} placeholder="Fuero" className={CLASE_INPUT} />
               </th>
               <th className="py-2 px-5 align-top">
-                <input value={f.domicilio} onChange={e => set("domicilio", e.target.value)} placeholder="Domicilio"
-                  className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-slate-800 placeholder:text-slate-400" />
+                <input value={f.domicilio} onChange={e => set("domicilio", e.target.value)} placeholder="Domicilio" className={CLASE_INPUT} />
               </th>
               <th className="py-2 px-5 align-top">
-                <select value={f.zona} onChange={e => set("zona", e.target.value)}
-                  className={selectClase(f.zona === "Todas")}>
-                  <option value="Todas">Zona</option>
-                  {ZONAS.map(z => <option key={z} value={z}>{z}</option>)}
-                </select>
+                <FiltroColumna valor={f.zona} vacio="Todas" etiqueta="Zona" onChange={v => set("zona", v)}
+                  opciones={ZONAS.map(z => ({ valor: z, etiqueta: z }))} />
               </th>
               <th className="py-2 px-5 align-top">
-                <select value={f.tipo} onChange={e => set("tipo", e.target.value)}
-                  className={selectClase(f.tipo === "Todos")}>
-                  <option value="Todos">Tipo</option>
-                  {TIPOS_SERVICIOS.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
+                <FiltroColumna valor={f.tipo} vacio="Todos" etiqueta="Tipo" onChange={v => set("tipo", v)}
+                  opciones={TIPOS_SERVICIOS.map(t => ({ valor: t, etiqueta: t }))} />
               </th>
               <th className="py-2 px-5 align-top">
-                <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Expediente"
-                  className="w-full text-xs font-normal border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-slate-800 placeholder:text-slate-400" />
-              </th>
-              <th className="py-2 px-5 align-top">
-                <select value={f.rol} onChange={e => set("rol", e.target.value)}
-                  className={selectClase(f.rol === "Todos")}>
-                  <option value="Todos">Trámite</option>
-                  <option value="vigente">{ROL_LABEL.vigente}</option>
-                  <option value="parche">{ROL_LABEL.parche}</option>
-                  <option value="renovacion">{ROL_LABEL.renovacion}</option>
-                </select>
+                <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Expediente" className={CLASE_INPUT} />
               </th>
               <th className="py-2 px-5 align-top">
                 <span className="text-xs text-slate-400">Período</span>
               </th>
               <th className="py-2 px-5 align-top">
-                <select value={f.sector} onChange={e => set("sector", e.target.value)}
-                  className={selectClase(f.sector === "Todos")}>
-                  <option value="Todos">Sector</option>
-                  {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <FiltroColumna valor={f.sector} vacio="Todos" etiqueta="Sector" onChange={v => set("sector", v)}
+                  opciones={SECTORES.map(x => ({ valor: x, etiqueta: x }))} />
               </th>
               <th className="py-2 px-5 align-top">
-                <select value={f.estadoConvocatoria} onChange={e => set("estadoConvocatoria", e.target.value)}
-                  className={selectClase(f.estadoConvocatoria === "Todos")}>
-                  <option value="Todos">Estado de convocatoria</option>
-                  {ESTADOS_CONVOCATORIA.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <FiltroColumna valor={f.estadoConvocatoria} vacio="Todos" etiqueta="Estado de convocatoria" onChange={v => set("estadoConvocatoria", v)}
+                  opciones={ESTADOS_CONVOCATORIA.map(x => ({ valor: x, etiqueta: x }))} />
               </th>
               <th className="py-2 px-5 align-top">
-                <select value={f.diasRestantes} onChange={e => set("diasRestantes", e.target.value)}
-                  className={selectClase(f.diasRestantes === "Todos")}>
-                  <option value="Todos">Días restantes</option>
-                  {Object.keys(ALERTA_LABEL).map(n => <option key={n} value={n}>{ALERTA_LABEL[n]}</option>)}
-                </select>
+                <FiltroColumna valor={f.diasRestantes} vacio="Todos" etiqueta="Días restantes" onChange={v => set("diasRestantes", v)}
+                  opciones={Object.keys(ALERTA_LABEL).map(n => ({ valor: n, etiqueta: ALERTA_LABEL[n] }))} />
               </th>
               <th className="py-2 px-5 align-top">
-                <select value={f.diasFrenado} onChange={e => set("diasFrenado", e.target.value)}
-                  className={selectClase(f.diasFrenado === "Todos")}>
-                  <option value="Todos">Días frenado</option>
-                  <option value="sinFrenar">Sin frenar</option>
-                  {NIVELES_FRENADO.map(n => <option key={n} value={n}>{ALERTA_LABEL[n]}</option>)}
-                </select>
+                <FiltroColumna valor={f.diasFrenado} vacio="Todos" etiqueta="Días frenado" onChange={v => set("diasFrenado", v)}
+                  opciones={[{ valor: "sinFrenar", etiqueta: "Sin frenar" }, ...NIVELES_FRENADO.map(n => ({ valor: n, etiqueta: ALERTA_LABEL[n] }))]} />
               </th>
             </tr>
           </thead>
           <tbody>
             {filasConFuero.length === 0 ? (
               <tr>
-                <td colSpan={11} className="py-10 text-center text-sm text-slate-500">
+                <td colSpan={10} className="py-10 text-center text-sm text-slate-500">
                   No se encontraron expedientes con esos filtros.
                 </td>
               </tr>
@@ -215,13 +198,6 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
               const niv = alerta(dias);
               const frenado = diasFrenado(e.observaciones, e.creadoEn);
               const domiciliosLista = e.domiciliosRenglones || [];
-              const domicilio = domiciliosLista.join(" · ");
-              // Compacto: se ve el primer domicilio + cuántos más hay, no la
-              // lista entera — el detalle completo queda en el título
-              // (tooltip) y es sobre eso que sigue filtrando la columna.
-              const domicilioCompacto = domiciliosLista.length > 1
-                ? domiciliosLista[0] + " +" + (domiciliosLista.length - 1) + " más"
-                : (domiciliosLista[0] || "");
               return (
                 <tr
                   key={e.id}
@@ -243,22 +219,29 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                     </td>
                   )}
                   {spanDomicilio > 0 && (
-                    spanDomicilio > 1 ? (
-                      <td
-                        rowSpan={spanDomicilio}
-                        onClick={e2 => e2.stopPropagation()}
-                        className="py-2.5 px-3 align-top border-r border-slate-50 cursor-default"
-                      >
-                        <div
-                          title={domicilio}
-                          className="max-w-[170px] text-[11px] leading-snug text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1.5"
-                        >
-                          {domiciliosLista.map(d => <div key={d}>{d}</div>)}
-                        </div>
-                      </td>
-                    ) : (
-                      <td className="py-2.5 px-5 text-slate-600 max-w-[170px] truncate" title={domicilio}>{domicilioCompacto || "-"}</td>
-                    )
+                    <td
+                      rowSpan={spanDomicilio}
+                      onClick={e2 => e2.stopPropagation()}
+                      className="py-2.5 px-3 align-top border-r border-slate-50 cursor-default"
+                    >
+                      <div className="w-[130px] text-[11px] leading-snug text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1.5">
+                        {domiciliosLista.length === 0 ? "-" : (
+                          <>
+                            {(domiciliosAbiertos.has(e.id) ? domiciliosLista : domiciliosLista.slice(0, 1)).map(d => <div key={d}>{d}</div>)}
+                            {domiciliosLista.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => alternarDomicilios(e.id)}
+                                className="mt-1 flex items-center gap-0.5 font-medium text-slate-500 hover:text-slate-900"
+                              >
+                                {domiciliosAbiertos.has(e.id) ? "Ver menos" : "+" + (domiciliosLista.length - 1) + " más"}
+                                <ChevronDown size={11} className={"transition-transform " + (domiciliosAbiertos.has(e.id) ? "rotate-180" : "")} />
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </td>
                   )}
                   <td className="py-2.5 px-5 text-slate-600">{e.zona || "-"}</td>
                   <td className="py-2.5 px-5 text-slate-600">{e.tipo}</td>
@@ -266,7 +249,6 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
                     <div className="font-mono text-xs font-semibold text-slate-900">{e.exp}</div>
                     {e.nombreCorto && <div className="text-[11px] text-slate-500">{e.nombreCorto}</div>}
                   </td>
-                  <td className="py-2.5 px-5 text-slate-600">{rolTexto(e)}</td>
                   <td className="py-2.5 px-5 text-slate-600 whitespace-nowrap">
                     {e.fechaInicio ? fmtFecha(e.fechaInicio) : "Sin fecha de inicio"} — {fmtFecha(e.fechaVencimiento)}
                   </td>

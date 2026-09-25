@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { SECTORES, MODALIDADES_CONTRATACION, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
 import BotonAccion from "./BotonAccion";
 import SelectorMesesProrroga from "./SelectorMesesProrroga";
+import FiltroDesplegable from "./FiltroDesplegable";
 
 // Mismo comportamiento que "Movimiento de sector" en la ficha (ver
 // FormObservacion en PaginaExpediente.jsx), como modal independiente para
@@ -64,11 +65,15 @@ export default function ModalCambiarSector({ exp, onCerrar, onConfirmar }) {
         <div className="p-6 space-y-3">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Nuevo sector</label>
-            <select value={sectorNuevo} onChange={e => setSectorNuevo(e.target.value)}
-              className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800">
-              <option value="">— Sin definir —</option>
-              {SECTORES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <FiltroDesplegable
+              valor={sectorNuevo}
+              onChange={setSectorNuevo}
+              opciones={[{ valor: "", etiqueta: "— Sin definir —" }, ...SECTORES.map(s => ({ valor: s, etiqueta: s }))]}
+              clase={"bg-white border-slate-300 " + (sectorNuevo ? "text-slate-900" : "text-slate-400")}
+              anchoCompleto
+              flotante
+              grande
+            />
           </div>
 
           {vaAAperturas && (
@@ -108,11 +113,14 @@ export default function ModalCambiarSector({ exp, onCerrar, onConfirmar }) {
                   <label className="block text-[11px] font-medium text-slate-500 mb-1">
                     Encuadre / modalidad de contratación (no está cargado)
                   </label>
-                  <select value={encuadre} onChange={e => setEncuadre(e.target.value)}
-                    className="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-700">
-                    <option value="">— Elegir encuadre —</option>
-                    {MODALIDADES_CONTRATACION.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                  <FiltroDesplegable
+                    valor={encuadre}
+                    onChange={setEncuadre}
+                    opciones={[{ valor: "", etiqueta: "— Elegir encuadre —" }, ...MODALIDADES_CONTRATACION.map(m => ({ valor: m, etiqueta: m }))]}
+                    clase={"bg-white border-slate-300 " + (encuadre ? "text-slate-900" : "text-slate-400")}
+                    anchoCompleto
+                    flotante
+                  />
                 </div>
               )}
               <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
