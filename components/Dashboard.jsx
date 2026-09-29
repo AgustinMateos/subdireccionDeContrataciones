@@ -645,6 +645,7 @@ export default function App() {
         ...(datos?.adjudicatario ? { adjudicatario: datos.adjudicatario } : {}),
         ...(datos?.adjudicacionPorRenglon ? { adjudicacionPorRenglon: datos.adjudicacionPorRenglon } : {}),
         ...(datos?.montoARS != null ? { montoARS: datos.montoARS } : {}),
+        ...(datos?.montoUSD != null ? { montoUSD: datos.montoUSD } : {}),
         ...(datos?.resolucionAdjudicacion ? { resolucionAdjudicacion: datos.resolucionAdjudicacion } : {}),
         ...(datos?.ocResolucion ? { ocResolucion: datos.ocResolucion } : {}),
       }),
@@ -659,11 +660,11 @@ export default function App() {
     mostrarToast("Estado de convocatoria: " + estadoConvocatoria);
   }
 
-  async function dividirExpediente(origen, grupos, adjudicacionPorRenglon, resolucionAdjudicacion, ocResolucion) {
+  async function dividirExpediente(origen, grupos, adjudicacionPorRenglon, resolucionAdjudicacion, ocResolucion, montoUSD) {
     const res = await fetch("/api/expedientes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ divisionDeId: origen.id, grupos, adjudicacionPorRenglon, resolucionAdjudicacion, ocResolucion }),
+      body: JSON.stringify({ divisionDeId: origen.id, grupos, adjudicacionPorRenglon, resolucionAdjudicacion, ocResolucion, montoUSD }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -1053,7 +1054,7 @@ export default function App() {
           exp={seleccionado}
           onCerrar={() => setFormAbierto(null)}
           onResolverTotal={(estadoConvocatoria, datos) => resolverAdjudicacionTotal(seleccionado, estadoConvocatoria, datos)}
-          onDividir={(grupos, adjudicacionPorRenglon, resolucionAdjudicacion, ocResolucion) => dividirExpediente(seleccionado, grupos, adjudicacionPorRenglon, resolucionAdjudicacion, ocResolucion)}
+          onDividir={(grupos, adjudicacionPorRenglon, resolucionAdjudicacion, ocResolucion, montoUSD) => dividirExpediente(seleccionado, grupos, adjudicacionPorRenglon, resolucionAdjudicacion, ocResolucion, montoUSD)}
         />
       )}
 

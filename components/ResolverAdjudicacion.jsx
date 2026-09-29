@@ -44,6 +44,8 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
   const [ocPorFirma, setOcPorFirma] = useState({}); // { firma: nroOC } — una OC por empresa, no por renglón
   const [firmaMasiva, setFirmaMasiva] = useState(""); // atajo: aplicar la misma firma a todos de una
   const [resolucionAdjudicacion, setResolucionAdjudicacion] = useState(exp.resolucionAdjudicacion || "");
+  // Opcional: solo se guarda si se completa (la ficha lo muestra solo entonces).
+  const [montoUSD, setMontoUSD] = useState(exp.montoUSD ? String(exp.montoUSD) : "");
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
   const disponibles = exp.domiciliosRenglones || [];
@@ -147,6 +149,7 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
         if (ocsUnicas.length > 0) datos.ocResolucion = ocsUnicas.join(" / ");
       }
       if (resolucionAdjudicacion.trim()) datos.resolucionAdjudicacion = resolucionAdjudicacion.trim();
+      if (montoUSD.trim()) datos.montoUSD = Number(montoUSD) || 0;
       setCargando(true);
       await onResolverTotal(opcionElegida.estado, datos);
       setCargando(false);
@@ -186,7 +189,8 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
       fechaInicio: g.fechaInicio,
       fechaVencimiento: g.fechaVencimiento,
       domiciliosRenglones: g.seleccionados,
-    })), adjudicacionPorRenglon, resolucionAdjudicacion.trim() || undefined, ocsUnicas.length > 0 ? ocsUnicas.join(" / ") : undefined);
+    })), adjudicacionPorRenglon, resolucionAdjudicacion.trim() || undefined, ocsUnicas.length > 0 ? ocsUnicas.join(" / ") : undefined,
+      montoUSD.trim() ? Number(montoUSD) || 0 : undefined);
     setCargando(false);
   }
 
@@ -212,10 +216,19 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
           </div>
 
           {(opcion === "integra" || opcion === "parcial") && (
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Resolución de adjudicación</label>
-              <input value={resolucionAdjudicacion} onChange={e => setResolucionAdjudicacion(e.target.value)} placeholder="Ej: 1234/2026"
-                className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Resolución de adjudicación</label>
+                <input value={resolucionAdjudicacion} onChange={e => setResolucionAdjudicacion(e.target.value)} placeholder="Ej: 1234/2026"
+                  className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Monto total adjudicado (USD) <span className="font-normal text-slate-400">— opcional</span>
+                </label>
+                <input type="number" value={montoUSD} onChange={e => setMontoUSD(e.target.value)}
+                  className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+              </div>
             </div>
           )}
 

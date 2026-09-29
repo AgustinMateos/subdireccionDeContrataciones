@@ -865,6 +865,7 @@ export async function POST(request) {
           : {}),
         ...(body.resolucionAdjudicacion ? { resolucionAdjudicacion: String(body.resolucionAdjudicacion).trim() } : {}),
         ...(ocsUnicas ? { ocResolucion: ocsUnicas } : {}),
+        ...(body.montoUSD != null ? { montoUSD: Number(body.montoUSD) || 0 } : {}),
         observaciones: {
           create: [{
             usuario: session.user.name,

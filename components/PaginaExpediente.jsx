@@ -167,6 +167,15 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <div className="text-xs text-slate-500">{exp.rol === "parche" ? labelParche(exp) : ROL_LABEL[exp.rol]}</div>
             <div className="text-xs text-slate-500">{exp.tipo}</div>
             {exp.sector && <div className="text-xs text-slate-500">Sector: {exp.sector}</div>}
+            {exp.etapa && <div className="text-xs text-slate-500">Etapa: {exp.etapa}</div>}
+            {/* Una convocatoria fracasada no muestra vencimiento (no se va a
+                cumplir) — queda solo la fecha de inicio. */}
+            {(exp.fechaInicio || exp.fechaVencimiento) && (
+              <div className="text-xs text-slate-500">
+                Período: {fmtFecha(exp.fechaInicio)}{!esConvocatoriaFracasada(exp) && " — " + fmtFecha(exp.fechaVencimiento)}
+              </div>
+            )}
+            {exp.agente && <div className="text-xs text-slate-500">Agente: {exp.agente}</div>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className={"text-[11px] font-medium px-2 py-1 rounded border " + ESTADO_ESTILO[estadoGeneralMostrado(exp)]}>{estadoGeneralMostrado(exp)}</span>
@@ -411,22 +420,19 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
           )}
 <div className="col-span-2">
   <Campo label="Objeto" valor={exp.objeto} /></div>
-          <div className="grid grid-cols-4 gap-x-4 gap-y-3 text-sm">
-            <Campo label="Agente" valor={exp.agente} />
-            <Campo label="N° de contratación" valor={exp.nroContratacion} />
+          <div className="grid grid-cols-5 gap-x-4 gap-y-3 text-sm">
+            <Campo label={(exp.fuero || []).length > 1 ? "Fueros" : "Fuero"} valor={(exp.fuero || []).join(", ")} />
             <Campo label={(exp.organismos || []).length > 1 ? "Organismos" : "Organismo"} valor={(exp.organismos || []).join(", ")} />
             <Campo label="Domicilios/renglones" valor={(exp.domiciliosRenglones || []).join(", ")} />
+            <Campo label="Zona" valor={exp.zona} />
+            <Campo label="N° de contratación" valor={exp.nroContratacion} />
+          </div>
+
+          {/* El llamado, en su propia fila y en el orden en que se tramita. */}
+          <div className="grid grid-cols-5 gap-x-4 gap-y-3 text-sm !mt-3">
             <Campo label="Encuadre" valor={exp.encuadre} />
-            <Campo
-              label={esProrrogaDepto ? "OC (prórroga por departamento)" : esAdjudicacion ? "OC (adjudicación)" : "OC"}
-              valor={exp.ocResolucion && <LinksOrdenDeCompra texto={exp.ocResolucion} />}
-            />
+            <Campo label="Presupuesto oficial" valor={exp.presupuestoOficial ? fmtMoneda(exp.presupuestoOficial) : "-"} />
             <Campo label="Resolución de llamado" valor={exp.resolucionLlamado} />
-            <Campo label="Resolución de adjudicación" valor={exp.resolucionAdjudicacion} />
-            <Campo label="Adjudicatario" valor={exp.adjudicatario} />
-            <Campo label="Etapa" valor={exp.etapa} />
-            <Campo label="Fecha inicio" valor={fmtFecha(exp.fechaInicio)} />
-            {!esConvocatoriaFracasada(exp) && <Campo label="Fecha vencimiento" valor={fmtFecha(exp.fechaVencimiento)} />}
             <Campo label="Fecha de publicación" valor={fmtFecha(exp.fechaPublicacion)} />
             <Campo
               label="Fecha y hora de apertura"
@@ -446,13 +452,25 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                 ) : fmtFechaHora(exp.fechaApertura)
               }
             />
-            <Campo label="Presupuesto oficial" valor={exp.presupuestoOficial ? fmtMoneda(exp.presupuestoOficial) : "-"} />
+          </div>
+
+          {/* La adjudicación, en su propia fila y en el orden en que se
+              resuelve. El monto en dólares es opcional al resolverla: solo
+              aparece si se completó. */}
+          <div className={"grid gap-x-4 gap-y-3 text-sm !mt-3 " + (exp.montoUSD ? "grid-cols-5" : "grid-cols-4")}>
+            <Campo label="Resolución de adjudicación" valor={exp.resolucionAdjudicacion} />
             <Campo
-              label={esProrrogaDepto ? "Monto (prórroga por departamento)" : esAdjudicacion ? "Monto adjudicado" : "Monto"}
+              label={esProrrogaDepto ? "OC (prórroga por departamento)" : esAdjudicacion ? "OC (adjudicación)" : "OC"}
+              valor={exp.ocResolucion && <LinksOrdenDeCompra texto={exp.ocResolucion} />}
+            />
+            <Campo label="Adjudicatario" valor={exp.adjudicatario} />
+            <Campo
+              label={esProrrogaDepto ? "Monto (prórroga por departamento)" : esAdjudicacion ? "Monto total adjudicado" : "Monto"}
               valor={fmtMoneda(exp.montoARS)}
             />
-            <Campo label="Monto adjudicado USD" valor={exp.montoUSD ? fmtMoneda(exp.montoUSD, "USD") : "-"} />
-
+            {!!exp.montoUSD && (
+              <Campo label={esAdjudicacion ? "Monto total adjudicado USD" : "Monto USD"} valor={fmtMoneda(exp.montoUSD, "USD")} />
+            )}
           </div>
 
           {ENCUADRE_FUNDAMENTO_LEGAL[exp.encuadre] && (
@@ -461,10 +479,8 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             </p>
           )}
 
-          {((exp.fuero || []).length > 0 || exp.zona || exp.codigoInterno || exp.estadoConvocatoria || exp.tipoParche || exp.tipoContratacionProrroga || exp.fechaNotificacionProrroga || exp.nroResolucion || exp.tipo === "Ascensores") && (
+          {(exp.codigoInterno || exp.estadoConvocatoria || exp.tipoParche || exp.tipoContratacionProrroga || exp.fechaNotificacionProrroga || exp.nroResolucion || exp.tipo === "Ascensores") && (
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm border-t border-slate-100 pt-4">
-              {exp.zona && <Campo label="Zona" valor={exp.zona} />}
-              {(exp.fuero || []).length > 0 && <Campo label={exp.fuero.length > 1 ? "Fueros" : "Fuero"} valor={exp.fuero.join(", ")} />}
               {exp.codigoInterno && <Campo label="Código interno" valor={exp.codigoInterno} />}
               {exp.estadoConvocatoria && <Campo label="Estado de convocatoria" valor={exp.estadoConvocatoria} />}
               {exp.tipo === "Ascensores" && <Campo label="Tiene adecuaciones" valor={exp.tieneAdecuaciones ? "Sí" : "No"} />}
