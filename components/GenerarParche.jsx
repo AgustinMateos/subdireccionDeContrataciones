@@ -5,20 +5,20 @@ import { X } from "lucide-react";
 import { TIPOS_PARCHE, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
 import BotonAccion from "./BotonAccion";
 import SelectorMesesProrroga from "./SelectorMesesProrroga";
-import { fmtFecha, fmtMoneda } from "@/lib/utils";
+import FiltroDesplegable from "./FiltroDesplegable";
+import { fmtFecha, fmtMoneda, diaSiguiente } from "@/lib/utils";
 
 export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
   const [f, setF] = useState({
     exp: "",
     tipoParche: TIPOS_PARCHE[0],
     objeto: exp.objeto || "",
-    fechaInicio: "",
+    // Arranca el día siguiente al vencimiento del período anterior (el que
+    // se muestra arriba de las fechas); se puede corregir a mano.
+    fechaInicio: diaSiguiente(exp.fechaVencimiento),
     fechaVencimiento: "",
     montoARS: "",
     detalleParche: "",
-    ocResolucion: "",
-    resolucionLlamado: "",
-    resolucionAdjudicacion: "",
     tieneProrroga: false,
     mesesProrroga: null,
   });
@@ -41,9 +41,6 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
     await onConfirmar({
       ...f,
       montoARS: Number(f.montoARS) || 0,
-      ocResolucion: esLegitimoAbono ? "" : f.ocResolucion,
-      resolucionLlamado: esLegitimoAbono ? "" : f.resolucionLlamado,
-      resolucionAdjudicacion: esLegitimoAbono ? "" : f.resolucionAdjudicacion,
       tieneProrroga: esLegitimoAbono ? false : f.tieneProrroga,
       mesesProrroga: esLegitimoAbono ? null : (f.tieneProrroga ? f.mesesProrroga : null),
     });
@@ -82,28 +79,21 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
             )}
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Tipo de parche</label>
-              <select value={f.tipoParche} onChange={e => set("tipoParche", e.target.value)}
-                className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800">
-                {TIPOS_PARCHE.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <FiltroDesplegable
+                valor={f.tipoParche}
+                onChange={v => set("tipoParche", v)}
+                opciones={TIPOS_PARCHE.map(t => ({ valor: t, etiqueta: t }))}
+                clase="bg-white border-slate-300 text-slate-900"
+                anchoCompleto
+                flotante
+                grande
+              />
             </div>
+            {/* OC y resoluciones de llamado/adjudicación no se piden acá: se
+                cargan después, a medida que avanza la contratación ("Resolver
+                adjudicación" o "Editar expediente"). */}
             {!esLegitimoAbono && (
               <>
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-slate-600 mb-1">OC</label>
-                  <input value={f.ocResolucion} onChange={e => set("ocResolucion", e.target.value)}
-                    className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Resolución de llamado</label>
-                  <input value={f.resolucionLlamado} onChange={e => set("resolucionLlamado", e.target.value)}
-                    className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Resolución de adjudicación</label>
-                  <input value={f.resolucionAdjudicacion} onChange={e => set("resolucionAdjudicacion", e.target.value)}
-                    className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
-                </div>
                 <div className="col-span-2 border border-slate-200 rounded-md p-3 bg-slate-50">
                   <label className="flex items-start gap-2.5 cursor-pointer">
                     <input
