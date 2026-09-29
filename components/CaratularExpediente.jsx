@@ -160,8 +160,13 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
               </div>
             )}
 
-            <Campo_Input label="Fecha de inicio" type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
-            <Campo_Input label="Fecha de vencimiento" type="date" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
+            {/* Siempre en su propia fila, una al lado de la otra: sueltas en
+                la grilla, según los campos de arriba, la de inicio caía en el
+                hueco libre y la de vencimiento pasaba a la fila siguiente. */}
+            <div className="col-span-3 grid grid-cols-3 gap-4">
+              <Campo_Input label="Fecha de inicio" type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
+              <Campo_Input label="Fecha de vencimiento" type="date" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
+            </div>
 
             <div className="col-span-3 bg-slate-50 border border-slate-200 rounded-md p-3">
               <label className="block text-xs font-medium text-slate-600 mb-1">
