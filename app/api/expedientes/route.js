@@ -52,6 +52,22 @@ function normalizarAscensoresPorDomicilio(valor, domiciliosValidos) {
   return Object.keys(resultado).length > 0 ? resultado : null;
 }
 
+function hoyArgentina() {
+  // Las fechas se cargan desde inputs "YYYY-MM-DD" en el navegador del
+  // usuario (huso horario de Argentina, UTC-3, sin horario de verano) y
+  // terminan guardadas como la medianoche de ESE huso, que en UTC es
+  // "día T03:00:00Z" — no "día T00:00:00Z". El servidor corre en UTC, así
+  // que para el corte "hoy" hay que reconstruir la fecha de calendario de
+  // Argentina (restando 3hs a la hora UTC actual) y recién ahí armar su
+  // medianoche en UTC — si no, el corte queda 3hs adelantado y una fecha de
+  // inicio de HOY no se reconoce como llegada hasta la noche.
+  const ahoraArgentina = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  return new Date(Date.UTC(
+    ahoraArgentina.getUTCFullYear(), ahoraArgentina.getUTCMonth(), ahoraArgentina.getUTCDate(),
+    3, 0, 0, 0
+  ));
+}
+
 // Activación automática de renovaciones: si una renovación ya está
 // adjudicada (íntegra, o con adjudicatario cargado aunque sea una
 // adjudicación parcial) y su fecha de inicio ya llegó, no tiene sentido
@@ -65,19 +81,7 @@ function normalizarAscensoresPorDomicilio(valor, domiciliosValidos) {
 // programadas en este proyecto, y así igual queda al día apenas alguien
 // entra, sin depender de que ese alguien haga clic en nada.
 async function activarRenovacionesVencidas(departamentoId) {
-  // Las fechas se cargan desde inputs "YYYY-MM-DD" en el navegador del
-  // usuario (huso horario de Argentina, UTC-3, sin horario de verano) y
-  // terminan guardadas como la medianoche de ESE huso, que en UTC es
-  // "día T03:00:00Z" — no "día T00:00:00Z". El servidor corre en UTC, así
-  // que para el corte "hoy" hay que reconstruir la fecha de calendario de
-  // Argentina (restando 3hs a la hora UTC actual) y recién ahí armar su
-  // medianoche en UTC — si no, el corte queda 3hs adelantado y una fecha de
-  // inicio de HOY no se reconoce como llegada hasta la noche.
-  const ahoraArgentina = new Date(Date.now() - 3 * 60 * 60 * 1000);
-  const hoy = new Date(Date.UTC(
-    ahoraArgentina.getUTCFullYear(), ahoraArgentina.getUTCMonth(), ahoraArgentina.getUTCDate(),
-    3, 0, 0, 0
-  ));
+  const hoy = hoyArgentina();
   const candidatas = await prisma.expediente.findMany({
     where: {
       departamentoId,
@@ -126,6 +130,46 @@ async function activarRenovacionesVencidas(departamentoId) {
   }
 }
 
+// Cierre automático por fin de período: un vigente o parche cuyo
+// vencimiento ya pasó dejó de dar cobertura — pasa a "antecedente" /
+// "Finalizado" y queda en la trazabilidad como tal. El día del vencimiento
+// todavía cuenta como cubierto; se cierra desde el día siguiente. Corre
+// después de activarRenovacionesVencidas (así un vigente reemplazado por su
+// renovación se cierra por esa vía, no por esta). No se tocan: un parche con
+// su propia convocatoria en trámite o fracasada/desierta (todavía hay algo
+// que resolver ahí) ni un Archivado (cambia el rol pero conserva el estado).
+async function finalizarPeriodosCulminados(departamentoId) {
+  const candidatos = await prisma.expediente.findMany({
+    where: {
+      departamentoId,
+      rol: { in: ["vigente", "parche"] },
+      fechaVencimiento: { lt: hoyArgentina() },
+      estadoGeneral: { not: "En trámite de renovación" },
+      // null admitido explícitamente — ver el comentario en
+      // activarRenovacionesVencidas.
+      OR: [{ estadoConvocatoria: null }, { estadoConvocatoria: { notIn: ESTADOS_CONVOCATORIA_FALLIDOS } }],
+    },
+  });
+  for (const e of candidatos) {
+    await prisma.expediente.update({
+      where: { id: e.id },
+      data: {
+        rol: "antecedente",
+        estadoGeneral: e.estadoGeneral === "Archivado" ? "Archivado" : "Finalizado",
+        etapa: "Finalizado",
+        observaciones: {
+          create: {
+            usuario: "Sistema",
+            tipo: "general",
+            texto: "Pasó automáticamente a Finalizado (antecedente): culminó el período de la contratación (" +
+              e.fechaVencimiento.toISOString().slice(0, 10) + ").",
+          },
+        },
+      },
+    });
+  }
+}
+
 export async function GET(request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -136,6 +180,11 @@ export async function GET(request) {
     // No bloquea el listado si esto falla — es una corrección automática,
     // no el propósito principal del endpoint.
     console.error("No se pudieron activar renovaciones vencidas:", e);
+  }
+  try {
+    await finalizarPeriodosCulminados(session.user.departamentoId);
+  } catch (e) {
+    console.error("No se pudieron finalizar expedientes con el período culminado:", e);
   }
 
   const { searchParams } = new URL(request.url);

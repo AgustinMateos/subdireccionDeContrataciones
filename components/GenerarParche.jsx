@@ -131,7 +131,7 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
                 className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
             </div>
             <div className="col-span-2 text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
-              Período anterior ({exp.tipoParche || (exp.rol === "vigente" ? "Vigente" : exp.rol)}): {" "}
+              Período anterior ({exp.tipoParche || (exp.rol === "vigente" ? "Vigente" : exp.rol === "antecedente" ? "Antecedente" : exp.rol)}): {" "}
               <span className="font-medium text-slate-700">{fmtFecha(exp.fechaInicio)} — {fmtFecha(exp.fechaVencimiento)}</span>
             </div>
             <div>

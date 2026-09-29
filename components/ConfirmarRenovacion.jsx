@@ -6,7 +6,9 @@ import CampoDomiciliosRenglones from "./CampoDomiciliosRenglones";
 import { fechaMinimaRenovacion, diaSiguiente, fmtFecha } from "@/lib/utils";
 
 export default function ConfirmarRenovacion({ exp, expedientes, onCerrar, onConfirmar }) {
-  const fechaMinima = fechaMinimaRenovacion(exp, expedientes || []);
+  // Desde un antecedente (el período de la cadena ya culminó sin cobertura
+  // activa), la referencia es su propio vencimiento.
+  const fechaMinima = exp.rol === "antecedente" ? exp.fechaVencimiento : fechaMinimaRenovacion(exp, expedientes || []);
   // La renovación arranca el día siguiente a que termina la cobertura vigente.
   const [f, setF] = useState({ exp: "", fechaInicio: diaSiguiente(fechaMinima), fechaVencimiento: "", domiciliosRenglones: exp.domiciliosRenglones || [] });
   const [error, setError] = useState("");

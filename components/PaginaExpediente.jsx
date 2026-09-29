@@ -131,6 +131,12 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   // departamento (no es una contratación nueva).
   const esRenovacionEnTramite = exp.rol === "renovacion" && exp.estadoGeneral === "En trámite de renovación";
   const esParcheConAdjudicacion = exp.rol === "parche" && exp.tipoParche !== "Legítimo abono" && !exp.tipoContratacionProrroga;
+  // Cuando el período de la cadena culminó (el vigente y los parches pasan
+  // solos a antecedente, ver finalizarPeriodosCulminados en la API) y no
+  // quedó nada dando cobertura, el último antecedente hace las veces de
+  // vigente para generar un parche (ej. legítimo abono) o la renovación.
+  const esUltimaCobertura = exp.rol === "vigente"
+    || (exp.id === antecedente?.id && !vigente && parches.length === 0);
 
   // División por adjudicación parcial: expediente del que salió (si es una
   // división) y los que salieron de éste (si tiene domicilios/renglones
@@ -228,7 +234,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <button onClick={onEditar} className="px-3 py-2 rounded-md border border-slate-300 text-xs font-medium hover:bg-slate-50">
               Editar expediente
             </button>
-            {exp.rol === "vigente" && !renovacion && (
+            {esUltimaCobertura && !renovacion && (
               <button onClick={onRenovar} className="px-3 py-2 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800">
                 Crear renovación vinculada
               </button>
@@ -239,7 +245,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
                 Activar como Vigente (venció el contrato anterior)
               </button>
             )}
-            {(exp.rol === "vigente" || exp.rol === "parche") && (
+            {(esUltimaCobertura || exp.rol === "parche") && (
               <button onClick={onGenerarParche} className="px-3 py-2 rounded-md border border-amber-300 bg-amber-50 text-amber-800 text-xs font-medium hover:bg-amber-100">
                 Generar parche / contratación puente
               </button>
