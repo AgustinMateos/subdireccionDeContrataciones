@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { TIPOS_PARCHE, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
 import BotonAccion from "./BotonAccion";
 import SelectorMesesProrroga from "./SelectorMesesProrroga";
-import { fmtFecha } from "@/lib/utils";
+import { fmtFecha, fmtMoneda } from "@/lib/utils";
 
 export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
   const [f, setF] = useState({
@@ -146,8 +146,15 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-slate-600 mb-1">Monto (ARS)</label>
-              <input type="number" value={f.montoARS} onChange={e => set("montoARS", e.target.value)}
-                className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+              {esLegitimoAbono ? (
+                // Lo arrastra de la contratación de origen (ver POST /api/expedientes).
+                <p className="text-sm text-slate-700 border border-slate-200 bg-slate-50 rounded-md px-3 py-2">
+                  {fmtMoneda(exp.montoARS)} <span className="text-xs text-slate-500">— el de {exp.exp}</span>
+                </p>
+              ) : (
+                <input type="number" value={f.montoARS} onChange={e => set("montoARS", e.target.value)}
+                  className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+              )}
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-slate-600 mb-1">Detalle (opcional)</label>

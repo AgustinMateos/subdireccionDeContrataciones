@@ -508,8 +508,10 @@ export async function POST(request) {
           objeto: body.objeto || origen.objeto,
           encuadre: ENCUADRE_POR_TIPO_PARCHE[body.tipoParche] || null,
           presupuestoOficial: 0,
-          montoARS: Number(body.montoARS) || 0,
-          montoUSD: 0,
+          // El legítimo abono arrastra el monto de la contratación desde la
+          // que se genera — no se carga a mano.
+          montoARS: esLegitimoAbono ? origen.montoARS : (Number(body.montoARS) || 0),
+          montoUSD: esLegitimoAbono ? origen.montoUSD : 0,
           fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
           fechaVencimiento: new Date(body.fechaVencimiento),
           ocResolucion: esLegitimoAbono ? null : (body.ocResolucion || null),
@@ -1043,9 +1045,15 @@ export async function POST(request) {
   // parche". Nunca lleva OC, resoluciones ni prórroga.
   const esLegitimoAbono = body.rol === "parche" && body.tipoParche === "Legítimo abono";
   let expFinal = body.exp;
+  // También arrastra el monto del antecedente (el caratulado no lo pide).
+  let antecedenteLegitimoAbono = null;
   if (esLegitimoAbono) {
     const base = String(body.exp || "").trim().replace(/-LA\d*$/, "");
     if (!base) return NextResponse.json({ error: "Cargá el N° de expediente del antecedente" }, { status: 400 });
+    antecedenteLegitimoAbono = await prisma.expediente.findFirst({
+      where: { exp: base, departamentoId: session.user.departamentoId },
+      select: { montoARS: true, montoUSD: true },
+    });
     let candidato = base + "-LA";
     let sufijo = 1;
     while (await prisma.expediente.findUnique({ where: { exp: candidato } })) {
@@ -1091,8 +1099,8 @@ export async function POST(request) {
       objeto: body.objeto,
       encuadre: puedePoliciaAdicional && body.esPoliciaAdicional ? ENCUADRE_INTERADMINISTRATIVO : (body.encuadre || null),
       presupuestoOficial: esRenovacionVinculada ? 0 : (Number(body.presupuestoOficial) || 0),
-      montoARS: esRenovacionVinculada ? 0 : (Number(body.montoARS) || 0),
-      montoUSD: esRenovacionVinculada ? 0 : (Number(body.montoUSD) || 0),
+      montoARS: esRenovacionVinculada ? 0 : antecedenteLegitimoAbono ? antecedenteLegitimoAbono.montoARS : (Number(body.montoARS) || 0),
+      montoUSD: esRenovacionVinculada ? 0 : antecedenteLegitimoAbono ? antecedenteLegitimoAbono.montoUSD : (Number(body.montoUSD) || 0),
       esPoliciaAdicional: puedePoliciaAdicional && !!body.esPoliciaAdicional,
       fuerzaSeguridad: puedePoliciaAdicional && body.esPoliciaAdicional ? (body.fuerzaSeguridad || null) : null,
       fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null,
