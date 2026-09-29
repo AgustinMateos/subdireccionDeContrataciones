@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA_FALLIDOS, MOTIVOS_ADJUDICACION_PARCIAL, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
-import { parseFechaHora } from "@/lib/utils";
+import { parseFechaHora, hoyArgentina } from "@/lib/utils";
 
 const INCLUDE_EXPEDIENTE = {
   observaciones: { orderBy: { fecha: "asc" } },
@@ -50,22 +50,6 @@ function normalizarAscensoresPorDomicilio(valor, domiciliosValidos) {
     resultado[domicilio] = { ascensores, montacargas };
   }
   return Object.keys(resultado).length > 0 ? resultado : null;
-}
-
-function hoyArgentina() {
-  // Las fechas se cargan desde inputs "YYYY-MM-DD" en el navegador del
-  // usuario (huso horario de Argentina, UTC-3, sin horario de verano) y
-  // terminan guardadas como la medianoche de ESE huso, que en UTC es
-  // "día T03:00:00Z" — no "día T00:00:00Z". El servidor corre en UTC, así
-  // que para el corte "hoy" hay que reconstruir la fecha de calendario de
-  // Argentina (restando 3hs a la hora UTC actual) y recién ahí armar su
-  // medianoche en UTC — si no, el corte queda 3hs adelantado y una fecha de
-  // inicio de HOY no se reconoce como llegada hasta la noche.
-  const ahoraArgentina = new Date(Date.now() - 3 * 60 * 60 * 1000);
-  return new Date(Date.UTC(
-    ahoraArgentina.getUTCFullYear(), ahoraArgentina.getUTCMonth(), ahoraArgentina.getUTCDate(),
-    3, 0, 0, 0
-  ));
 }
 
 // Activación automática de renovaciones: si una renovación ya está

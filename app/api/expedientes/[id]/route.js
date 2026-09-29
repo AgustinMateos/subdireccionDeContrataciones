@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES, ESTADOS_CONVOCATORIA_FALLIDOS, ESTADOS_CONVOCATORIA } from "@/lib/constants";
-import { parseFechaHora } from "@/lib/utils";
+import { parseFechaHora, hoyArgentina } from "@/lib/utils";
 
 function normalizarNumeros(valor, max) {
   if (!Array.isArray(valor)) return [];
@@ -73,7 +73,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  const existente = await prisma.expediente.findUnique({ where: { id }, select: { departamentoId: true, rol: true } });
+  const existente = await prisma.expediente.findUnique({ where: { id }, select: { departamentoId: true, rol: true, cadenaId: true, fechaInicio: true, fechaVencimiento: true, tipoParche: true, tipoContratacionProrroga: true } });
   if (!existente || existente.departamentoId !== session.user.departamentoId) {
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
@@ -603,6 +603,33 @@ export async function PUT(request, { params }) {
     rolFinal = "renovacion";
   }
 
+  // Al revés que el cierre automático por fin de período (ver
+  // finalizarPeriodosCulminados en GET /api/expedientes): si a un
+  // antecedente se le edita el período a uno que incluye hoy, vuelve a dar
+  // cobertura — como parche si lo era (tiene tipo de parche o de prórroga
+  // cargado) o, si no, como vigente, siempre que la cadena no tenga ya otro
+  // vigente (ahí queda como antecedente: dos vigentes no tienen sentido).
+  let reactivado = false;
+  if (rolFinal === "antecedente") {
+    // Se compara por día calendario ("YYYY-MM-DD"): el body trae las fechas
+    // como texto y la base las tiene a la medianoche de Argentina.
+    const dia = (f) => (f ? new Date(f).toISOString().slice(0, 10) : null);
+    const hoyAR = dia(hoyArgentina());
+    const inicio = body.fechaInicio !== undefined ? dia(body.fechaInicio) : dia(existente.fechaInicio);
+    const vencimiento = dia(body.fechaVencimiento || existente.fechaVencimiento);
+    if (vencimiento >= hoyAR && (!inicio || inicio <= hoyAR)) {
+      const eraParche = !!(existente.tipoParche || existente.tipoContratacionProrroga);
+      const otroVigente = !eraParche && await prisma.expediente.findFirst({
+        where: { cadenaId: existente.cadenaId, rol: "vigente", departamentoId: session.user.departamentoId, NOT: { id } },
+        select: { id: true },
+      });
+      if (!otroVigente) {
+        rolFinal = eraParche ? "parche" : "vigente";
+        reactivado = true;
+      }
+    }
+  }
+
   const actualizado = await prisma.expediente.update({
     where: { id },
     data: {
@@ -635,15 +662,19 @@ export async function PUT(request, { params }) {
       resolucionAdjudicacion: esLegitimoAbono ? null : (body.resolucionAdjudicacion ?? undefined),
       adjudicatario: body.adjudicatario ?? undefined,
       sector: body.sector ?? undefined,
-      etapa: body.etapa ?? undefined,
+      etapa: reactivado && (!body.etapa || body.etapa === "Finalizado") ? "En ejecución" : (body.etapa ?? undefined),
       // "En trámite de renovación" solo tiene sentido para el rol
       // "renovacion" (ver comentario equivalente en el alta normal) — si el
       // desplegable "Estado general" lo manda para cualquier otro rol, se
       // corrige a "Vigente"; y al revés, si el rol se acaba de corregir a
       // "renovacion" por la fecha de inicio (rolFinal, arriba), el estado
       // tiene que acompañar aunque el formulario siguiera mandando "Vigente".
+      // Un antecedente reactivado (arriba) pasa a "Vigente" aunque el
+      // formulario siguiera mandando "Finalizado"; un Archivado se respeta.
       estadoGeneral: rolFinal === "renovacion"
         ? "En trámite de renovación"
+        : reactivado && body.estadoGeneral !== "Archivado"
+        ? "Vigente"
         : (body.estadoGeneral === "En trámite de renovación" ? "Vigente" : body.estadoGeneral),
       fuero: Array.isArray(body.fuero)
         ? body.fuero.map((f) => String(f).trim()).filter(Boolean)
