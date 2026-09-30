@@ -245,7 +245,10 @@ export default function App() {
       if (!grupos.has(clave)) { grupos.set(clave, []); orden.push(clave); }
       grupos.get(clave).push(e);
     }
-    return orden.map(clave => {
+    // La card no muestra antecedentes (ver TarjetaGrupoServicios), así que un
+    // grupo que solo tiene antecedentes quedaría como card vacía ("0
+    // expedientes") — esos se omiten; siguen visibles en la vista de tabla.
+    return orden.filter(clave => grupos.get(clave).some(e => e.rol !== "antecedente")).map(clave => {
       const items = grupos.get(clave);
       // Aunque sea un único expediente, en Servicios se muestra con la misma
       // card "de grupo" (organismo, direcciones, sector/convocatoria,
