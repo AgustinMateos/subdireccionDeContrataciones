@@ -137,9 +137,15 @@ export async function PUT(request, { params }) {
     if (nuevo && !ESTADOS_CONVOCATORIA.includes(nuevo)) {
       return NextResponse.json({ error: "Estado de convocatoria inválido" }, { status: 400 });
     }
+    // Observación general opcional que se carga junto con el cambio (ej.
+    // desde el modal de la tabla de expedientes).
+    const obsGeneral = typeof body.observacionGeneral === "string" ? body.observacionGeneral.trim() : "";
     const actualizado = await prisma.expediente.update({
       where: { id },
-      data: { estadoConvocatoria: nuevo },
+      data: {
+        estadoConvocatoria: nuevo,
+        ...(obsGeneral ? { observaciones: { create: { usuario: session.user.name, tipo: "general", texto: obsGeneral } } } : {}),
+      },
       include: INCLUDE_EXPEDIENTE,
     });
     return NextResponse.json({ expediente: actualizado });
@@ -148,6 +154,8 @@ export async function PUT(request, { params }) {
   // ---------- Agregar una observación o un movimiento de sector ----------
   if (body.nuevaObservacion) {
     const esMovimiento = body.tipo === "movimiento";
+    const obsGeneral = esMovimiento && typeof body.observacionGeneral === "string" ? body.observacionGeneral.trim() : "";
+    const ahora = new Date();
     if (typeof body.tieneProrroga === "boolean" && body.tieneProrroga && !PRORROGA_MESES_OPCIONES.includes(Number(body.mesesProrroga))) {
       return NextResponse.json({ error: "Elegí cuántos meses de prórroga tiene el expediente" }, { status: 400 });
     }
@@ -163,13 +171,20 @@ export async function PUT(request, { params }) {
         ...(typeof body.tieneProrroga === "boolean" ? { tieneProrroga: body.tieneProrroga, mesesProrroga: body.tieneProrroga ? Number(body.mesesProrroga) : null } : {}),
         ...(body.encuadre ? { encuadre: body.encuadre } : {}),
         observaciones: {
-          create: {
-            usuario: session.user.name,
-            tipo: body.tipo || "general",
-            texto: body.nuevaObservacion,
-            sectorAnterior: esMovimiento ? body.sectorAnterior : null,
-            sectorNuevo: esMovimiento ? body.sectorNuevo : null,
-          },
+          create: [
+            {
+              usuario: session.user.name,
+              tipo: body.tipo || "general",
+              texto: body.nuevaObservacion,
+              sectorAnterior: esMovimiento ? body.sectorAnterior : null,
+              sectorNuevo: esMovimiento ? body.sectorNuevo : null,
+              fecha: ahora,
+            },
+            // Observación general opcional que acompaña al movimiento (ej.
+            // desde el modal de la tabla); 1 ms después para que quede
+            // ordenada debajo del pase en el historial.
+            ...(obsGeneral ? [{ usuario: session.user.name, tipo: "general", texto: obsGeneral, fecha: new Date(ahora.getTime() + 1) }] : []),
+          ],
         },
       },
       include: INCLUDE_EXPEDIENTE,

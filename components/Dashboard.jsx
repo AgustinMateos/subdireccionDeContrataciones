@@ -66,6 +66,7 @@ import Resumen from "./Resumen";
 import FiltroBar from "./FiltroBar";
 import TarjetaExpediente from "./TarjetaExpediente";
 import TarjetaGrupoServicios from "./TarjetaGrupoServicios";
+import Masonry from "./Masonry";
 import TablaExpedientesServicios from "./TablaExpedientesServicios";
 import ModalCambiarSector from "./ModalCambiarSector";
 import ModalCambiarEstadoConvocatoria from "./ModalCambiarEstadoConvocatoria";
@@ -127,6 +128,7 @@ export default function App() {
   // entrar a la ficha) — guarda el expediente sobre el que se abrió el modal.
   const [cambiarSectorExp, setCambiarSectorExp] = useState(null);
   const [cambiarEstadoExp, setCambiarEstadoExp] = useState(null);
+  const [estadoComoPasoDos, setEstadoComoPasoDos] = useState(false);
   const [seleccionado, setSeleccionado] = useState(null);
   const [formAbierto, setFormAbierto] = useState(null); // 'nuevo' | 'editar' | 'renovacion'
   // Orígenes elegidos en una tarjeta de Servicios para "Unificar renovación"
@@ -325,20 +327,22 @@ export default function App() {
         ...(entrada.nroContratacion ? { nroContratacion: entrada.nroContratacion } : {}),
         ...(typeof entrada.tieneProrroga === "boolean" ? { tieneProrroga: entrada.tieneProrroga, mesesProrroga: entrada.mesesProrroga ?? null } : {}),
         ...(entrada.encuadre ? { encuadre: entrada.encuadre } : {}),
+        ...(entrada.observacionGeneral ? { observacionGeneral: entrada.observacionGeneral } : {}),
       }),
     });
-    if (!res.ok) { mostrarToast("No se pudo guardar la observación"); return; }
+    if (!res.ok) { mostrarToast("No se pudo guardar la observación"); return false; }
     await refrescar(id);
     mostrarToast(esMovimiento ? "Movimiento cargado, sector actualizado" : "Observación agregada");
+    return true;
   }
 
   // Edición rápida de estado de convocatoria (ej. desde la tabla), sin pasar
   // por "Editar expediente" ni tocar el resto de los campos.
-  async function cambiarEstadoConvocatoria(exp, nuevo) {
+  async function cambiarEstadoConvocatoria(exp, nuevo, observacionGeneral) {
     const res = await fetch(`/api/expedientes/${exp.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cambiarEstadoConvocatoria: nuevo }),
+      body: JSON.stringify({ cambiarEstadoConvocatoria: nuevo, ...(observacionGeneral ? { observacionGeneral } : {}) }),
     });
     if (!res.ok) { mostrarToast("No se pudo actualizar el estado de convocatoria"); return; }
     await refrescar(exp.id);
@@ -831,13 +835,13 @@ export default function App() {
               />
             ) : (
               <>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+                <Masonry>
                   {itemsListado.slice(0, visibles).map(item =>
                     item.tipo === "grupo"
                       ? <TarjetaGrupoServicios key={item.clave} grupo={item.grupo} todos={expedientes} onVer={verExpediente} onUnificar={(origenes) => setUnificarOrigenes(origenes)} puedeEditar={puedeEditar} />
                       : <TarjetaExpediente key={item.exp.id} exp={item.exp} onVer={() => verExpediente(item.exp.id)} />
                   )}
-                </div>
+                </Masonry>
 
                 {filtrados.length === 0 && (
                   <div className="text-center py-16 text-slate-500 text-sm">
@@ -1019,15 +1023,22 @@ export default function App() {
         <ModalCambiarSector
           exp={cambiarSectorExp}
           onCerrar={() => setCambiarSectorExp(null)}
-          onConfirmar={async (datos) => { await guardarObservacion(cambiarSectorExp.id, datos); setCambiarSectorExp(null); }}
+          onConfirmar={async (datos) => {
+            // Paso 2: registrado el pase, sigue con el estado de convocatoria.
+            const exp = cambiarSectorExp;
+            const ok = await guardarObservacion(exp.id, datos);
+            setCambiarSectorExp(null);
+            if (ok) { setEstadoComoPasoDos(true); setCambiarEstadoExp(exp); }
+          }}
         />
       )}
 
       {cambiarEstadoExp && (
         <ModalCambiarEstadoConvocatoria
           exp={cambiarEstadoExp}
-          onCerrar={() => setCambiarEstadoExp(null)}
-          onConfirmar={async (nuevo) => { await cambiarEstadoConvocatoria(cambiarEstadoExp, nuevo); setCambiarEstadoExp(null); }}
+          pasoDos={estadoComoPasoDos}
+          onCerrar={() => { setCambiarEstadoExp(null); setEstadoComoPasoDos(false); }}
+          onConfirmar={async (nuevo, observacionGeneral) => { await cambiarEstadoConvocatoria(cambiarEstadoExp, nuevo, observacionGeneral); setCambiarEstadoExp(null); setEstadoComoPasoDos(false); }}
         />
       )}
 

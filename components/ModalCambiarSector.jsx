@@ -15,9 +15,12 @@ import FiltroDesplegable from "./FiltroDesplegable";
 // faltan sus datos (fecha de publicación, fecha de apertura, presupuesto
 // oficial, resolución de llamado, N° de contratación), también los pide
 // antes de dejar confirmar.
+// Es el paso 1 de 2: al registrar el pase, la tabla abre a continuación el
+// modal de estado de convocatoria (ver Dashboard).
 export default function ModalCambiarSector({ exp, onCerrar, onConfirmar }) {
   const [sectorNuevo, setSectorNuevo] = useState(exp.sector || "");
   const [texto, setTexto] = useState("");
+  const [observacion, setObservacion] = useState("");
   const [fechaPublicacion, setFechaPublicacion] = useState(exp.fechaPublicacion || "");
   const [fechaApertura, setFechaApertura] = useState(exp.fechaApertura || "");
   const [presupuestoOficial, setPresupuestoOficial] = useState(exp.presupuestoOficial || "");
@@ -44,6 +47,7 @@ export default function ModalCambiarSector({ exp, onCerrar, onConfirmar }) {
       sectorNuevo: sectorNuevo.trim(),
       ...(vaAAperturas ? { fechaPublicacion, fechaApertura, presupuestoOficial, resolucionLlamado: resolucionLlamado.trim(), nroContratacion: nroContratacion.trim() } : {}),
       ...(vaADGP ? { tieneProrroga, mesesProrroga: tieneProrroga ? mesesProrroga : null, ...(necesitaEncuadre ? { encuadre } : {}) } : {}),
+      ...(observacion.trim() ? { observacionGeneral: observacion.trim() } : {}),
     });
     setEnviando(false);
   }
@@ -54,6 +58,7 @@ export default function ModalCambiarSector({ exp, onCerrar, onConfirmar }) {
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Paso 1 de 2</p>
             <h2 className="text-base font-semibold text-slate-900">Cambiar sector</h2>
             <p className="text-xs text-slate-500 mt-0.5">
               <span className="font-mono font-medium text-slate-700">{exp.exp}</span> — actual: {exp.sector || "-"}
@@ -143,6 +148,16 @@ export default function ModalCambiarSector({ exp, onCerrar, onConfirmar }) {
               className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800"
             />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Observación general <span className="text-slate-400 font-normal">(opcional)</span></label>
+            <textarea
+              value={observacion}
+              onChange={e => setObservacion(e.target.value)}
+              rows={3}
+              placeholder="Queda registrada en el historial del expediente..."
+              className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 resize-y focus:outline-none focus:ring-2 focus:ring-slate-800"
+            />
+          </div>
         </div>
 
         <div className="px-6 pb-6 flex justify-end gap-2">
@@ -159,7 +174,7 @@ export default function ModalCambiarSector({ exp, onCerrar, onConfirmar }) {
               : necesitaEncuadre && !encuadre ? "Cargá el encuadre" : undefined}
             className="px-4 py-2 rounded-md bg-blue-700 text-white text-sm font-medium hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Registrar movimiento
+            Registrar y seguir
           </BotonAccion>
         </div>
       </div>
