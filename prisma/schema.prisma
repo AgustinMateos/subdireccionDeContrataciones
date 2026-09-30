@@ -144,9 +144,10 @@ model Expediente {
   codigoInterno      String? // código corto de la planilla, ej "02ID", "01LA"
   estadoConvocatoria String? // vocabulario propio de Servicios (string libre, la lista puede crecer)
 
-  // Solo aplica cuando tipo === "Ascensores". tieneAdecuaciones es del
+  // tieneAdecuaciones aplica a los tipos de Servicios salvo Limpieza y
+  // Desratización (ver llevaAdecuaciones en lib/constants) y es del
   // expediente completo (además de mantenimiento, incluye obra/adaptación).
-  // ascensoresPorDomicilio detalla, para cada domicilio ya cargado en
+  // ascensoresPorDomicilio (solo tipo === "Ascensores") detalla, para cada domicilio ya cargado en
   // domiciliosRenglones, qué ascensores (1-8) y qué montacargas (1-4)
   // puntuales tramita — { "Talcahuano 550": { "ascensores": [1,2],
   // "montacargas": [1] } }. Domicilios sin entrada no tienen ascensores ni

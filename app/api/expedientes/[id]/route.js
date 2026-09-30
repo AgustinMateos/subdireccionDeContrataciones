@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES, ESTADOS_CONVOCATORIA_FALLIDOS, ESTADOS_CONVOCATORIA } from "@/lib/constants";
+import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES, ESTADOS_CONVOCATORIA_FALLIDOS, ESTADOS_CONVOCATORIA, llevaAdecuaciones } from "@/lib/constants";
 import { parseFechaHora, hoyArgentina } from "@/lib/utils";
 
 function normalizarNumeros(valor, max) {
@@ -711,7 +711,7 @@ export async function PUT(request, { params }) {
       ascensoresPorDomicilio: body.tipo === undefined
         ? undefined
         : (body.tipo === "Ascensores" ? normalizarAscensoresPorDomicilio(body.ascensoresPorDomicilio, domiciliosActualizados) : null),
-      tieneAdecuaciones: body.tipo === undefined ? undefined : (body.tipo === "Ascensores" ? !!body.tieneAdecuaciones : false),
+      tieneAdecuaciones: body.tipo === undefined ? undefined : (llevaAdecuaciones(body.tipo) ? !!body.tieneAdecuaciones : false),
       adjudicacionPorRenglon: body.adjudicacionPorRenglon && typeof body.adjudicacionPorRenglon === "object"
         ? body.adjudicacionPorRenglon
         : undefined,

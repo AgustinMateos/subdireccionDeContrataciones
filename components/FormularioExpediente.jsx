@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTORES, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
+import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTORES, PRORROGA_MESES_OPCIONES, llevaAdecuaciones } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
 import CampoFuero from "./CampoFuero";
@@ -62,6 +62,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
   const esAscensores = esServicios && f.tipo === "Ascensores";
+  const conAdecuaciones = esServicios && llevaAdecuaciones(f.tipo);
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
 
@@ -176,7 +177,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
                   opciones={["", ...ESTADOS_CONVOCATORIA]} labels={{ "": "— Sin definir —" }} />
               </>
             )}
-            {esAscensores && (
+            {conAdecuaciones && (
               <div className="col-span-2 border border-slate-200 rounded-md p-3 bg-slate-50">
                 <label className="flex items-center gap-2.5 cursor-pointer">
                   <input

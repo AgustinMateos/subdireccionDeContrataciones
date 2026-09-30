@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA_FALLIDOS, MOTIVOS_ADJUDICACION_PARCIAL, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES } from "@/lib/constants";
+import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA_FALLIDOS, MOTIVOS_ADJUDICACION_PARCIAL, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES, llevaAdecuaciones } from "@/lib/constants";
 import { parseFechaHora, hoyArgentina } from "@/lib/utils";
 
 const INCLUDE_EXPEDIENTE = {
@@ -1124,7 +1124,7 @@ export async function POST(request) {
       domiciliosRenglones: domiciliosNormalizados,
       tipoParche: body.rol === "parche" ? (body.tipoParche || null) : null,
       ascensoresPorDomicilio: body.tipo === "Ascensores" ? normalizarAscensoresPorDomicilio(body.ascensoresPorDomicilio, domiciliosNormalizados) : null,
-      tieneAdecuaciones: body.tipo === "Ascensores" ? !!body.tieneAdecuaciones : false,
+      tieneAdecuaciones: llevaAdecuaciones(body.tipo) ? !!body.tieneAdecuaciones : false,
       observaciones: sectorInicial
         ? {
             create: [{

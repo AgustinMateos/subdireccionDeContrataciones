@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
-import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTOR_INICIAL_POR_DEPARTAMENTO, TIPOS_PARCHE } from "@/lib/constants";
+import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTOR_INICIAL_POR_DEPARTAMENTO, TIPOS_PARCHE, llevaAdecuaciones } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
 import CampoFuero from "./CampoFuero";
@@ -46,6 +46,7 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
   const esAscensores = esServicios && f.tipo === "Ascensores";
+  const conAdecuaciones = esServicios && llevaAdecuaciones(f.tipo);
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
 
@@ -146,7 +147,7 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
               />
             </div>
 
-            {esAscensores && (
+            {conAdecuaciones && (
               <div className="col-span-3 border border-slate-200 rounded-md p-3 bg-slate-50">
                 <label className="flex items-center gap-2.5 cursor-pointer">
                   <input
