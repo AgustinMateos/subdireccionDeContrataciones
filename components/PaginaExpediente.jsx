@@ -166,7 +166,6 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             {exp.nombreCorto && <div className="text-sm font-medium text-slate-700">{exp.nombreCorto}</div>}
             <div className="text-xs text-slate-500">{exp.rol === "parche" ? labelParche(exp) : ROL_LABEL[exp.rol]}</div>
             <div className="text-xs text-slate-500">{exp.tipo}</div>
-            {exp.sector && <div className="text-xs text-slate-500">Sector: {exp.sector}</div>}
             {exp.etapa && <div className="text-xs text-slate-500">Etapa: {exp.etapa}</div>}
             {/* Una convocatoria fracasada no muestra vencimiento (no se va a
                 cumplir) — queda solo la fecha de inicio. */}
@@ -189,7 +188,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             )}
             {frenado != null && (
               <span className={"text-[11px] font-medium px-2 py-1 rounded border " + ALERTA_ESTILO[alertaFrenado(frenado)]}>
-                Frenado hace {frenado} día{frenado !== 1 ? "s" : ""}
+                Frenado hace {frenado} día{frenado !== 1 ? "s" : ""}{exp.sector ? " en " + exp.sector : ""}
               </span>
             )}
           </div>
