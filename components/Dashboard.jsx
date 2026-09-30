@@ -142,6 +142,14 @@ export default function App() {
     setTimeout(() => setToast(""), 2200);
   }
 
+  // Las secciones son estado local (no rutas), así que el navegador no
+  // resetea el scroll al cambiar: se hace a mano al pasar de sección o de
+  // un expediente a otro.
+  const idSeleccionado = seleccionado?.id;
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [vista, idSeleccionado]);
+
   // Carga inicial desde la base real una vez que hay sesión.
   useEffect(() => {
     if (status !== "authenticated") return;
