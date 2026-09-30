@@ -9,6 +9,7 @@ import CampoFuero from "./CampoFuero";
 import CampoDomiciliosRenglones from "./CampoDomiciliosRenglones";
 import SelectorMesesProrroga from "./SelectorMesesProrroga";
 import BotonAccion from "./BotonAccion";
+import useDireccionesSugeridas from "./useDireccionesSugeridas";
 import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
 function formVacio(esServicios) {
   return {
@@ -63,6 +64,10 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
   const [guardando, setGuardando] = useState(false);
   const esAscensores = esServicios && f.tipo === "Ascensores";
   const conAdecuaciones = esServicios && llevaAdecuaciones(f.tipo);
+
+  // Al cambiar fuero u organismo, suma las direcciones asociadas del padrón
+  // a "Domicilios/renglones"; los domicilios ya guardados no se tocan al abrir.
+  useDireccionesSugeridas({ fuero: f.fuero, organismos: f.organismos, activo: esServicios, setF, omitirInicial: true });
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
 

@@ -119,30 +119,33 @@ export default function TarjetaGrupoServicios({ grupo, todos, onVer, onUnificar,
       <button
         type="button"
         onClick={() => setAbierto(a => !a)}
-        className="flex flex-col  justify-between gap-2 text-left"
+        className="flex flex-col gap-2 text-left"
       >
-        <span className="text-sm font-semibold text-slate-900">{tipo}</span>
-        <div className="flex items-center gap-2 shrink-0">
-          {zona && (
-            <span className="text-[10px] font-medium uppercase tracking-wide px-2 py-1 rounded border border-slate-300 text-slate-600">
-              {zona}
-            </span>
-          )}
-          <ChevronDown size={16} className={"text-slate-400 transition-transform " + (abierto ? "rotate-180" : "")} />
-        </div>  {organismos.length > 0 && (
-        <div className="text-[11px] font-medium text-slate-700 -mt-1">{organismos.join(" · ")}</div>
-      )}
-      {fuero.length > 0 && (
-        <div className="text-[11px] text-slate-500">{fuero.join(" · ")}</div>
-      )}
-      {domiciliosDelGrupo.length > 0 && (
-        <div className="flex items-start gap-1.5 text-[11px] text-slate-400">
-          <MapPin size={12} className="mt-0.5 shrink-0" />
-          <span>{domiciliosDelGrupo.join(" · ")}</span>
+        {/* Tipo a la izquierda y zona arriba a la derecha, en la misma fila. */}
+        <div className="flex items-start justify-between gap-2">
+          <span className="text-sm font-semibold text-slate-900">{tipo}</span>
+          <div className="flex items-center gap-2 shrink-0">
+            {zona && (
+              <span className="text-[10px] font-medium uppercase tracking-wide px-2 py-1 rounded border border-slate-300 text-slate-600">
+                {zona}
+              </span>
+            )}
+            <ChevronDown size={16} className={"text-slate-400 transition-transform " + (abierto ? "rotate-180" : "")} />
+          </div>
         </div>
-      )}
+        {organismos.length > 0 && (
+          <div className="text-[11px] font-medium text-slate-700">{organismos.join(" · ")}</div>
+        )}
+        {fuero.length > 0 && (
+          <div className="text-[11px] text-slate-500">{fuero.join(" · ")}</div>
+        )}
+        {domiciliosDelGrupo.length > 0 && (
+          <div className="flex items-start gap-1.5 text-[11px] text-slate-400">
+            <MapPin size={12} className="mt-0.5 shrink-0" />
+            <span>{domiciliosDelGrupo.join(" · ")}</span>
+          </div>
+        )}
       </button>
-    
 
       {!abierto && (
         <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-2">

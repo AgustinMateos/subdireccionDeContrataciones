@@ -120,6 +120,13 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   const dias = diasRestantes(exp.fechaVencimiento);
   const niv = alerta(dias);
   const frenado = diasFrenado(exp.observaciones, exp.creadoEn);
+  // "Último mov.": fecha del último pase de sector (o del alta si todavía no
+  // tuvo ninguno) + sector actual + estado de convocatoria.
+  const movimientos = (exp.observaciones || []).filter(o => o.tipo === "movimiento");
+  const fechaUltimoMov = movimientos.length > 0
+    ? movimientos.reduce((a, b) => (b.fecha > a.fecha ? b : a)).fecha
+    : exp.creadoEn;
+  const ultimoMov = [fechaUltimoMov && fmtFecha(fechaUltimoMov), exp.sector, exp.estadoConvocatoria].filter(Boolean).join(" · ");
   // OC, N° de resolución y monto significan cosas distintas según de dónde
   // salió el registro: la adjudicación de un vigente/renovación no es lo
   // mismo que la resolución/OC/monto de una prórroga habilitada por el
@@ -166,7 +173,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             {exp.nombreCorto && <div className="text-sm font-medium text-slate-700">{exp.nombreCorto}</div>}
             <div className="text-xs text-slate-500">{exp.rol === "parche" ? labelParche(exp) : ROL_LABEL[exp.rol]}</div>
             <div className="text-xs text-slate-500">{exp.tipo}</div>
-            {exp.etapa && <div className="text-xs text-slate-500">Etapa: {exp.etapa}</div>}
+            {ultimoMov && <div className="text-xs text-slate-500">Último mov.: {ultimoMov}</div>}
             {/* Una convocatoria fracasada no muestra vencimiento (no se va a
                 cumplir) — queda solo la fecha de inicio. */}
             {(exp.fechaInicio || exp.fechaVencimiento) && (
