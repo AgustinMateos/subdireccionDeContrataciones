@@ -3,15 +3,15 @@
 import { useEffect, useRef } from "react";
 import { direccionesDe } from "@/lib/organismosFueros";
 
-// Con fuero (cámara) + organismo (dependencia) cargados, suma a
-// "Domicilios/renglones" las direcciones asociadas en el padrón. Recuerda
-// cuáles agregó sola: si después cambia el fuero o el organismo, saca las
+// Con el fuero (cámara) cargado, suma a "Domicilios/renglones" las
+// direcciones asociadas en el padrón. Recuerda cuáles agregó sola: si
+// después cambia el fuero, saca las
 // que ya no corresponden y suma las nuevas, sin tocar las cargadas a mano.
 // Con `omitirInicial` no sugiere al montar (al editar, los domicilios ya
 // guardados se respetan tal cual) — solo reacciona a cambios posteriores.
-export default function useDireccionesSugeridas({ fuero, organismos, activo, setF, omitirInicial = false }) {
+export default function useDireccionesSugeridas({ fuero, activo, setF, omitirInicial = false }) {
   const autoAgregadas = useRef([]);
-  const clave = JSON.stringify([fuero || [], organismos || []]);
+  const clave = JSON.stringify(fuero || []);
   const claveInicial = useRef(clave);
 
   useEffect(() => {
@@ -19,7 +19,7 @@ export default function useDireccionesSugeridas({ fuero, organismos, activo, set
     // también cubre el doble montaje de StrictMode en desarrollo.
     if (omitirInicial && clave === claveInicial.current && autoAgregadas.current.length === 0) return;
     if (!activo) return;
-    const sugeridas = direccionesDe(fuero, organismos);
+    const sugeridas = direccionesDe(fuero);
     const anteriores = autoAgregadas.current;
     autoAgregadas.current = sugeridas;
     setF(prev => {

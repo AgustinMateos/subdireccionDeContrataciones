@@ -3,19 +3,12 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { ORGANISMOS } from "@/lib/constants";
-import { organismosDeFueros } from "@/lib/organismosFueros";
 
 // Selector de organismos (puede haber más de uno) — la oficina/juzgado
-// puntual, no el fuero. Cuando hay fuero(s) cargado(s) (Servicios), las
-// sugerencias se acotan a las dependencias de esos fueros según el padrón;
-// sin fuero (o en Informática y Varios, que no maneja fuero), sugiere la
-// lista fija de organismos administrativos. Sigue siendo texto libre: la
-// lista es una ayuda, no restringe.
-export default function SelectorOrganismos({ organismos, fueros, onChange, id = "lista-organismos" }) {
+// puntual, no el fuero. Opcional y de carga manual: sugiere la lista fija
+// de organismos, pero no restringe ni depende del fuero elegido.
+export default function SelectorOrganismos({ organismos, onChange, id = "lista-organismos" }) {
   const [orgInput, setOrgInput] = useState("");
-  const sugerencias = (fueros || []).length > 0
-    ? Array.from(new Set([...organismosDeFueros(fueros), ...ORGANISMOS])).sort()
-    : ORGANISMOS;
 
   function agregar() {
     const v = orgInput.trim();
@@ -55,7 +48,7 @@ export default function SelectorOrganismos({ organismos, fueros, onChange, id = 
           className="flex-1 text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800"
         />
         <datalist id={id}>
-          {sugerencias.map(o => <option key={o} value={o} />)}
+          {ORGANISMOS.map(o => <option key={o} value={o} />)}
         </datalist>
         <button type="button" onClick={agregar} className="px-3 py-2 rounded-md border border-slate-300 text-xs font-medium hover:bg-slate-50 shrink-0">
           Agregar

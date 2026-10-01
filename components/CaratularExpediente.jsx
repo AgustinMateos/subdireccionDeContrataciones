@@ -50,9 +50,9 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
 
-  // Al elegir fuero + organismo, las direcciones asociadas del padrón se
+  // Al elegir el fuero, las direcciones asociadas del padrón se
   // suman a "Domicilios/renglones" (ver useDireccionesSugeridas).
-  useDireccionesSugeridas({ fuero: f.fuero, organismos: f.organismos, activo: esServicios, setF });
+  useDireccionesSugeridas({ fuero: f.fuero, activo: esServicios, setF });
 
   const coincidenciaAntecedente = f.antecedenteExp && expedientes
     ? expedientes.find(e => e.exp.trim().toLowerCase() === f.antecedenteExp.trim().toLowerCase())
@@ -124,7 +124,7 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
             )}
 
             <div className="col-span-2">
-              <SelectorOrganismos organismos={f.organismos} fueros={f.fuero} onChange={v => set("organismos", v)} />
+              <SelectorOrganismos organismos={f.organismos} onChange={v => set("organismos", v)} />
             </div>
 
             <div className="col-span-2">

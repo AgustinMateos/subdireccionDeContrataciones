@@ -65,9 +65,9 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
   const esAscensores = esServicios && f.tipo === "Ascensores";
   const conAdecuaciones = esServicios && llevaAdecuaciones(f.tipo);
 
-  // Al cambiar fuero u organismo, suma las direcciones asociadas del padrón
+  // Al cambiar el fuero, suma las direcciones asociadas del padrón
   // a "Domicilios/renglones"; los domicilios ya guardados no se tocan al abrir.
-  useDireccionesSugeridas({ fuero: f.fuero, organismos: f.organismos, activo: esServicios, setF, omitirInicial: true });
+  useDireccionesSugeridas({ fuero: f.fuero, activo: esServicios, setF, omitirInicial: true });
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
 
@@ -161,7 +161,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
               </div>
             )}
             <div className="col-span-2">
-              <SelectorOrganismos organismos={f.organismos} fueros={f.fuero} onChange={v => set("organismos", v)} />
+              <SelectorOrganismos organismos={f.organismos} onChange={v => set("organismos", v)} />
             </div>
             <div className="col-span-2">
               <CampoDomiciliosRenglones
