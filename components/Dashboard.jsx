@@ -70,6 +70,7 @@ import Masonry from "./Masonry";
 import TablaExpedientesServicios from "./TablaExpedientesServicios";
 import ModalCambiarSector from "./ModalCambiarSector";
 import ModalEliminarTarjeta from "./ModalEliminarTarjeta";
+import MesaDeEntradas from "./MesaDeEntradas";
 import ModalCambiarEstadoConvocatoria from "./ModalCambiarEstadoConvocatoria";
 import PaginaExpediente from "./PaginaExpediente";
 import FormularioExpediente from "./FormularioExpediente";
@@ -97,6 +98,8 @@ const VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS = [
   "cotizadorTaquigrafico", "cotizadorPolicia", "cotizadorAvisos",
   "informePoliciaAdicional", "informeOrganismos",
 ];
+
+const VISTAS_EXCLUIDAS_MESA_DE_ENTRADAS = ["aperturas", "informeServicios", "expedienteDetalle"];
 
 export default function App() {
   const { data: session, status } = useSession();
@@ -739,9 +742,13 @@ export default function App() {
   const puedeEliminar = esJefe;
   const puedeEliminarTarjetas = sesion.rol === "soporte";
   const esInformaticaYVarios = sesion.departamentoSlug === "informatica-y-varios";
+  // Mesa de Entradas solo registra entradas/salidas: tiene su propio
+  // listado (MesaDeEntradas) y no usa las vistas de expedientes del resto.
+  const esMesaDeEntradas = sesion.departamentoSlug === "mesa-de-entradas";
   // Defensivo: si se llega a una vista exclusiva de Informática y Varios sin pasar
   // por el botón del navbar (ej. estado previo de sesión), se vuelve al listado.
   const vistaEfectiva = (!esInformaticaYVarios && VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS.includes(vista))
+    || (esMesaDeEntradas && VISTAS_EXCLUIDAS_MESA_DE_ENTRADAS.includes(vista))
     ? "expedientes"
     : vista;
   const enTabla = vistaListado === "tabla" && !esInformaticaYVarios;
@@ -781,6 +788,8 @@ export default function App() {
           <ListadoTelefonos sesion={sesion} mostrarToast={mostrarToast} seccionesIniciales={secciones} />
         ) : vistaEfectiva === "planillaCotizacion" ? (
           <PlanillaCotizacion mostrarToast={mostrarToast} />
+        ) : esMesaDeEntradas ? (
+          <MesaDeEntradas sesion={sesion} busqueda={busqueda} mostrarToast={mostrarToast} />
         ) : vistaEfectiva === "expedienteDetalle" && seleccionado ? (
           <PaginaExpediente
             exp={seleccionado}

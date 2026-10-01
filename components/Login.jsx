@@ -14,6 +14,10 @@ const USUARIOS_DEMO = [
   { email: "operador.servicios@pj.gob.ar", clave: "operador123", rolLabel: "Operador", depto: "Servicios" },
   { email: "lector.servicios@pj.gob.ar", clave: "lector123", rolLabel: "Solo Lectura", depto: "Servicios" },
   { email: "soporte.servicios@pj.gob.ar", clave: "soporte123", rolLabel: "Soporte", depto: "Servicios" },
+  { email: "admin.mesa@pj.gob.ar", clave: "admin123", rolLabel: "Jefe de Departamento", depto: "Mesa de Entradas" },
+  { email: "operador.mesa@pj.gob.ar", clave: "operador123", rolLabel: "Operador", depto: "Mesa de Entradas" },
+  { email: "lector.mesa@pj.gob.ar", clave: "lector123", rolLabel: "Solo Lectura", depto: "Mesa de Entradas" },
+  { email: "soporte.mesa@pj.gob.ar", clave: "soporte123", rolLabel: "Soporte", depto: "Mesa de Entradas" },
 ];
 
 export default function Login() {

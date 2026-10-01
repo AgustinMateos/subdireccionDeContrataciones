@@ -1,17 +1,34 @@
-// Carga en la base real los datos de ejemplo para los 2 departamentos
-// (Informática y Varios, Servicios), usuarios de prueba y catálogos base.
+// Carga en la base real los datos de ejemplo para los departamentos
+// (Informática y Varios, Servicios, Mesa de Entradas), usuarios de prueba y
+// catálogos base.
 //
 // Se ejecuta con: node prisma/seed.js
 
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
+const datosMesaEntradas = require("./datosMesaEntradas");
 const prisma = new PrismaClient();
+
+// "9/04/2024" → Date; vacío o inválido (ej. "111", "19/20/2023") → null.
+function fechaPlanilla(texto) {
+  const m = String(texto || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const [, d, mes, a] = m.map(Number);
+  const fecha = new Date(Date.UTC(a, mes - 1, d));
+  return fecha.getUTCMonth() === mes - 1 && fecha.getUTCDate() === d ? fecha : null;
+}
+
+function zonaPlanilla(texto) {
+  const t = String(texto || "").trim().toUpperCase();
+  return { CABA: "CABA", AMBA: "AMBA", INTERIOR: "Interior" }[t] || null;
+}
 
 async function main() {
   // ---------- Departamentos ----------
   const departamentos = [
     { nombre: "Informática y Varios", slug: "informatica-y-varios" },
     { nombre: "Servicios", slug: "servicios" },
+    { nombre: "Mesa de Entradas", slug: "mesa-de-entradas" },
   ];
   const deptoPorSlug = {};
   for (const d of departamentos) {
@@ -34,6 +51,10 @@ async function main() {
     { nombre: "Operador de Servicios", email: "operador.servicios@pj.gob.ar", clave: "operador123", rol: "operador", departamentoSlug: "servicios" },
     { nombre: "Usuario Solo Lectura de Servicios", email: "lector.servicios@pj.gob.ar", clave: "lector123", rol: "lector", departamentoSlug: "servicios" },
     { nombre: "Usuario de Soporte de Servicios", email: "soporte.servicios@pj.gob.ar", clave: "soporte123", rol: "soporte", departamentoSlug: "servicios" },
+    { nombre: "Jefatura de Mesa de Entradas", email: "admin.mesa@pj.gob.ar", clave: "admin123", rol: "admin", departamentoSlug: "mesa-de-entradas" },
+    { nombre: "Operador de Mesa de Entradas", email: "operador.mesa@pj.gob.ar", clave: "operador123", rol: "operador", departamentoSlug: "mesa-de-entradas" },
+    { nombre: "Usuario Solo Lectura de Mesa de Entradas", email: "lector.mesa@pj.gob.ar", clave: "lector123", rol: "lector", departamentoSlug: "mesa-de-entradas" },
+    { nombre: "Usuario de Soporte de Mesa de Entradas", email: "soporte.mesa@pj.gob.ar", clave: "soporte123", rol: "soporte", departamentoSlug: "mesa-de-entradas" },
   ];
   for (const u of usuarios) {
     await prisma.usuario.upsert({
@@ -49,6 +70,40 @@ async function main() {
     });
   }
   console.log("Usuarios sembrados:", usuarios.length);
+
+  // ---------- Mesa de Entradas: filas de la planilla de control ----------
+  const mesa = deptoPorSlug["mesa-de-entradas"].id;
+  const yaHayMesa = await prisma.expedienteMesa.count({ where: { departamentoId: mesa } });
+  if (yaHayMesa === 0) {
+    for (const [exp, sectorTramita, fuero, zona, fechaInicio, caratula, tipoContratacion, ingresoSubdireccion, fechaIngreso, vieneDe, sector, subsector, wd, r, observaciones] of datosMesaEntradas) {
+      await prisma.expedienteMesa.create({
+        data: {
+          departamentoId: mesa,
+          exp,
+          objeto: caratula || "",
+          sectorTramita: sectorTramita || null,
+          tipoContratacion: tipoContratacion || null,
+          zona: zonaPlanilla(zona),
+          fuero: fuero && fuero !== "-" ? [fuero] : [],
+          fechaInicio: fechaPlanilla(fechaInicio),
+          ingresoSubdireccion: fechaPlanilla(ingresoSubdireccion),
+          wd: wd || null,
+          r: r || null,
+          movimientos: {
+            create: [{
+              fecha: fechaPlanilla(fechaIngreso),
+              vieneDe: vieneDe || null,
+              sector: sector || "Sin definir",
+              subsector: subsector || null,
+              observacion: observaciones || null,
+              usuario: "Importado de la planilla",
+            }],
+          },
+        },
+      });
+    }
+    console.log("Expedientes de Mesa de Entradas sembrados:", datosMesaEntradas.length);
+  }
 
   // ---------- Valor Modular (genérico, compartido por ambos departamentos) ----------
   const yaHayValor = await prisma.valorModular.count();

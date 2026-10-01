@@ -14,11 +14,12 @@ datasource db {
 
 model Departamento {
   id     String @id @default(cuid())
-  nombre String @unique // "Informática y Varios" | "Servicios"
-  slug   String @unique // "informatica-y-varios" | "servicios"
+  nombre String @unique // "Informática y Varios" | "Servicios" | "Mesa de Entradas"
+  slug   String @unique // "informatica-y-varios" | "servicios" | "mesa-de-entradas"
 
-  usuarios    Usuario[]
-  expedientes Expediente[]
+  usuarios        Usuario[]
+  expedientes     Expediente[]
+  expedientesMesa ExpedienteMesa[]
 }
 
 // ---------- Usuarios y autenticación ----------
@@ -281,4 +282,53 @@ model PersonaTelefono {
   orden   Int             @default(0)
 
   @@index([grupoId])
+}
+
+// ---------- Mesa de Entradas ----------
+// Sector de la Subdirección que solo registra la entrada y salida de los
+// expedientes (no gestiona su ciclo de vida como Servicios o Informática y
+// Varios): por eso tiene su propio registro, independiente de Expediente.
+// El sector donde está hoy, de dónde vino y desde cuándo salen del último
+// movimiento; los días frenados se cuentan desde esa fecha.
+
+model ExpedienteMesa {
+  id                  String           @id @default(cuid())
+  departamentoId      String
+  departamento        Departamento     @relation(fields: [departamentoId], references: [id])
+  exp                 String
+  objeto              String // carátula
+  agente              String?
+  sectorTramita       String? // sector que tramita: Servicios, Licitaciones, Locaciones...
+  tipo                String?
+  tipoContratacion    String?
+  zona                String?
+  fuero               String[]
+  organismos          String[]
+  domiciliosRenglones String[]
+  fechaInicio         DateTime?
+  fechaVencimiento    DateTime?
+  ingresoSubdireccion DateTime?
+  wd                  String?
+  r                   String?
+  movimientos         MovimientoMesa[]
+  creadoEn            DateTime         @default(now())
+  actualizadoEn       DateTime         @updatedAt
+
+  @@unique([departamentoId, exp])
+  @@index([departamentoId])
+}
+
+model MovimientoMesa {
+  id               String         @id @default(cuid())
+  expedienteMesaId String
+  expediente       ExpedienteMesa @relation(fields: [expedienteMesaId], references: [id], onDelete: Cascade)
+  fecha            DateTime? // fecha de ingreso al sector (puede faltar en lo importado de la planilla)
+  vieneDe          String? // viene del sector
+  sector           String
+  subsector        String?
+  observacion      String?
+  usuario          String
+  creadoEn         DateTime       @default(now())
+
+  @@index([expedienteMesaId])
 }

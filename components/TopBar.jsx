@@ -10,6 +10,7 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
   const [publicacionesAbierto, setPublicacionesAbierto] = useState(false);
   const [perfilAbierto, setPerfilAbierto] = useState(false);
   const esInformaticaYVarios = sesion.departamentoSlug === "informatica-y-varios";
+  const esMesaDeEntradas = sesion.departamentoSlug === "mesa-de-entradas";
   const vistasVarios = ["cotizadorTaquigrafico", "cotizadorPolicia", "cotizadorAvisos"];
   const variosActivo = vistasVarios.includes(vista);
   const vistasInformes = esInformaticaYVarios ? ["informePoliciaAdicional", "informeOrganismos"] : ["informeServicios"];
@@ -45,7 +46,7 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
             <input
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
-              placeholder="Buscar por N° expediente, objeto, adjudicatario u organismo..."
+              placeholder={esMesaDeEntradas ? "Buscar por N° expediente, carátula, fuero, sector u observaciones..." : "Buscar por N° expediente, objeto, adjudicatario u organismo..."}
               className="w-full pl-9 pr-3 py-2 text-sm rounded-md border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:bg-white"
             />
           </div>
@@ -92,7 +93,7 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
         >
           <FileText size={13} /> Planilla
         </button>
-        {!esInformaticaYVarios && (
+        {!esInformaticaYVarios && !esMesaDeEntradas && (
           <button
             onClick={() => { setVista("aperturas"); setVariosAbierto(false); }}
             className={"h-full px-3 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 " +
@@ -144,6 +145,7 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
           </div>
         )}
 
+        {!esMesaDeEntradas && (
         <div className="relative h-full">
           <button
             onClick={() => setInformesAbierto(v => !v)}
@@ -188,6 +190,8 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
             </>
           )}
         </div>
+
+        )}
 
         {esInformaticaYVarios && (
           <div className="relative h-full">
