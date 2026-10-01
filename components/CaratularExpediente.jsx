@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTOR_INICIAL_POR_DEPARTAMENTO, TIPOS_PARCHE, llevaAdecuaciones } from "@/lib/constants";
+import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTOR_INICIAL_POR_DEPARTAMENTO, TIPOS_PARCHE, llevaAdecuaciones, etiquetaAdecuaciones } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
 import CampoFuero from "./CampoFuero";
@@ -144,7 +144,7 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
                     onChange={e => set("tieneAdecuaciones", e.target.checked)}
                     className="w-4 h-4 rounded border-slate-300 text-slate-800 focus:ring-slate-800"
                   />
-                  <span className="text-xs font-medium text-slate-700">Tiene adecuaciones</span>
+                  <span className="text-xs font-medium text-slate-700">{etiquetaAdecuaciones(f.tipo)}</span>
                 </label>
               </div>
             )}

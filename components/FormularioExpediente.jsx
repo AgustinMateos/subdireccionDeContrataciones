@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTORES, PRORROGA_MESES_OPCIONES, llevaAdecuaciones, llevaOrdenDeCompra } from "@/lib/constants";
+import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTORES, PRORROGA_MESES_OPCIONES, llevaAdecuaciones, llevaOrdenDeCompra, etiquetaAdecuaciones } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
 import CampoFuero from "./CampoFuero";
@@ -189,7 +189,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
                     onChange={e => set("tieneAdecuaciones", e.target.checked)}
                     className="w-4 h-4 rounded border-slate-300 text-slate-800 focus:ring-slate-800"
                   />
-                  <span className="text-xs font-medium text-slate-700">Tiene adecuaciones</span>
+                  <span className="text-xs font-medium text-slate-700">{etiquetaAdecuaciones(f.tipo)}</span>
                 </label>
               </div>
             )}

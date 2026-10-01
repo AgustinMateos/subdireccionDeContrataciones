@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil, Trash2, Shield, Clock, MapPin } from "lucide-react";
-import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, SECTORES, MODALIDADES_CONTRATACION, ENCUADRE_FUNDAMENTO_LEGAL, PRORROGA_MESES_OPCIONES, llevaAdecuaciones, llevaOrdenDeCompra } from "@/lib/constants";
+import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, SECTORES, MODALIDADES_CONTRATACION, ENCUADRE_FUNDAMENTO_LEGAL, PRORROGA_MESES_OPCIONES, llevaAdecuaciones, llevaOrdenDeCompra, etiquetaAdecuaciones } from "@/lib/constants";
 import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtFechaHora, fmtMoneda, documentacionDeExpediente, diasFrenado, estadoGeneralMostrado, esConvocatoriaFracasada, linkOrdenDeCompra, ordenesDeCompra, linkActaApertura } from "@/lib/utils";
 import BotonAccion from "./BotonAccion";
 import SelectorMesesProrroga from "./SelectorMesesProrroga";
@@ -493,7 +493,7 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm border-t border-slate-100 pt-4">
               {exp.codigoInterno && <Campo label="Código interno" valor={exp.codigoInterno} />}
               {exp.estadoConvocatoria && <Campo label="Estado de convocatoria" valor={exp.estadoConvocatoria} />}
-              {llevaAdecuaciones(exp.tipo) && <Campo label="Tiene adecuaciones" valor={exp.tieneAdecuaciones ? "Sí" : "No"} />}
+              {llevaAdecuaciones(exp.tipo) && <Campo label={etiquetaAdecuaciones(exp.tipo)} valor={exp.tieneAdecuaciones ? "Sí" : "No"} />}
               {exp.tipoParche && <Campo label="Tipo de parche" valor={exp.detalleParche ? exp.tipoParche + " — " + exp.detalleParche : exp.tipoParche} />}
               {exp.tipoContratacionProrroga && <Campo label="Prórroga (departamento) — tipo de contratación" valor={exp.tipoContratacionProrroga} />}
               {exp.nroResolucion && (

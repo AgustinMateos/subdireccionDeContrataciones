@@ -146,7 +146,8 @@ model Expediente {
 
   // tieneAdecuaciones aplica a los tipos de Servicios salvo Limpieza y
   // Desratización (ver llevaAdecuaciones en lib/constants) y es del
-  // expediente completo (además de mantenimiento, incluye obra/adaptación).
+  // expediente completo (además de mantenimiento, incluye obra/adaptación;
+  // en Matafuegos indica provisión — ver etiquetaAdecuaciones).
   // ascensoresPorDomicilio (solo tipo === "Ascensores") detalla, para cada domicilio ya cargado en
   // domiciliosRenglones, qué ascensores (1-8) y qué montacargas (1-4)
   // puntuales tramita — { "Talcahuano 550": { "ascensores": [1,2],
