@@ -250,7 +250,7 @@ export default function MesaDeEntradas({ sesion, busqueda, mostrarToast }) {
                   <td className="py-2.5 px-3 text-xs text-slate-700">{e.zona || "-"}</td>
                   <td className="py-2.5 px-3 text-xs text-slate-700 whitespace-nowrap">{fecha(e.fechaInicio)}</td>
                   <td className="py-2.5 px-3 text-xs text-slate-700"><span className="line-clamp-2" title={e.objeto}>{e.objeto || "-"}</span></td>
-                  <td className="py-2.5 px-3 text-xs text-slate-700">{e.tipoContratacion || "-"}</td>
+                  <td className="py-2.5 px-3 text-xs text-slate-700">{e.tipoContratacion || e.tipoContratacionSector || "-"}</td>
                   <td className="py-2.5 px-3 text-xs text-slate-700 whitespace-nowrap">{fecha(e.ingresoSubdireccion)}</td>
                   <td className="py-2.5 px-3 text-xs text-slate-700 whitespace-nowrap">{fecha(ult?.fecha)}</td>
                   <td className="py-2.5 px-3 text-xs text-slate-700">{ult?.vieneDe || "-"}</td>
@@ -287,7 +287,6 @@ export default function MesaDeEntradas({ sesion, busqueda, mostrarToast }) {
       {form && (
         <FormularioMesa
           inicial={form === "editar" ? seleccionado : null}
-          sectores={sectores}
           onCerrar={() => setForm(null)}
           onGuardar={form === "editar" ? editar : caratular}
         />

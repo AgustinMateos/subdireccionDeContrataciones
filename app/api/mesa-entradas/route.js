@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { INCLUDE_MESA, SECTORES_TRAMITA, datosExpedienteMesa, datosMovimientoMesa } from "@/lib/mesaEntradas";
+import { INCLUDE_MESA, SECTORES_TRAMITA, datosExpedienteMesa } from "@/lib/mesaEntradas";
+import { conDatosDelSector } from "@/lib/mesaEntradasServidor";
 
 // Expedientes registrados por Mesa de Entradas (solo los del departamento
 // del usuario).
@@ -15,10 +16,12 @@ export async function GET() {
     include: INCLUDE_MESA,
     orderBy: { creadoEn: "desc" },
   });
-  return NextResponse.json({ expedientes });
+  return NextResponse.json({ expedientes: await conDatosDelSector(expedientes) });
 }
 
-// Caratular: alta del expediente con su primer movimiento (el ingreso).
+// Caratular: alta del expediente. La fecha de inicio es el ingreso a la
+// Subdirección, que queda como primer movimiento (de ahí corren los días
+// frenado). Tipo de contratación, WD y R se cargan después, al editar.
 export async function POST(request) {
   const session = await getServerSession(authOptions);
   if (!session || (session.user.rol !== "admin" && session.user.rol !== "operador")) {
@@ -33,21 +36,31 @@ export async function POST(request) {
   if (!SECTORES_TRAMITA.includes(datos.sectorTramita)) {
     return NextResponse.json({ error: "Elegí el sector que tramita" }, { status: 400 });
   }
-  const ingreso = datosMovimientoMesa(body.ingreso || {}, session.user.name);
-  if (!ingreso.sector || !ingreso.fecha) {
-    return NextResponse.json({ error: "Completá la fecha de ingreso y el sector" }, { status: 400 });
+  if (!datos.fechaInicio) {
+    return NextResponse.json({ error: "Completá la fecha de inicio (ingreso a la Subdirección)" }, { status: 400 });
   }
 
   try {
     const expediente = await prisma.expedienteMesa.create({
       data: {
         ...datos,
+        ingresoSubdireccion: datos.fechaInicio,
+        tipoContratacion: null,
+        wd: null,
+        r: null,
         departamentoId: session.user.departamentoId,
-        movimientos: { create: [ingreso] },
+        movimientos: {
+          create: [{
+            fecha: datos.fechaInicio,
+            sector: "SUBDIRECCION",
+            observacion: "Caratulado en Mesa de Entradas.",
+            usuario: session.user.name,
+          }],
+        },
       },
       include: INCLUDE_MESA,
     });
-    return NextResponse.json({ expediente });
+    return NextResponse.json({ expediente: (await conDatosDelSector([expediente]))[0] });
   } catch (e) {
     if (e.code === "P2002") {
       return NextResponse.json({ error: "Ya hay un expediente " + datos.exp + " registrado en Mesa de Entradas" }, { status: 400 });

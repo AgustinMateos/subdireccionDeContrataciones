@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { INCLUDE_MESA, datosExpedienteMesa, datosMovimientoMesa } from "@/lib/mesaEntradas";
+import { conDatosDelSector } from "@/lib/mesaEntradasServidor";
 
 async function buscar(id, session) {
   const exp = await prisma.expedienteMesa.findUnique({ where: { id } });
@@ -31,7 +32,7 @@ export async function PUT(request, { params }) {
       data: { movimientos: { create: [mov] } },
       include: INCLUDE_MESA,
     });
-    return NextResponse.json({ expediente });
+    return NextResponse.json({ expediente: (await conDatosDelSector([expediente]))[0] });
   }
 
   const datos = datosExpedienteMesa(body);
@@ -44,7 +45,7 @@ export async function PUT(request, { params }) {
       data: datos,
       include: INCLUDE_MESA,
     });
-    return NextResponse.json({ expediente });
+    return NextResponse.json({ expediente: (await conDatosDelSector([expediente]))[0] });
   } catch (e) {
     if (e.code === "P2002") {
       return NextResponse.json({ error: "Ya hay un expediente " + datos.exp + " registrado en Mesa de Entradas" }, { status: 400 });

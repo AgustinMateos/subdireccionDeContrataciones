@@ -144,7 +144,7 @@ export default function DetalleMesa({ exp, sectores, puedeEditar, puedeEliminar,
             <Dato label="Sector que tramita" valor={exp.sectorTramita} />
             <Dato label="Agente" valor={exp.agente} />
             <Dato label="Tipo" valor={exp.tipo} />
-            <Dato label="Tipo de contratación" valor={exp.tipoContratacion} />
+            <Dato label="Tipo de contratación" valor={exp.tipoContratacion || exp.tipoContratacionSector} />
             <Dato label="Zona" valor={exp.zona} />
             <Dato label="Fecha de inicio" valor={exp.fechaInicio ? fmtFecha(fechaISO(exp.fechaInicio)) : null} />
             <Dato label="Fecha de vencimiento" valor={exp.fechaVencimiento ? fmtFecha(fechaISO(exp.fechaVencimiento)) : null} />

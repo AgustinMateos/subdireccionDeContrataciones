@@ -26,6 +26,8 @@ export function CampoSugerido({ label, value, onChange, opciones, id, placeholde
 }
 
 function formDesde(inicial) {
+  // Al caratular, la fecha de inicio es el ingreso a la Subdirección (hoy
+  // por defecto).
   return {
     exp: inicial?.exp || "",
     objeto: inicial?.objeto || "",
@@ -37,7 +39,7 @@ function formDesde(inicial) {
     fuero: inicial?.fuero || [],
     organismos: inicial?.organismos || [],
     domiciliosRenglones: inicial?.domiciliosRenglones || [],
-    fechaInicio: fechaISO(inicial?.fechaInicio),
+    fechaInicio: inicial ? fechaISO(inicial.fechaInicio) : hoyLocalISO(),
     fechaVencimiento: fechaISO(inicial?.fechaVencimiento),
     ingresoSubdireccion: fechaISO(inicial?.ingresoSubdireccion),
     wd: inicial?.wd || "",
@@ -48,10 +50,12 @@ function formDesde(inicial) {
 // Caratular (alta, con el primer ingreso) o editar la carátula de un
 // expediente de Mesa de Entradas. Los movimientos posteriores se registran
 // desde el detalle del expediente.
-export default function FormularioMesa({ inicial, sectores, onCerrar, onGuardar }) {
+// Tipo de contratación, WD y R todavía no se conocen al caratular: se cargan
+// al editar. El tipo de contratación, además, se toma del expediente del
+// sector que tramita si ya lo cargó (ver tipoContratacionSector).
+export default function FormularioMesa({ inicial, onCerrar, onGuardar }) {
   const esNuevo = !inicial;
   const [f, setF] = useState(() => formDesde(inicial));
-  const [ingreso, setIngreso] = useState({ fecha: hoyLocalISO(), vieneDe: "", sector: "", subsector: "", observacion: "" });
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
 
@@ -68,7 +72,6 @@ export default function FormularioMesa({ inicial, sectores, onCerrar, onGuardar 
   // Un valor viejo que no está en la lista (ej. importado de la planilla)
   // se sigue mostrando para no perderlo al editar.
   const opcionesSector = ["", ...SECTORES_TRAMITA, ...(f.sectorTramita && !SECTORES_TRAMITA.includes(f.sectorTramita) ? [f.sectorTramita] : [])];
-  function setIng(campo, valor) { setIngreso(prev => ({ ...prev, [campo]: valor })); setError(""); }
 
   async function guardar() {
     if (!f.exp.trim() || !f.objeto.trim()) { setError("Completá N° de expediente y objeto."); return; }
@@ -76,11 +79,13 @@ export default function FormularioMesa({ inicial, sectores, onCerrar, onGuardar 
     if (f.fechaInicio && f.fechaVencimiento && f.fechaVencimiento < f.fechaInicio) {
       setError("El vencimiento no puede ser anterior al inicio."); return;
     }
-    if (esNuevo && (!ingreso.fecha || !ingreso.sector.trim())) {
-      setError("Completá la fecha de ingreso y el sector."); return;
+    if (esNuevo && !f.fechaInicio) {
+      setError("Completá la fecha de inicio (ingreso a la Subdirección)."); return;
     }
     setGuardando(true);
-    const res = await onGuardar(esNuevo ? { ...f, ingreso } : f);
+    const res = await onGuardar(esNuevo
+      ? { ...f, ingresoSubdireccion: f.fechaInicio, tipoContratacion: "", wd: "", r: "" }
+      : f);
     setGuardando(false);
     if (res?.error) setError(res.error);
   }
@@ -108,12 +113,13 @@ export default function FormularioMesa({ inicial, sectores, onCerrar, onGuardar 
             ) : (
               <Campo_Input label="Tipo" value={f.tipo} onChange={v => set("tipo", v)} />
             )}
-            <CampoSugerido label="Tipo de contratación" id="mesa-tipo-contratacion" value={f.tipoContratacion} onChange={v => set("tipoContratacion", v)} opciones={MODALIDADES_CONTRATACION} />
             <Campo_Select label="Zona" value={f.zona} onChange={v => set("zona", v)} opciones={["", ...ZONAS]} labels={{ "": "— Sin definir —" }} />
 
-            <Campo_Input label="Fecha de inicio" type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
+            <Campo_Input label={esNuevo ? "Fecha de inicio (ingreso a la Subdirección)" : "Fecha de inicio"} type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
             <Campo_Input label="Fecha de vencimiento" type="date" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
-            <Campo_Input label="Ingreso a la Subdirección" type="date" value={f.ingresoSubdireccion} onChange={v => set("ingresoSubdireccion", v)} />
+            {!esNuevo && (
+              <Campo_Input label="Ingreso a la Subdirección" type="date" value={f.ingresoSubdireccion} onChange={v => set("ingresoSubdireccion", v)} />
+            )}
 
             <div className="col-span-3">
               <CampoFuero id="mesa-lista-fueros" fueros={f.fuero} onChange={v => set("fuero", v)} />
@@ -130,22 +136,20 @@ export default function FormularioMesa({ inicial, sectores, onCerrar, onGuardar 
               />
             </div>
 
-            <Campo_Input label="WD" value={f.wd} onChange={v => set("wd", v)} />
-            <Campo_Input label="R" value={f.r} onChange={v => set("r", v)} />
+            {!esNuevo && (
+              <>
+                <div>
+                  <CampoSugerido label="Tipo de contratación" id="mesa-tipo-contratacion" value={f.tipoContratacion} onChange={v => set("tipoContratacion", v)}
+                    opciones={MODALIDADES_CONTRATACION} placeholder={inicial.tipoContratacionSector || ""} />
+                  {inicial.tipoContratacionSector && !f.tipoContratacion && (
+                    <p className="text-[11px] text-slate-500 mt-1">Lo cargó {inicial.sectorTramita}: {inicial.tipoContratacionSector}</p>
+                  )}
+                </div>
+                <Campo_Input label="WD" value={f.wd} onChange={v => set("wd", v)} />
+                <Campo_Input label="R" value={f.r} onChange={v => set("r", v)} />
+              </>
+            )}
           </div>
-
-          {esNuevo && (
-            <div className="border border-slate-200 rounded-md p-4 bg-slate-50 space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ingreso</h3>
-              <div className="grid grid-cols-4 gap-4">
-                <Campo_Input label="Fecha de ingreso" type="date" value={ingreso.fecha} onChange={v => setIng("fecha", v)} />
-                <CampoSugerido label="Viene del sector" id="mesa-ing-viene" value={ingreso.vieneDe} onChange={v => setIng("vieneDe", v)} opciones={sectores} />
-                <CampoSugerido label="Sector" id="mesa-ing-sector" value={ingreso.sector} onChange={v => setIng("sector", v)} opciones={sectores} />
-                <CampoSugerido label="Subsector" id="mesa-ing-subsector" value={ingreso.subsector} onChange={v => setIng("subsector", v)} opciones={sectores} />
-              </div>
-              <Campo_Input label="Observaciones" value={ingreso.observacion} onChange={v => setIng("observacion", v)} />
-            </div>
-          )}
 
           {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
