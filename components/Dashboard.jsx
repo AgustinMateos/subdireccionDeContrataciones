@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { CheckCircle2, LayoutGrid, Table2 } from "lucide-react";
+import { CheckCircle2, LayoutGrid, Table2, Trash2 } from "lucide-react";
 
 import { HOY, ROL_USUARIO_LABEL, ENCUADRE_POR_TIPO_PARCHE } from "@/lib/constants";
 import { diasRestantes, alerta, documentacionDeExpediente, fmtFecha, soloFechaLocal, esConvocatoriaFracasada } from "@/lib/utils";
@@ -69,6 +69,7 @@ import TarjetaGrupoServicios from "./TarjetaGrupoServicios";
 import Masonry from "./Masonry";
 import TablaExpedientesServicios from "./TablaExpedientesServicios";
 import ModalCambiarSector from "./ModalCambiarSector";
+import ModalEliminarTarjeta from "./ModalEliminarTarjeta";
 import ModalCambiarEstadoConvocatoria from "./ModalCambiarEstadoConvocatoria";
 import PaginaExpediente from "./PaginaExpediente";
 import FormularioExpediente from "./FormularioExpediente";
@@ -127,6 +128,8 @@ export default function App() {
   // Edición rápida de Sector/Estado de convocatoria desde la tabla (sin
   // entrar a la ficha) — guarda el expediente sobre el que se abrió el modal.
   const [cambiarSectorExp, setCambiarSectorExp] = useState(null);
+  // Expedientes de la tarjeta a borrar con el tacho (solo Soporte).
+  const [eliminarTarjeta, setEliminarTarjeta] = useState(null);
   const [cambiarEstadoExp, setCambiarEstadoExp] = useState(null);
   const [estadoComoPasoDos, setEstadoComoPasoDos] = useState(false);
   const [seleccionado, setSeleccionado] = useState(null);
@@ -390,6 +393,18 @@ export default function App() {
     setVista("expedientes");
     await refrescar();
     mostrarToast("Expediente eliminado");
+  }
+
+  // Tacho de las tarjetas (Soporte): borra todos los expedientes que contiene.
+  async function eliminarExpedientesDeTarjeta(ids) {
+    let fallidos = 0;
+    for (const id of ids) {
+      const res = await fetch(`/api/expedientes/${id}`, { method: "DELETE" });
+      if (!res.ok) fallidos++;
+    }
+    setEliminarTarjeta(null);
+    await refrescar();
+    mostrarToast(fallidos > 0 ? `No se pudieron eliminar ${fallidos} de ${ids.length} expedientes` : "Tarjeta eliminada");
   }
 
   async function toggleDocumentacion(id, indice) {
@@ -722,6 +737,7 @@ export default function App() {
   const puedeEditar = sesion.rol === "admin" || sesion.rol === "operador";
   const esJefe = sesion.rol === "admin"; // jefe de departamento
   const puedeEliminar = esJefe;
+  const puedeEliminarTarjetas = sesion.rol === "soporte";
   const esInformaticaYVarios = sesion.departamentoSlug === "informatica-y-varios";
   // Defensivo: si se llega a una vista exclusiva de Informática y Varios sin pasar
   // por el botón del navbar (ej. estado previo de sesión), se vuelve al listado.
@@ -847,11 +863,26 @@ export default function App() {
             ) : (
               <>
                 <Masonry>
-                  {itemsListado.slice(0, visibles).map(item =>
-                    item.tipo === "grupo"
-                      ? <TarjetaGrupoServicios key={item.clave} grupo={item.grupo} todos={expedientes} onVer={verExpediente} onUnificar={(origenes) => setUnificarOrigenes(origenes)} puedeEditar={puedeEditar} />
-                      : <TarjetaExpediente key={item.exp.id} exp={item.exp} onVer={() => verExpediente(item.exp.id)} />
-                  )}
+                  {itemsListado.slice(0, visibles).map(item => {
+                    const clave = item.tipo === "grupo" ? item.clave : item.exp.id;
+                    const tarjeta = item.tipo === "grupo"
+                      ? <TarjetaGrupoServicios key={clave} grupo={item.grupo} todos={expedientes} onVer={verExpediente} onUnificar={(origenes) => setUnificarOrigenes(origenes)} puedeEditar={puedeEditar} />
+                      : <TarjetaExpediente key={clave} exp={item.exp} onVer={() => verExpediente(item.exp.id)} />;
+                    if (!puedeEliminarTarjetas) return tarjeta;
+                    return (
+                      <div key={clave} className="relative flex flex-col">
+                        {tarjeta}
+                        <button
+                          type="button"
+                          title="Eliminar tarjeta"
+                          onClick={() => setEliminarTarjeta(item.tipo === "grupo" ? item.grupo.items : [item.exp])}
+                          className="absolute -top-2 -right-2 p-1.5 rounded-full bg-white border border-red-200 text-red-600 shadow-sm hover:bg-red-50 hover:border-red-400"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </Masonry>
 
                 {filtrados.length === 0 && (
@@ -1027,6 +1058,14 @@ export default function App() {
           expedientes={expedientes}
           onCerrar={() => setUnificarOrigenes(null)}
           onConfirmar={(datos) => unificarRenovacion(unificarOrigenes, datos)}
+        />
+      )}
+
+      {eliminarTarjeta && (
+        <ModalEliminarTarjeta
+          expedientes={eliminarTarjeta}
+          onCerrar={() => setEliminarTarjeta(null)}
+          onConfirmar={eliminarExpedientesDeTarjeta}
         />
       )}
 

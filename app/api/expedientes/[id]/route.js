@@ -756,9 +756,10 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
-  // Solo el jefe de departamento (admin) puede eliminar expedientes.
-  if (!session || session.user.rol !== "admin") {
-    return NextResponse.json({ error: "Solo el jefe de departamento puede eliminar expedientes" }, { status: 403 });
+  // Solo el jefe de departamento (admin) — desde la ficha — y Soporte —
+  // desde el tacho de las tarjetas — pueden eliminar expedientes.
+  if (!session || (session.user.rol !== "admin" && session.user.rol !== "soporte")) {
+    return NextResponse.json({ error: "Solo el jefe de departamento o Soporte pueden eliminar expedientes" }, { status: 403 });
   }
 
   const { count } = await prisma.expediente.deleteMany({
