@@ -885,7 +885,7 @@ export default function App() {
                   })}
                 </Masonry>
 
-                {filtrados.length === 0 && (
+                {itemsListado.length === 0 && (
                   <div className="text-center py-16 text-slate-500 text-sm">
                     No se encontraron expedientes con los filtros aplicados.
                   </div>
