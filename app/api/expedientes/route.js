@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA_FALLIDOS, MOTIVOS_ADJUDICACION_PARCIAL, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES, llevaAdecuaciones } from "@/lib/constants";
+import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA_FALLIDOS, MOTIVOS_ADJUDICACION_PARCIAL, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES, llevaAdecuaciones, llevaOrdenDeCompra } from "@/lib/constants";
 import { parseFechaHora, hoyArgentina } from "@/lib/utils";
 
 const INCLUDE_EXPEDIENTE = {
@@ -1108,7 +1108,7 @@ export async function POST(request) {
       fechaVencimiento: new Date(body.fechaVencimiento),
       fechaPublicacion: body.fechaPublicacion ? new Date(body.fechaPublicacion) : null,
       fechaApertura: parseFechaHora(body.fechaApertura),
-      ocResolucion: esRenovacionVinculada || esLegitimoAbono ? null : (body.ocResolucion || null),
+      ocResolucion: esRenovacionVinculada || !llevaOrdenDeCompra(body) ? null : (body.ocResolucion || null),
       resolucionLlamado: esRenovacionVinculada || esLegitimoAbono ? null : (body.resolucionLlamado || null),
       resolucionAdjudicacion: esRenovacionVinculada || esLegitimoAbono ? null : (body.resolucionAdjudicacion || null),
       adjudicatario: esRenovacionVinculada || esLegitimoAbono ? null : (body.adjudicatario || null),

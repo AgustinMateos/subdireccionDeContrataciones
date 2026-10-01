@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES, ESTADOS_CONVOCATORIA_FALLIDOS, ESTADOS_CONVOCATORIA, llevaAdecuaciones } from "@/lib/constants";
+import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES, ESTADOS_CONVOCATORIA_FALLIDOS, ESTADOS_CONVOCATORIA, llevaAdecuaciones, llevaOrdenDeCompra } from "@/lib/constants";
 import { parseFechaHora, hoyArgentina } from "@/lib/utils";
 
 function normalizarNumeros(valor, max) {
@@ -576,6 +576,8 @@ export async function PUT(request, { params }) {
   const esPoliciaAdicionalPedido = puedePoliciaAdicional && body.esPoliciaAdicional === true;
   // El legítimo abono nunca lleva OC ni resoluciones de llamado/adjudicación.
   const esLegitimoAbono = body.tipoParche === "Legítimo abono";
+  // Legítimo abono y descentralizada no llevan orden de compra.
+  const sinOC = !llevaOrdenDeCompra({ encuadre: body.encuadre, tipoParche: body.tipoParche });
 
   if (!esLegitimoAbono && body.tieneProrroga) {
     if (!PRORROGA_MESES_OPCIONES.includes(Number(body.mesesProrroga))) {
@@ -672,7 +674,7 @@ export async function PUT(request, { params }) {
       fechaVencimiento: body.fechaVencimiento ? new Date(body.fechaVencimiento) : undefined,
       fechaPublicacion: body.fechaPublicacion !== undefined ? (body.fechaPublicacion ? new Date(body.fechaPublicacion) : null) : undefined,
       fechaApertura: body.fechaApertura !== undefined ? parseFechaHora(body.fechaApertura) : undefined,
-      ocResolucion: esLegitimoAbono ? null : (body.ocResolucion ?? undefined),
+      ocResolucion: sinOC ? null : (body.ocResolucion ?? undefined),
       resolucionLlamado: esLegitimoAbono ? null : (body.resolucionLlamado ?? undefined),
       resolucionAdjudicacion: esLegitimoAbono ? null : (body.resolucionAdjudicacion ?? undefined),
       adjudicatario: body.adjudicatario ?? undefined,

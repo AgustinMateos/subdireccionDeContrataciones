@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, Plus, Trash2 } from "lucide-react";
-import { MOTIVOS_ADJUDICACION_PARCIAL } from "@/lib/constants";
+import { MOTIVOS_ADJUDICACION_PARCIAL, llevaOrdenDeCompra } from "@/lib/constants";
 import BotonAccion from "./BotonAccion";
 
 const OPCIONES = [
@@ -49,6 +49,8 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
   const disponibles = exp.domiciliosRenglones || [];
+  // Legítimo abono y descentralizada no llevan orden de compra.
+  const conOC = llevaOrdenDeCompra(exp);
 
   function setFirma(dom, valor) {
     setFirmas(prev => ({ ...prev, [dom]: valor }));
@@ -241,7 +243,7 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
 
           {opcion === "integra" && (
             disponibles.length === 0 ? (
-              <div className="grid grid-cols-3 gap-3">
+              <div className={"grid gap-3 " + (conOC ? "grid-cols-3" : "grid-cols-2")}>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Firma adjudicataria</label>
                   <input value={firmaUnica} onChange={e => setFirmaUnica(e.target.value)}
@@ -252,11 +254,13 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
                   <input type="number" value={montoUnico} onChange={e => setMontoUnico(e.target.value)}
                     className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">N° de orden de compra</label>
-                  <input value={ocUnica} onChange={e => setOcUnica(e.target.value)}
-                    className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
-                </div>
+                {conOC && (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">N° de orden de compra</label>
+                    <input value={ocUnica} onChange={e => setOcUnica(e.target.value)}
+                      className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+                  </div>
+                )}
               </div>
             ) : (
               <>
@@ -271,11 +275,11 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
                   setFirmaMasiva={setFirmaMasiva}
                   onAplicarATodos={() => aplicarFirmaATodos(disponibles)}
                 />
-                <OrdenesCompraPorFirma
+                {conOC && <OrdenesCompraPorFirma
                   grupos={agruparPorFirma(disponibles)}
                   ocPorFirma={ocPorFirma}
                   onOc={setOcFirma}
-                />
+                />}
               </>
             )
           )}
@@ -363,11 +367,11 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
                         setFirmaMasiva={setFirmaMasiva}
                         onAplicarATodos={() => aplicarFirmaATodos(adjudicadosEnParcial)}
                       />
-                      <OrdenesCompraPorFirma
+                      {conOC && <OrdenesCompraPorFirma
                         grupos={agruparPorFirma(adjudicadosEnParcial)}
                         ocPorFirma={ocPorFirma}
                         onOc={setOcFirma}
-                      />
+                      />}
                     </>
                   )}
                 </>

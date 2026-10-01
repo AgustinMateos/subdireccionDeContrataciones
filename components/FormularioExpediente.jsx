@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTORES, PRORROGA_MESES_OPCIONES, llevaAdecuaciones } from "@/lib/constants";
+import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTORES, PRORROGA_MESES_OPCIONES, llevaAdecuaciones, llevaOrdenDeCompra } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
 import CampoFuero from "./CampoFuero";
@@ -303,7 +303,9 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
             />
             {f.tipoParche !== "Legítimo abono" && (
               <>
-                <Campo_Input label="OC" value={f.ocResolucion} onChange={v => set("ocResolucion", v)} />
+                {llevaOrdenDeCompra(f) && (
+                  <Campo_Input label="OC" value={f.ocResolucion} onChange={v => set("ocResolucion", v)} />
+                )}
                 <Campo_Input label="Resolución de llamado" value={f.resolucionLlamado} onChange={v => set("resolucionLlamado", v)} />
                 <Campo_Input label="Resolución de adjudicación" value={f.resolucionAdjudicacion} onChange={v => set("resolucionAdjudicacion", v)} />
               </>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil, Trash2, Shield, Clock, MapPin } from "lucide-react";
-import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, SECTORES, MODALIDADES_CONTRATACION, ENCUADRE_FUNDAMENTO_LEGAL, PRORROGA_MESES_OPCIONES, llevaAdecuaciones } from "@/lib/constants";
+import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, SECTORES, MODALIDADES_CONTRATACION, ENCUADRE_FUNDAMENTO_LEGAL, PRORROGA_MESES_OPCIONES, llevaAdecuaciones, llevaOrdenDeCompra } from "@/lib/constants";
 import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtFechaHora, fmtMoneda, documentacionDeExpediente, diasFrenado, estadoGeneralMostrado, esConvocatoriaFracasada, linkOrdenDeCompra, ordenesDeCompra, linkActaApertura } from "@/lib/utils";
 import BotonAccion from "./BotonAccion";
 import SelectorMesesProrroga from "./SelectorMesesProrroga";
@@ -133,6 +133,8 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   // departamento — se etiquetan distinto para no confundirlas en la ficha.
   const esProrrogaDepto = !!exp.tipoContratacionProrroga;
   const esAdjudicacion = exp.rol === "vigente" || exp.rol === "renovacion";
+  // Legítimo abono y descentralizada no llevan orden de compra.
+  const conOC = llevaOrdenDeCompra(exp);
   // Todos los parches resuelven adjudicación salvo el legítimo abono (que
   // hereda al adjudicatario del anterior) y la prórroga habilitada por el
   // departamento (no es una contratación nueva).
@@ -463,12 +465,14 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
           {/* La adjudicación, en su propia fila y en el orden en que se
               resuelve. El monto en dólares es opcional al resolverla: solo
               aparece si se completó. */}
-          <div className={"grid gap-x-4 gap-y-3 text-sm !mt-3 " + (exp.montoUSD ? "grid-cols-5" : "grid-cols-4")}>
+          <div className={"grid gap-x-4 gap-y-3 text-sm !mt-3 " + ["grid-cols-3", "grid-cols-4", "grid-cols-5"][(conOC ? 1 : 0) + (exp.montoUSD ? 1 : 0)]}>
             <Campo label="Resolución de adjudicación" valor={exp.resolucionAdjudicacion} />
-            <Campo
-              label={esProrrogaDepto ? "OC (prórroga por departamento)" : esAdjudicacion ? "OC (adjudicación)" : "OC"}
-              valor={exp.ocResolucion && <LinksOrdenDeCompra texto={exp.ocResolucion} />}
-            />
+            {conOC && (
+              <Campo
+                label={esProrrogaDepto ? "OC (prórroga por departamento)" : esAdjudicacion ? "OC (adjudicación)" : "OC"}
+                valor={exp.ocResolucion && <LinksOrdenDeCompra texto={exp.ocResolucion} />}
+              />
+            )}
             <Campo label="Adjudicatario" valor={exp.adjudicatario} />
             <Campo
               label={esProrrogaDepto ? "Monto (prórroga por departamento)" : esAdjudicacion ? "Monto total adjudicado" : "Monto"}
