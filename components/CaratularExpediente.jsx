@@ -9,7 +9,7 @@ import CampoFuero from "./CampoFuero";
 import CampoDomiciliosRenglones from "./CampoDomiciliosRenglones";
 import BotonAccion from "./BotonAccion";
 import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
-import useDireccionesSugeridas from "./useDireccionesSugeridas";
+import { direccionesDe } from "@/lib/organismosFueros";
 
 function formVacio(esServicios, departamentoSlug) {
   return {
@@ -50,9 +50,6 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
 
-  // Al elegir el fuero, las direcciones asociadas del padrón se
-  // suman a "Domicilios/renglones" (ver useDireccionesSugeridas).
-  useDireccionesSugeridas({ fuero: f.fuero, activo: esServicios, setF });
 
   const coincidenciaAntecedente = f.antecedenteExp && expedientes
     ? expedientes.find(e => e.exp.trim().toLowerCase() === f.antecedenteExp.trim().toLowerCase())
@@ -131,6 +128,7 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
               <CampoDomiciliosRenglones
                 valores={f.domiciliosRenglones}
                 onChange={v => set("domiciliosRenglones", v)}
+                sugeridos={esServicios ? direccionesDe(f.fuero) : []}
                 conAscensores={esAscensores}
                 ascensoresPorDomicilio={f.ascensoresPorDomicilio}
                 onChangeAscensoresPorDomicilio={v => set("ascensoresPorDomicilio", v)}

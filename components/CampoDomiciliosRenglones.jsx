@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, Plus, X } from "lucide-react";
 import { ASCENSORES_NUMEROS, MONTACARGAS_NUMEROS } from "@/lib/constants";
 
 // Domicilios/renglones que cubre el expediente — texto libre (no hay un
@@ -12,8 +12,11 @@ import { ASCENSORES_NUMEROS, MONTACARGAS_NUMEROS } from "@/lib/constants";
 // conAscensores (solo Servicios, tipo "Ascensores") agrega, debajo de cada
 // domicilio, qué ascensores y qué montacargas puntuales tramita — puede
 // haber más de uno de cada uno — ver Expediente.ascensoresPorDomicilio.
+//
+// sugeridos (ej. las direcciones del padrón de la cámara elegida) se
+// muestran aparte para sumarlos de a uno o todos juntos; no se agregan solos.
 export default function CampoDomiciliosRenglones({
-  valores, onChange, id = "lista-domicilios-renglones",
+  valores, onChange, id = "lista-domicilios-renglones", sugeridos = [],
   conAscensores, ascensoresPorDomicilio, onChangeAscensoresPorDomicilio,
 }) {
   const [input, setInput] = useState("");
@@ -26,6 +29,7 @@ export default function CampoDomiciliosRenglones({
   ));
   const lista = valores || [];
   const porDomicilio = ascensoresPorDomicilio || {};
+  const pendientes = sugeridos.filter(v => !lista.includes(v));
 
   function toggleAbierto(v) {
     setAbiertos(prev => {
@@ -160,6 +164,36 @@ export default function CampoDomiciliosRenglones({
             ))}
           </div>
         )
+      )}
+
+      {pendientes.length > 0 && (
+        <div className="mb-2 border border-dashed border-slate-300 rounded-md p-2.5">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <span className="text-[11px] text-slate-500">
+              Sugeridos por la cámara ({pendientes.length}) — tocá para agregar
+            </span>
+            <button
+              type="button"
+              onClick={() => onChange([...lista, ...pendientes])}
+              className="text-[11px] font-medium text-slate-700 hover:underline shrink-0"
+            >
+              Agregar todos
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {pendientes.map(v => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => onChange([...lista, v])}
+                className="flex items-center gap-1 bg-white border border-slate-300 rounded-full pl-1.5 pr-2.5 py-1 text-xs text-slate-600 hover:border-slate-500 hover:text-slate-800"
+              >
+                <Plus size={12} />
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       <div className="flex gap-2">
