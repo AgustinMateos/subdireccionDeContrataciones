@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { INCLUDE_MESA, datosExpedienteMesa, datosMovimientoMesa } from "@/lib/mesaEntradas";
+import { INCLUDE_MESA, SECTORES_TRAMITA, datosExpedienteMesa, datosMovimientoMesa } from "@/lib/mesaEntradas";
 
 // Expedientes registrados por Mesa de Entradas (solo los del departamento
 // del usuario).
@@ -29,6 +29,9 @@ export async function POST(request) {
   const datos = datosExpedienteMesa(body);
   if (!datos.exp || !datos.objeto) {
     return NextResponse.json({ error: "Completá N° de expediente y objeto" }, { status: 400 });
+  }
+  if (!SECTORES_TRAMITA.includes(datos.sectorTramita)) {
+    return NextResponse.json({ error: "Elegí el sector que tramita" }, { status: 400 });
   }
   const ingreso = datosMovimientoMesa(body.ingreso || {}, session.user.name);
   if (!ingreso.sector || !ingreso.fecha) {

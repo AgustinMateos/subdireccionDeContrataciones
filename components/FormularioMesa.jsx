@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { TIPOS_SERVICIOS, ZONAS, MODALIDADES_CONTRATACION } from "@/lib/constants";
+import { ZONAS, MODALIDADES_CONTRATACION } from "@/lib/constants";
 import { direccionesDe } from "@/lib/organismosFueros";
-import { fechaISO, hoyLocalISO } from "@/lib/mesaEntradas";
+import { fechaISO, hoyLocalISO, SECTORES_TRAMITA, TIPOS_POR_SECTOR_TRAMITA } from "@/lib/mesaEntradas";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
 import CampoFuero from "./CampoFuero";
@@ -56,10 +56,23 @@ export default function FormularioMesa({ inicial, sectores, onCerrar, onGuardar 
   const [guardando, setGuardando] = useState(false);
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); setError(""); }
+
+  // El tipo depende del sector que tramita: si el sector tiene su lista
+  // (ej. SERVICIOS), se elige de ahí; si no, es texto libre.
+  const tiposDelSector = TIPOS_POR_SECTOR_TRAMITA[f.sectorTramita] || null;
+  function cambiarSectorTramita(valor) {
+    const tipos = TIPOS_POR_SECTOR_TRAMITA[valor];
+    setF(prev => ({ ...prev, sectorTramita: valor, tipo: tipos && !tipos.includes(prev.tipo) ? "" : prev.tipo }));
+    setError("");
+  }
+  // Un valor viejo que no está en la lista (ej. importado de la planilla)
+  // se sigue mostrando para no perderlo al editar.
+  const opcionesSector = ["", ...SECTORES_TRAMITA, ...(f.sectorTramita && !SECTORES_TRAMITA.includes(f.sectorTramita) ? [f.sectorTramita] : [])];
   function setIng(campo, valor) { setIngreso(prev => ({ ...prev, [campo]: valor })); setError(""); }
 
   async function guardar() {
     if (!f.exp.trim() || !f.objeto.trim()) { setError("Completá N° de expediente y objeto."); return; }
+    if (!f.sectorTramita) { setError("Elegí el sector que tramita."); return; }
     if (f.fechaInicio && f.fechaVencimiento && f.fechaVencimiento < f.fechaInicio) {
       setError("El vencimiento no puede ser anterior al inicio."); return;
     }
@@ -86,9 +99,15 @@ export default function FormularioMesa({ inicial, sectores, onCerrar, onGuardar 
           <div className="grid grid-cols-3 gap-4">
             <Campo_Input label="N° de expediente" value={f.exp} onChange={v => set("exp", v)} placeholder="13-00000/26" />
             <Campo_Input label="Agente" value={f.agente} onChange={v => set("agente", v)} placeholder="CB" />
-            <CampoSugerido label="Sector que tramita" id="mesa-sector-tramita" value={f.sectorTramita} onChange={v => set("sectorTramita", v)} opciones={sectores} />
+            <Campo_Select label="Sector que tramita" value={f.sectorTramita} onChange={cambiarSectorTramita}
+              opciones={opcionesSector} labels={{ "": "— Seleccionar —" }} />
 
-            <CampoSugerido label="Tipo" id="mesa-tipo" value={f.tipo} onChange={v => set("tipo", v)} opciones={TIPOS_SERVICIOS} />
+            {tiposDelSector ? (
+              <Campo_Select label="Tipo" value={f.tipo} onChange={v => set("tipo", v)}
+                opciones={["", ...tiposDelSector, ...(f.tipo && !tiposDelSector.includes(f.tipo) ? [f.tipo] : [])]} labels={{ "": "— Seleccionar —" }} />
+            ) : (
+              <Campo_Input label="Tipo" value={f.tipo} onChange={v => set("tipo", v)} />
+            )}
             <CampoSugerido label="Tipo de contratación" id="mesa-tipo-contratacion" value={f.tipoContratacion} onChange={v => set("tipoContratacion", v)} opciones={MODALIDADES_CONTRATACION} />
             <Campo_Select label="Zona" value={f.zona} onChange={v => set("zona", v)} opciones={["", ...ZONAS]} labels={{ "": "— Sin definir —" }} />
 

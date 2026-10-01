@@ -310,6 +310,11 @@ model ExpedienteMesa {
   ingresoSubdireccion DateTime?
   wd                  String?
   r                   String?
+  // Confirmación del departamento que tramita (ej. Servicios): al confirmar
+  // la carga se crea su propio Expediente y queda vinculado acá.
+  confirmadoEn        DateTime?
+  confirmadoPor       String?
+  expedienteId        String?
   movimientos         MovimientoMesa[]
   creadoEn            DateTime         @default(now())
   actualizadoEn       DateTime         @updatedAt

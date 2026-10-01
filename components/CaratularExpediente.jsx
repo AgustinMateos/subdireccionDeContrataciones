@@ -37,12 +37,34 @@ function formVacio(esServicios, departamentoSlug) {
   };
 }
 
+// Lo que cargó Mesa de Entradas, llevado a los campos de la carátula. Tipo y
+// zona solo se toman si son valores válidos acá.
+function formDesdeMesa(mesa, esServicios, departamentoSlug) {
+  const base = formVacio(esServicios, departamentoSlug);
+  const tipos = esServicios ? TIPOS_SERVICIOS : ["Servicios", "Provisiones", "Servicios Temporales"];
+  return {
+    ...base,
+    exp: mesa.exp || "",
+    objeto: mesa.objeto || "",
+    agente: mesa.agente || "",
+    tipo: tipos.includes(mesa.tipo) ? mesa.tipo : base.tipo,
+    zona: ZONAS.includes(mesa.zona) ? mesa.zona : base.zona,
+    fuero: mesa.fuero || [],
+    organismos: mesa.organismos || [],
+    domiciliosRenglones: mesa.domiciliosRenglones || [],
+    fechaInicio: mesa.fechaInicio ? String(mesa.fechaInicio).slice(0, 10) : "",
+    fechaVencimiento: mesa.fechaVencimiento ? String(mesa.fechaVencimiento).slice(0, 10) : "",
+  };
+}
+
 // Carátula: alta rápida de un expediente con lo mínimo para abrirlo. El resto
 // de los campos (N° de contratación, encuadre, montos, policía adicional,
 // prórroga, etc.) se completan después desde "Editar expediente" en la ficha.
-export default function CaratularExpediente({ departamentoSlug, expedientes, onCerrar, onGuardar }) {
+// Con `desdeMesa` (una carga de Mesa de Entradas) arranca precargado y, al
+// guardarse, confirma esa carga.
+export default function CaratularExpediente({ departamentoSlug, expedientes, desdeMesa, onCerrar, onGuardar }) {
   const esServicios = departamentoSlug === "servicios";
-  const [f, setF] = useState(() => formVacio(esServicios, departamentoSlug));
+  const [f, setF] = useState(() => desdeMesa ? formDesdeMesa(desdeMesa, esServicios, departamentoSlug) : formVacio(esServicios, departamentoSlug));
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
   const esAscensores = esServicios && f.tipo === "Ascensores";
@@ -87,7 +109,12 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
       return;
     }
     setGuardando(true);
-    await onGuardar({ ...f, esParche, exp: esLegitimoAbono ? coincidenciaAntecedente.exp : f.exp });
+    await onGuardar({
+      ...f,
+      esParche,
+      exp: esLegitimoAbono ? coincidenciaAntecedente.exp : f.exp,
+      ...(desdeMesa ? { mesaEntradaId: desdeMesa.id } : {}),
+    });
     setGuardando(false);
   }
 
@@ -97,8 +124,12 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">Caratular expediente</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Alta rápida. El resto de los datos se completa después desde la ficha.</p>
+            <h2 className="text-base font-semibold text-slate-900">{desdeMesa ? "Confirmar carga de Mesa de Entradas" : "Caratular expediente"}</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {desdeMesa
+                ? "Revisá y completá lo que cargó Mesa de Entradas. Al confirmar se crea el expediente y pasa a las tarjetas."
+                : "Alta rápida. El resto de los datos se completa después desde la ficha."}
+            </p>
           </div>
           <button onClick={onCerrar} className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500"><X size={18} /></button>
         </div>
@@ -225,7 +256,7 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, onC
               Cancelar
             </button>
             <BotonAccion type="submit" cargando={guardando} cargandoTexto="Caratulando..." className="px-4 py-2 rounded-md bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-60">
-              Caratular expediente
+              {desdeMesa ? "Confirmar y caratular" : "Caratular expediente"}
             </BotonAccion>
           </div>
         </form>

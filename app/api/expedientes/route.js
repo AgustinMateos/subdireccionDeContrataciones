@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA_FALLIDOS, MOTIVOS_ADJUDICACION_PARCIAL, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES, llevaAdecuaciones, llevaOrdenDeCompra } from "@/lib/constants";
 import { parseFechaHora, hoyArgentina } from "@/lib/utils";
+import { SECTOR_TRAMITA_POR_DEPARTAMENTO } from "@/lib/mesaEntradas";
 
 const INCLUDE_EXPEDIENTE = {
   observaciones: { orderBy: { fecha: "asc" } },
@@ -1084,6 +1085,18 @@ export async function POST(request) {
     ? "En trámite de renovación"
     : (body.estadoGeneral === "En trámite de renovación" ? "Vigente" : (body.estadoGeneral || "Vigente"));
 
+  // Confirmación de una carga de Mesa de Entradas: tiene que estar
+  // pendiente y ser del sector que tramita este departamento.
+  if (body.mesaEntradaId) {
+    const cargaMesa = await prisma.expedienteMesa.findUnique({ where: { id: body.mesaEntradaId } });
+    if (!cargaMesa || cargaMesa.sectorTramita !== SECTOR_TRAMITA_POR_DEPARTAMENTO[session.user.departamentoSlug]) {
+      return NextResponse.json({ error: "No se encontró la carga de Mesa de Entradas" }, { status: 404 });
+    }
+    if (cargaMesa.confirmadoEn) {
+      return NextResponse.json({ error: "Esa carga de Mesa de Entradas ya fue confirmada" }, { status: 400 });
+    }
+  }
+
   const nuevo = await prisma.expediente.create({
     data: {
       cadenaId: body.cadenaId || "c" + Date.now(),
@@ -1143,6 +1156,13 @@ export async function POST(request) {
   // El vigente NO cambia de estado al vincularle una renovación: ya fue
   // adjudicado y sigue en ejecución tal cual — es la renovación la que
   // entra "En trámite de renovación", no él.
+
+  if (body.mesaEntradaId) {
+    await prisma.expedienteMesa.updateMany({
+      where: { id: body.mesaEntradaId, confirmadoEn: null },
+      data: { confirmadoEn: new Date(), confirmadoPor: session.user.name, expedienteId: nuevo.id },
+    });
+  }
 
   return NextResponse.json({ expediente: nuevo }, { status: 201 });
 }

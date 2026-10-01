@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { X, FilePlus2 } from "lucide-react";
 import { ALERTA_ESTILO, ALERTA_LABEL, ZONAS } from "@/lib/constants";
 import { alertaFrenado, fmtFecha } from "@/lib/utils";
-import { SECTORES_MESA, ultimoMovimiento, diasFrenadoMesa, fechaISO } from "@/lib/mesaEntradas";
+import { SECTORES_MESA, ultimoMovimiento, diasFrenadoMesa, fechaISO, confirmacionMesa } from "@/lib/mesaEntradas";
 import FiltroDesplegable from "./FiltroDesplegable";
 import FormularioMesa from "./FormularioMesa";
 import DetalleMesa from "./DetalleMesa";
@@ -236,7 +236,15 @@ export default function MesaDeEntradas({ sesion, busqueda, mostrarToast }) {
               const frenado = diasFrenadoMesa(e);
               return (
                 <tr key={e.id} onClick={() => setSeleccionadoId(e.id)} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 cursor-pointer align-top">
-                  <td className="py-2.5 px-3 font-mono text-xs font-semibold text-slate-900 whitespace-nowrap">{e.exp}</td>
+                  <td className="py-2.5 px-3 font-mono text-xs font-semibold text-slate-900 whitespace-nowrap">
+                    {e.exp}
+                    {confirmacionMesa(e) && (
+                      <span className={"block w-fit mt-1 font-sans text-[10px] font-medium px-1.5 py-0.5 rounded border " +
+                        (confirmacionMesa(e).confirmado ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800")}>
+                        {confirmacionMesa(e).confirmado ? "Confirmado" : "Sin confirmar"}
+                      </span>
+                    )}
+                  </td>
                   <td className="py-2.5 px-3 text-xs text-slate-700">{e.sectorTramita || "-"}</td>
                   <td className="py-2.5 px-3 text-xs text-slate-700">{(e.fuero || []).join(" · ") || "-"}</td>
                   <td className="py-2.5 px-3 text-xs text-slate-700">{e.zona || "-"}</td>

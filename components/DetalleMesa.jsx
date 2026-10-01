@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { X, ArrowRight, Pencil, Trash2 } from "lucide-react";
 import { ALERTA_ESTILO } from "@/lib/constants";
-import { alertaFrenado, fmtFecha } from "@/lib/utils";
-import { ultimoMovimiento, diasFrenadoMesa, fechaISO, hoyLocalISO } from "@/lib/mesaEntradas";
+import { alertaFrenado, fmtFecha, soloFechaLocal } from "@/lib/utils";
+import { ultimoMovimiento, diasFrenadoMesa, fechaISO, hoyLocalISO, confirmacionMesa } from "@/lib/mesaEntradas";
 import { Campo_Input } from "./CamposFormulario";
 import { CampoSugerido } from "./FormularioMesa";
 import BotonAccion from "./BotonAccion";
@@ -23,6 +23,7 @@ function Dato({ label, valor }) {
 export default function DetalleMesa({ exp, sectores, puedeEditar, puedeEliminar, onCerrar, onMovimiento, onEditar, onEliminar }) {
   const actual = ultimoMovimiento(exp);
   const frenado = diasFrenadoMesa(exp);
+  const confirmacion = confirmacionMesa(exp);
   const [mov, setMov] = useState(null); // formulario de movimiento abierto
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -60,6 +61,14 @@ export default function DetalleMesa({ exp, sectores, puedeEditar, puedeEliminar,
           <div className="min-w-0">
             <div className="font-mono text-base font-semibold text-slate-900">{exp.exp}</div>
             <p className="text-sm text-slate-600 mt-0.5">{exp.objeto || "Sin carátula"}</p>
+            {confirmacion && (
+              <span className={"inline-block mt-1.5 text-[11px] font-medium px-2 py-0.5 rounded border " +
+                (confirmacion.confirmado ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800")}>
+                {confirmacion.confirmado
+                  ? "Confirmado en " + confirmacion.departamento + (confirmacion.por ? " por " + confirmacion.por : "") + " el " + fmtFecha(soloFechaLocal(confirmacion.fecha))
+                  : "Pendiente de confirmar por " + confirmacion.departamento}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {puedeEditar && (

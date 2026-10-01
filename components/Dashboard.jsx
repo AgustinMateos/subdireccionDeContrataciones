@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { CheckCircle2, LayoutGrid, Table2, Trash2 } from "lucide-react";
+import { CheckCircle2, LayoutGrid, Table2, Trash2, Inbox } from "lucide-react";
 
 import { HOY, ROL_USUARIO_LABEL, ENCUADRE_POR_TIPO_PARCHE } from "@/lib/constants";
 import { diasRestantes, alerta, documentacionDeExpediente, fmtFecha, soloFechaLocal, esConvocatoriaFracasada } from "@/lib/utils";
@@ -71,6 +71,7 @@ import TablaExpedientesServicios from "./TablaExpedientesServicios";
 import ModalCambiarSector from "./ModalCambiarSector";
 import ModalEliminarTarjeta from "./ModalEliminarTarjeta";
 import MesaDeEntradas from "./MesaDeEntradas";
+import ModalPendientesMesa from "./ModalPendientesMesa";
 import ModalCambiarEstadoConvocatoria from "./ModalCambiarEstadoConvocatoria";
 import PaginaExpediente from "./PaginaExpediente";
 import FormularioExpediente from "./FormularioExpediente";
@@ -141,6 +142,11 @@ export default function App() {
   // (no depende de `seleccionado`/`formAbierto` porque son varios expedientes
   // de distintas cadenas, no uno solo).
   const [unificarOrigenes, setUnificarOrigenes] = useState(null);
+  // Cargas de Mesa de Entradas para este departamento, pendientes de
+  // confirmar; `confirmandoMesa` es la que se está caratulando.
+  const [pendientesMesa, setPendientesMesa] = useState([]);
+  const [pendientesMesaAbierto, setPendientesMesaAbierto] = useState(false);
+  const [confirmandoMesa, setConfirmandoMesa] = useState(null);
   const [toast, setToast] = useState("");
 
   function mostrarToast(msg) {
@@ -163,11 +169,16 @@ export default function App() {
     (async () => {
       setCargando(true);
       try {
-        const [resExp, resVM, resTel] = await Promise.all([
+        const [resExp, resVM, resTel, resMesa] = await Promise.all([
           fetch("/api/expedientes"),
           fetch("/api/valor-modular"),
           fetch("/api/telefonos"),
+          fetch("/api/mesa-entradas/pendientes"),
         ]);
+        if (resMesa.ok) {
+          const dataMesa = await resMesa.json();
+          if (activo) setPendientesMesa(dataMesa.pendientes || []);
+        }
         const data = await resExp.json();
         if (activo) setExpedientes((data.expedientes || []).map(normalizarExpediente));
         if (resVM.ok) {
@@ -856,6 +867,15 @@ export default function App() {
                 >
                   <Table2 size={13} /> Tabla
                 </button>
+                {pendientesMesa.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setPendientesMesaAbierto(true)}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                  >
+                    <Inbox size={13} /> Cargados por Mesa de Entradas ({pendientesMesa.length})
+                  </button>
+                )}
               </div>
             )}
 
@@ -952,11 +972,22 @@ export default function App() {
         />
       )}
 
+      {pendientesMesaAbierto && (
+        <ModalPendientesMesa
+          pendientes={pendientesMesa}
+          puedeConfirmar={puedeEditar}
+          onCerrar={() => setPendientesMesaAbierto(false)}
+          onConfirmar={(carga) => { setPendientesMesaAbierto(false); setConfirmandoMesa(carga); setFormAbierto("caratular"); }}
+        />
+      )}
+
       {formAbierto === "caratular" && (
         <CaratularExpediente
+          key={confirmandoMesa?.id || "nuevo"}
           departamentoSlug={sesion.departamentoSlug}
           expedientes={expedientes}
-          onCerrar={() => setFormAbierto(null)}
+          desdeMesa={confirmandoMesa}
+          onCerrar={() => { setFormAbierto(null); setConfirmandoMesa(null); }}
           onGuardar={async (datos) => {
             const { antecedenteExp, ...resto } = datos;
             const resuelto = resolverCadena(antecedenteExp, expedientes);
@@ -1024,6 +1055,10 @@ export default function App() {
             }
             const data = await res.json();
             await refrescar(data.expediente?.id);
+            if (resto.mesaEntradaId) {
+              setPendientesMesa(prev => prev.filter(p => p.id !== resto.mesaEntradaId));
+              setConfirmandoMesa(null);
+            }
             setFormAbierto(null);
             setVista("expedienteDetalle");
             mostrarToast(mensaje);
