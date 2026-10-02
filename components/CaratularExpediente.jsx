@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTOR_INICIAL_POR_DEPARTAMENTO, TIPOS_PARCHE, llevaAdecuaciones, etiquetaAdecuaciones } from "@/lib/constants";
+import { TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTOR_INICIAL_POR_DEPARTAMENTO, TIPOS_PARCHE, TIPOS_INFORMATICA_Y_VARIOS, llevaAdecuaciones, etiquetaAdecuaciones } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
 import CampoFuero from "./CampoFuero";
@@ -41,7 +41,7 @@ function formVacio(esServicios, departamentoSlug) {
 // zona solo se toman si son valores válidos acá.
 function formDesdeMesa(mesa, esServicios, departamentoSlug) {
   const base = formVacio(esServicios, departamentoSlug);
-  const tipos = esServicios ? TIPOS_SERVICIOS : ["Servicios", "Provisiones", "Servicios Temporales"];
+  const tipos = esServicios ? TIPOS_SERVICIOS : TIPOS_INFORMATICA_Y_VARIOS;
   return {
     ...base,
     exp: mesa.exp || "",

@@ -848,9 +848,13 @@ export default function App() {
               />
             )}
 
-            {/* En Servicios se puede alternar entre tarjetas y tabla. */}
-            {!esInformaticaYVarios && (
+            {/* En Servicios se puede alternar entre tarjetas y tabla. Al lado,
+                si hay, lo que cargó Mesa de Entradas para confirmar (también
+                en Informática y Varios). */}
+            {(!esInformaticaYVarios || pendientesMesa.length > 0) && (
               <div className="flex items-center gap-1.5">
+                {!esInformaticaYVarios && (
+                <>
                 <button
                   type="button"
                   onClick={() => setVistaListado("tarjetas")}
@@ -867,6 +871,8 @@ export default function App() {
                 >
                   <Table2 size={13} /> Tabla
                 </button>
+                </>
+                )}
                 {pendientesMesa.length > 0 && (
                   <button
                     type="button"
