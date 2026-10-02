@@ -102,7 +102,7 @@ export default function Login() {
           <div className="mt-8 pt-6 border-t border-slate-200">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-600 mb-3">Usuarios de prueba (clic para autocompletar)</p>
             <div className="space-y-4">
-              {["Informática y Varios", "Servicios"].map(depto => (
+              {["Informática y Varios", "Servicios", "Mesa de Entradas"].map(depto => (
                 <div key={depto}>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">{depto}</p>
                   <div className="space-y-2">
