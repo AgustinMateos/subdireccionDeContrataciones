@@ -3,20 +3,26 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { INCLUDE_MESA, SECTORES_TRAMITA, datosExpedienteMesa } from "@/lib/mesaEntradas";
-import { conDatosDelSector } from "@/lib/mesaEntradasServidor";
+import { conDatosDelSector, sincronizarConDepartamentos } from "@/lib/mesaEntradasServidor";
 
-// Expedientes registrados por Mesa de Entradas (solo los del departamento
-// del usuario).
+// Expedientes de Mesa de Entradas (solo los del departamento del usuario):
+// los que existen hoy en los departamentos (se sincronizan antes de
+// listar) y lo que Mesa caratuló. Lo vinculado a un expediente que ya se
+// cerró o se borró no se muestra.
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (session.user.departamentoSlug === "mesa-de-entradas") {
+    await sincronizarConDepartamentos(session.user.departamentoId);
+  }
 
   const expedientes = await prisma.expedienteMesa.findMany({
     where: { departamentoId: session.user.departamentoId },
     include: INCLUDE_MESA,
     orderBy: { creadoEn: "desc" },
   });
-  return NextResponse.json({ expedientes: await conDatosDelSector(expedientes) });
+  const conSector = await conDatosDelSector(expedientes);
+  return NextResponse.json({ expedientes: conSector.filter((e) => e.enCurso) });
 }
 
 // Caratular: alta del expediente. La fecha de inicio es el ingreso a la

@@ -6,22 +6,7 @@
 
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
-const datosMesaEntradas = require("./datosMesaEntradas");
 const prisma = new PrismaClient();
-
-// "9/04/2024" → Date; vacío o inválido (ej. "111", "19/20/2023") → null.
-function fechaPlanilla(texto) {
-  const m = String(texto || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!m) return null;
-  const [, d, mes, a] = m.map(Number);
-  const fecha = new Date(Date.UTC(a, mes - 1, d));
-  return fecha.getUTCMonth() === mes - 1 && fecha.getUTCDate() === d ? fecha : null;
-}
-
-function zonaPlanilla(texto) {
-  const t = String(texto || "").trim().toUpperCase();
-  return { CABA: "CABA", AMBA: "AMBA", INTERIOR: "Interior" }[t] || null;
-}
 
 async function main() {
   // ---------- Departamentos ----------
@@ -70,40 +55,6 @@ async function main() {
     });
   }
   console.log("Usuarios sembrados:", usuarios.length);
-
-  // ---------- Mesa de Entradas: filas de la planilla de control ----------
-  const mesa = deptoPorSlug["mesa-de-entradas"].id;
-  const yaHayMesa = await prisma.expedienteMesa.count({ where: { departamentoId: mesa } });
-  if (yaHayMesa === 0) {
-    for (const [exp, sectorTramita, fuero, zona, fechaInicio, caratula, tipoContratacion, ingresoSubdireccion, fechaIngreso, vieneDe, sector, subsector, wd, r, observaciones] of datosMesaEntradas) {
-      await prisma.expedienteMesa.create({
-        data: {
-          departamentoId: mesa,
-          exp,
-          objeto: caratula || "",
-          sectorTramita: sectorTramita || null,
-          tipoContratacion: tipoContratacion || null,
-          zona: zonaPlanilla(zona),
-          fuero: fuero && fuero !== "-" ? [fuero] : [],
-          fechaInicio: fechaPlanilla(fechaInicio),
-          ingresoSubdireccion: fechaPlanilla(ingresoSubdireccion),
-          wd: wd || null,
-          r: r || null,
-          movimientos: {
-            create: [{
-              fecha: fechaPlanilla(fechaIngreso),
-              vieneDe: vieneDe || null,
-              sector: sector || "Sin definir",
-              subsector: subsector || null,
-              observacion: observaciones || null,
-              usuario: "Importado de la planilla",
-            }],
-          },
-        },
-      });
-    }
-    console.log("Expedientes de Mesa de Entradas sembrados:", datosMesaEntradas.length);
-  }
 
   // ---------- Valor Modular (genérico, compartido por ambos departamentos) ----------
   const yaHayValor = await prisma.valorModular.count();
