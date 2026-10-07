@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { CheckCircle2, LayoutGrid, Table2, Trash2, Inbox } from "lucide-react";
 
-import { HOY, ROL_USUARIO_LABEL, ENCUADRE_POR_TIPO_PARCHE } from "@/lib/constants";
+import { HOY, ROL_USUARIO_LABEL, ENCUADRE_POR_TIPO_PARCHE, EMAIL_CONTROL_SERVICIOS } from "@/lib/constants";
 import { diasRestantes, alerta, documentacionDeExpediente, fmtFecha, soloFechaLocal, esConvocatoriaFracasada } from "@/lib/utils";
 
 // Prisma serializa las fechas como ISO ("2026-09-10T00:00:00.000Z"), pero los
@@ -71,6 +71,7 @@ import TablaExpedientesServicios from "./TablaExpedientesServicios";
 import ModalCambiarSector from "./ModalCambiarSector";
 import ModalEliminarTarjeta from "./ModalEliminarTarjeta";
 import MesaDeEntradas from "./MesaDeEntradas";
+import PanelControlServicios from "./PanelControlServicios";
 import ModalPendientesMesa from "./ModalPendientesMesa";
 import ModalCambiarEstadoConvocatoria from "./ModalCambiarEstadoConvocatoria";
 import PaginaExpediente from "./PaginaExpediente";
@@ -107,6 +108,7 @@ export default function App() {
   const sesion = session?.user
     ? {
         nombre: session.user.name,
+        email: session.user.email,
         rol: session.user.rol,
         rolLabel: ROL_USUARIO_LABEL[session.user.rol] || session.user.rol,
         departamentoId: session.user.departamentoId,
@@ -756,6 +758,9 @@ export default function App() {
   // Mesa de Entradas solo registra entradas/salidas: tiene su propio
   // listado (MesaDeEntradas) y no usa las vistas de expedientes del resto.
   const esMesaDeEntradas = sesion.departamentoSlug === "mesa-de-entradas";
+  // El panel de control de Servicios es lo único que ve su usuario (ver
+  // EMAIL_CONTROL_SERVICIOS).
+  const esControlServicios = sesion.email === EMAIL_CONTROL_SERVICIOS;
   // Defensivo: si se llega a una vista exclusiva de Informática y Varios sin pasar
   // por el botón del navbar (ej. estado previo de sesión), se vuelve al listado.
   const vistaEfectiva = (!esInformaticaYVarios && VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS.includes(vista))
@@ -775,7 +780,9 @@ export default function App() {
       <TopBar sesion={sesion} onLogout={() => signOut()} busqueda={busqueda} setBusqueda={setBusqueda} vista={vista} setVista={setVista} mostrarToast={mostrarToast} />
 
       <main className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {vistaEfectiva === "valorModular" ? (
+        {esControlServicios ? (
+          <PanelControlServicios mostrarToast={mostrarToast} />
+        ) : vistaEfectiva === "valorModular" ? (
           <ValorModular
             moduloValor={moduloValor}
             setModuloValor={guardarValorModular}

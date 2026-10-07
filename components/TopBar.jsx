@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, Phone, Globe, ExternalLink, User, Contact, FileDown, BarChart3, Building2, CalendarClock } from "lucide-react";
 import { descargarArchivoBase64 } from "@/lib/utils";
-import { FORMULARIO_FALTAS_BASE64 } from "@/lib/constants";
+import { FORMULARIO_FALTAS_BASE64, EMAIL_CONTROL_SERVICIOS } from "@/lib/constants";
 export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista, setVista, mostrarToast }) {
   const [variosAbierto, setVariosAbierto] = useState(false);
   const [informesAbierto, setInformesAbierto] = useState(false);
@@ -11,6 +11,9 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
   const [perfilAbierto, setPerfilAbierto] = useState(false);
   const esInformaticaYVarios = sesion.departamentoSlug === "informatica-y-varios";
   const esMesaDeEntradas = sesion.departamentoSlug === "mesa-de-entradas";
+  // El usuario del panel de control de Servicios solo ve su panel: sin buscador ni
+  // secciones.
+  const esControlServicios = sesion.email === EMAIL_CONTROL_SERVICIOS;
   const vistasVarios = ["cotizadorTaquigrafico", "cotizadorPolicia", "cotizadorAvisos"];
   const variosActivo = vistasVarios.includes(vista);
   const vistasInformes = esInformaticaYVarios ? ["informePoliciaAdicional", "informeOrganismos"] : ["informeServicios"];
@@ -40,7 +43,7 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
           </div>
         </div>
 
-        {vista === "expedientes" && (
+        {vista === "expedientes" && !esControlServicios && (
           <div className="flex-1 max-w-md relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -51,7 +54,7 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
             />
           </div>
         )}
-        {vista !== "expedientes" && <div className="flex-1" />}
+        {(vista !== "expedientes" || esControlServicios) && <div className="flex-1" />}
 
         <div className="ml-auto flex items-center gap-3 shrink-0">
           <div className="hidden sm:block text-right leading-tight">
@@ -64,6 +67,7 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
         </div>
       </div>
 
+      {!esControlServicios && (
       <div className="px-4 sm:px-6 lg:px-8 flex items-center gap-1 h-11 border-t border-slate-100 relative">
         <button
           onClick={() => { setVista("expedientes"); setVariosAbierto(false); }}
@@ -259,6 +263,7 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
           )}
         </div>
       </div>
+      )}
     </header>
   );
 }

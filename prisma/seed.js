@@ -1,5 +1,6 @@
 // Carga en la base real los datos de ejemplo para los departamentos
-// (Informática y Varios, Servicios, Mesa de Entradas), usuarios de prueba y
+// (Informática y Varios, Servicios, Mesa de Entradas, Control de
+// Servicios), usuarios de prueba y
 // catálogos base.
 //
 // Se ejecuta con: node prisma/seed.js
@@ -14,6 +15,7 @@ async function main() {
     { nombre: "Informática y Varios", slug: "informatica-y-varios" },
     { nombre: "Servicios", slug: "servicios" },
     { nombre: "Mesa de Entradas", slug: "mesa-de-entradas" },
+    { nombre: "Control de Servicios", slug: "control-servicios" },
   ];
   const deptoPorSlug = {};
   for (const d of departamentos) {
@@ -40,6 +42,8 @@ async function main() {
     { nombre: "Operador de Mesa de Entradas", email: "operador.mesa@pj.gob.ar", clave: "operador123", rol: "operador", departamentoSlug: "mesa-de-entradas" },
     { nombre: "Usuario Solo Lectura de Mesa de Entradas", email: "lector.mesa@pj.gob.ar", clave: "lector123", rol: "lector", departamentoSlug: "mesa-de-entradas" },
     { nombre: "Usuario de Soporte de Mesa de Entradas", email: "soporte.mesa@pj.gob.ar", clave: "soporte123", rol: "soporte", departamentoSlug: "mesa-de-entradas" },
+    // Único acceso al panel de control de Servicios (EMAIL_CONTROL_SERVICIOS).
+    { nombre: "Control de Servicios", email: "control.servicios@pj.gob.ar", clave: "control123", rol: "lector", departamentoSlug: "control-servicios" },
   ];
   for (const u of usuarios) {
     await prisma.usuario.upsert({
