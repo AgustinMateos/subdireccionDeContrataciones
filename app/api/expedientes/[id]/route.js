@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CHECKLIST_POLICIA_ADICIONAL, ENCUADRE_INTERADMINISTRATIVO, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES, ESTADOS_CONVOCATORIA_FALLIDOS, ESTADOS_CONVOCATORIA, llevaAdecuaciones, llevaOrdenDeCompra } from "@/lib/constants";
 import { parseFechaHora, hoyArgentina } from "@/lib/utils";
+import { controladoPorMesa } from "@/lib/mesaEntradasServidor";
 
 function normalizarNumeros(valor, max) {
   if (!Array.isArray(valor)) return [];
@@ -73,7 +74,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  const existente = await prisma.expediente.findUnique({ where: { id }, select: { departamentoId: true, rol: true, cadenaId: true, fechaInicio: true, fechaVencimiento: true, tipoParche: true, tipoContratacionProrroga: true } });
+  const existente = await prisma.expediente.findUnique({ where: { id }, select: { departamentoId: true, rol: true, estadoGeneral: true, cadenaId: true, fechaInicio: true, fechaVencimiento: true, tipoParche: true, tipoContratacionProrroga: true } });
   if (!existente || existente.departamentoId !== session.user.departamentoId) {
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
@@ -178,6 +179,8 @@ export async function PUT(request, { params }) {
               texto: body.nuevaObservacion,
               sectorAnterior: esMovimiento ? body.sectorAnterior : null,
               sectorNuevo: esMovimiento ? body.sectorNuevo : null,
+              // Mesa de Entradas lo confirma con la fecha real del pase.
+              pendienteMesa: esMovimiento && controladoPorMesa(session.user.departamentoSlug, existente),
               fecha: ahora,
             },
             // Observación general opcional que acompaña al movimiento (ej.

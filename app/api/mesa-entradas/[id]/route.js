@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { INCLUDE_MESA, datosExpedienteMesa, datosMovimientoMesa } from "@/lib/mesaEntradas";
-import { conDatosDelSector } from "@/lib/mesaEntradasServidor";
+import { conDatosDelSector, constanciaMesa } from "@/lib/mesaEntradasServidor";
 
 async function buscar(id, session) {
   const exp = await prisma.expedienteMesa.findUnique({ where: { id } });
@@ -18,7 +18,8 @@ export async function PUT(request, { params }) {
   if (!session || (session.user.rol !== "admin" && session.user.rol !== "operador")) {
     return NextResponse.json({ error: "No tenés permiso para modificar expedientes" }, { status: 403 });
   }
-  if (!(await buscar(id, session))) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+  const existente = await buscar(id, session);
+  if (!existente) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   const body = await request.json();
 
@@ -27,11 +28,19 @@ export async function PUT(request, { params }) {
     if (!mov.sector || !mov.fecha) {
       return NextResponse.json({ error: "Completá la fecha y el sector" }, { status: 400 });
     }
-    const expediente = await prisma.expedienteMesa.update({
-      where: { id },
-      data: { movimientos: { create: [mov] } },
-      include: INCLUDE_MESA,
-    });
+    // Si está vinculado al expediente de un departamento, queda la
+    // constancia en su ficha (de ahí corren sus días frenado).
+    const vinculado = existente.expedienteId
+      ? await prisma.expediente.findUnique({ where: { id: existente.expedienteId }, select: { id: true } })
+      : null;
+    const [expediente] = await prisma.$transaction([
+      prisma.expedienteMesa.update({
+        where: { id },
+        data: { movimientos: { create: [mov] } },
+        include: INCLUDE_MESA,
+      }),
+      ...(vinculado ? [prisma.observacion.create({ data: { ...constanciaMesa(mov), expedienteId: vinculado.id } })] : []),
+    ]);
     return NextResponse.json({ expediente: (await conDatosDelSector([expediente]))[0] });
   }
 

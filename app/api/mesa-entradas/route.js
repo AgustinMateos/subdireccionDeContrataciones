@@ -25,9 +25,10 @@ export async function GET() {
   return NextResponse.json({ expedientes: conSector.filter((e) => e.enCurso) });
 }
 
-// Caratular: alta del expediente. La fecha de inicio es el ingreso a la
-// Subdirección, que queda como primer movimiento (de ahí corren los días
-// frenado). Tipo de contratación, WD y R se cargan después, al editar.
+// Caratular: alta del expediente. El ingreso a la Subdirección (la primera
+// vez que entra) queda como primer movimiento, de ahí corren los días
+// frenado; inicio y vencimiento son del período del contrato. Tipo de
+// contratación, WD y R se cargan después, al editar.
 export async function POST(request) {
   const session = await getServerSession(authOptions);
   if (!session || (session.user.rol !== "admin" && session.user.rol !== "operador")) {
@@ -42,22 +43,21 @@ export async function POST(request) {
   if (!SECTORES_TRAMITA.includes(datos.sectorTramita)) {
     return NextResponse.json({ error: "Elegí el sector que tramita" }, { status: 400 });
   }
-  if (!datos.fechaInicio) {
-    return NextResponse.json({ error: "Completá la fecha de inicio (ingreso a la Subdirección)" }, { status: 400 });
+  if (!datos.ingresoSubdireccion) {
+    return NextResponse.json({ error: "Completá la fecha de ingreso a la Subdirección" }, { status: 400 });
   }
 
   try {
     const expediente = await prisma.expedienteMesa.create({
       data: {
         ...datos,
-        ingresoSubdireccion: datos.fechaInicio,
         tipoContratacion: null,
         wd: null,
         r: null,
         departamentoId: session.user.departamentoId,
         movimientos: {
           create: [{
-            fecha: datos.fechaInicio,
+            fecha: datos.ingresoSubdireccion,
             sector: "SUBDIRECCION",
             observacion: "Caratulado en Mesa de Entradas.",
             usuario: session.user.name,

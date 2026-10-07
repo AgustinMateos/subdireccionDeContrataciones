@@ -216,10 +216,19 @@ model Observacion {
   expediente     Expediente @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
   fecha          DateTime   @default(now())
   usuario        String
-  tipo           String // "general" | "movimiento"
+  tipo           String // "general" | "movimiento" | "mesa"
   texto          String
   sectorAnterior String?
   sectorNuevo    String?
+
+  // Mesa de Entradas lleva la fecha real de cada entrada/salida. Un pase
+  // de sector que registra el departamento queda pendienteMesa hasta que
+  // Mesa lo confirma; ahí (y cada vez que Mesa registra un movimiento del
+  // expediente) se agrega una constancia tipo "mesa" con la fecha de Mesa
+  // (sectorAnterior = viene del sector, sectorNuevo = sector que ingresa),
+  // y los días frenado pasan a contarse desde esa fecha (ver
+  // fechaUltimoMovimiento en lib/utils).
+  pendienteMesa Boolean @default(false)
 
   // Detalle estructurado de una activación puntual de prórroga, además del
   // resumen en `texto` — permite reconstruir el historial completo cuando la
@@ -229,6 +238,7 @@ model Observacion {
   ocResolucion              String? // departamento: OC generada en ESTA subdivisión
 
   @@index([expedienteId])
+  @@index([pendienteMesa])
 }
 
 model DocumentacionItem {

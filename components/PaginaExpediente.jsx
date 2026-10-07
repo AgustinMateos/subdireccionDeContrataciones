@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronRight, ChevronLeft, ArrowRight, FileText, MessageSquare, Pencil, Trash2, Shield, Clock, MapPin } from "lucide-react";
 import { AREA_ESTILO, AREA_LABEL, ESTADO_ESTILO, ALERTA_ESTILO, ALERTA_LABEL, ROL_LABEL, FUERZA_LABEL, UMBRAL_MODULOS_CAF, CHECKLIST_POLICIA_ADICIONAL, SECTORES, MODALIDADES_CONTRATACION, ENCUADRE_FUNDAMENTO_LEGAL, PRORROGA_MESES_OPCIONES, llevaAdecuaciones, llevaOrdenDeCompra, etiquetaAdecuaciones } from "@/lib/constants";
-import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtFechaHora, fmtMoneda, documentacionDeExpediente, diasFrenado, estadoGeneralMostrado, esConvocatoriaFracasada, linkOrdenDeCompra, ordenesDeCompra, linkActaApertura } from "@/lib/utils";
+import { diasRestantes, alerta, alertaFrenado, fmtFecha, fmtFechaHora, fmtMoneda, documentacionDeExpediente, diasFrenado, fechaUltimoMovimiento, estadoGeneralMostrado, esConvocatoriaFracasada, linkOrdenDeCompra, ordenesDeCompra, linkActaApertura } from "@/lib/utils";
 import BotonAccion from "./BotonAccion";
 import SelectorMesesProrroga from "./SelectorMesesProrroga";
 export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar, onObservacion, onEditarObservacion, onEliminarObservacion, onDocumentacion, onEliminar, onEditar, onRenovar, onActivar, onGestionarProrroga, onGenerarParche, onDividir, onReunificar, onRelanzarConvocatoria, onCambiarFechaCorteLegitimoAbono, onGenerarContratacionFracasada, puedeEditar, puedeEliminar, esJefe, moduloValor }) {
@@ -120,12 +120,10 @@ export default function PaginaExpediente({ exp, expedientes, onVolver, onNavegar
   const dias = diasRestantes(exp.fechaVencimiento);
   const niv = alerta(dias);
   const frenado = diasFrenado(exp.observaciones, exp.creadoEn);
-  // "Último mov.": fecha del último pase de sector (o del alta si todavía no
-  // tuvo ninguno) + sector actual + estado de convocatoria.
-  const movimientos = (exp.observaciones || []).filter(o => o.tipo === "movimiento");
-  const fechaUltimoMov = movimientos.length > 0
-    ? movimientos.reduce((a, b) => (b.fecha > a.fecha ? b : a)).fecha
-    : exp.creadoEn;
+  // "Último mov.": fecha del último movimiento — la que registró Mesa de
+  // Entradas, o la del pase si Mesa todavía no lo confirmó (o del alta si
+  // todavía no tuvo ninguno) — + sector actual + estado de convocatoria.
+  const fechaUltimoMov = fechaUltimoMovimiento(exp.observaciones) || exp.creadoEn;
   const ultimoMov = [fechaUltimoMov && fmtFecha(fechaUltimoMov), exp.sector, exp.estadoConvocatoria].filter(Boolean).join(" · ");
   // OC, N° de resolución y monto significan cosas distintas según de dónde
   // salió el registro: la adjudicación de un vigente/renovación no es lo
@@ -726,6 +724,7 @@ function ItemObservacion({ obs, expId, esJefe, onEditar, onEliminar }) {
   const [texto, setTexto] = useState(obs.texto);
   const [sectorNuevo, setSectorNuevo] = useState(obs.sectorNuevo || "");
   const esMovimiento = obs.tipo === "movimiento";
+  const esMesa = obs.tipo === "mesa"; // constancia de Mesa de Entradas
   const gestionable = esJefe && obs.id;
 
   function abrirEdicion() {
@@ -744,21 +743,32 @@ function ItemObservacion({ obs, expId, esJefe, onEditar, onEliminar }) {
   }
 
   function eliminar() {
-    const rotulo = esMovimiento ? "este movimiento de sector" : "esta observación";
+    const rotulo = esMovimiento ? "este movimiento de sector" : esMesa ? "esta constancia de Mesa de Entradas" : "esta observación";
     if (window.confirm("¿Eliminar " + rotulo + "? Esta acción no se puede deshacer.")) {
       onEliminar(expId, obs.id);
     }
   }
 
   return (
-    <div className={"rounded-md px-3 py-2 text-xs " + (esMovimiento ? "bg-blue-50 border border-blue-100" : "bg-slate-50")}>
+    <div className={"rounded-md px-3 py-2 text-xs " + (esMovimiento ? "bg-blue-50 border border-blue-100" : esMesa ? "bg-emerald-50 border border-emerald-100" : "bg-slate-50")}>
       <div className="flex justify-between text-slate-500 mb-1">
         <span className="font-medium text-slate-700 flex items-center gap-1.5">
-          {esMovimiento && <ArrowRight size={12} className="text-blue-600" />}
+          {(esMovimiento || esMesa) && <ArrowRight size={12} className={esMesa ? "text-emerald-600" : "text-blue-600"} />}
           {obs.usuario}
           {esMovimiento && (
             <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
               Movimiento
+            </span>
+          )}
+          {esMovimiento && obs.pendienteMesa && (
+            <span className="text-[10px] font-medium text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded"
+              title="Los días frenado corren desde este pase hasta que Mesa de Entradas registre la fecha real">
+              Pendiente de Mesa de Entradas
+            </span>
+          )}
+          {esMesa && (
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+              Mesa de Entradas
             </span>
           )}
         </span>
@@ -782,6 +792,11 @@ function ItemObservacion({ obs, expId, esJefe, onEditar, onEliminar }) {
           {esMovimiento && (
             <p className="text-blue-800 font-medium mb-1">
               Sector: {obs.sectorAnterior || "-"} → {obs.sectorNuevo}
+            </p>
+          )}
+          {esMesa && (
+            <p className="text-emerald-800 font-medium mb-1">
+              Sale de {obs.sectorAnterior || "-"} → ingresa a {obs.sectorNuevo}
             </p>
           )}
           <p className="text-slate-700">{obs.texto}</p>

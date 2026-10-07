@@ -26,8 +26,8 @@ export function CampoSugerido({ label, value, onChange, opciones, id, placeholde
 }
 
 function formDesde(inicial) {
-  // Al caratular, la fecha de inicio es el ingreso a la Subdirección (hoy
-  // por defecto).
+  // Al caratular, el ingreso a la Subdirección es hoy por defecto. Inicio y
+  // vencimiento son del período del contrato, no del ingreso.
   return {
     exp: inicial?.exp || "",
     objeto: inicial?.objeto || "",
@@ -39,9 +39,9 @@ function formDesde(inicial) {
     fuero: inicial?.fuero || [],
     organismos: inicial?.organismos || [],
     domiciliosRenglones: inicial?.domiciliosRenglones || [],
-    fechaInicio: inicial ? fechaISO(inicial.fechaInicio) : hoyLocalISO(),
+    fechaInicio: fechaISO(inicial?.fechaInicio),
     fechaVencimiento: fechaISO(inicial?.fechaVencimiento),
-    ingresoSubdireccion: fechaISO(inicial?.ingresoSubdireccion),
+    ingresoSubdireccion: inicial ? fechaISO(inicial.ingresoSubdireccion) : hoyLocalISO(),
     wd: inicial?.wd || "",
     r: inicial?.r || "",
   };
@@ -79,13 +79,11 @@ export default function FormularioMesa({ inicial, onCerrar, onGuardar }) {
     if (f.fechaInicio && f.fechaVencimiento && f.fechaVencimiento < f.fechaInicio) {
       setError("El vencimiento no puede ser anterior al inicio."); return;
     }
-    if (esNuevo && !f.fechaInicio) {
-      setError("Completá la fecha de inicio (ingreso a la Subdirección)."); return;
+    if (esNuevo && !f.ingresoSubdireccion) {
+      setError("Completá la fecha de ingreso a la Subdirección."); return;
     }
     setGuardando(true);
-    const res = await onGuardar(esNuevo
-      ? { ...f, ingresoSubdireccion: f.fechaInicio, tipoContratacion: "", wd: "", r: "" }
-      : f);
+    const res = await onGuardar(esNuevo ? { ...f, tipoContratacion: "", wd: "", r: "" } : f);
     setGuardando(false);
     if (res?.error) setError(res.error);
   }
@@ -115,11 +113,9 @@ export default function FormularioMesa({ inicial, onCerrar, onGuardar }) {
             )}
             <Campo_Select label="Zona" value={f.zona} onChange={v => set("zona", v)} opciones={["", ...ZONAS]} labels={{ "": "— Sin definir —" }} />
 
-            <Campo_Input label={esNuevo ? "Fecha de inicio (ingreso a la Subdirección)" : "Fecha de inicio"} type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
-            <Campo_Input label="Fecha de vencimiento" type="date" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
-            {!esNuevo && (
-              <Campo_Input label="Ingreso a la Subdirección" type="date" value={f.ingresoSubdireccion} onChange={v => set("ingresoSubdireccion", v)} />
-            )}
+            <Campo_Input label="Ingreso a la Subdirección" type="date" value={f.ingresoSubdireccion} onChange={v => set("ingresoSubdireccion", v)} />
+            <Campo_Input label="Fecha de inicio (período)" type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
+            <Campo_Input label="Fecha de vencimiento (período)" type="date" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
 
             <div className="col-span-3">
               <CampoFuero id="mesa-lista-fueros" fueros={f.fuero} onChange={v => set("fuero", v)} />
