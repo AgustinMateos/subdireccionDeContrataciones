@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Plus, Download, Trash2, ArrowRight } from "lucide-react";
+import { X, Plus, Download, Trash2, ArrowRight, Star } from "lucide-react";
 import * as XLSX from "xlsx";
 import { ALERTA_ESTILO, HOY } from "@/lib/constants";
 import { alertaFrenado, fmtFecha } from "@/lib/utils";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
 import {
   FUEROS_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, SECTORES_RESOLUCIONES,
-  SITUACIONES_RESOLUCIONES, ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, fechaISO,
+  SITUACIONES_RESOLUCIONES, ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, fechaISO,
 } from "@/lib/resoluciones";
 import FiltroDesplegable from "./FiltroDesplegable";
 import BotonAccion from "./BotonAccion";
@@ -49,7 +49,7 @@ function filtroVacio() {
 const VACIO = {
   exp: "", fechaIngreso: "", objeto: "", fuero: "", organismo: "", tipoContratacion: "", numero: "",
   tipoResolucion: "", estado: "", sectorActual: "", fechaUltimoMov: "", agente: "", vencOfertas: "",
-  inicioServicio: "", montos: "", observaciones: "", situacion: "TRAMITANDO",
+  inicioServicio: "", montos: "", observaciones: "", situacion: "TRAMITANDO", prioritario: false,
 };
 
 function aFormulario(e) {
@@ -61,7 +61,7 @@ function aFormulario(e) {
 }
 
 // Alta / edición de un expediente, con su historial de movimientos.
-function FormularioResolucion({ inicial, onCerrar, onGuardar, onEliminar }) {
+function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar }) {
   const [f, setF] = useState(() => aFormulario(inicial));
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -124,7 +124,11 @@ function FormularioResolucion({ inicial, onCerrar, onGuardar, onEliminar }) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Campo_Input label="Exp. *" value={f.exp} onChange={v => set("exp", v)} placeholder="13-05999/25" />
             <Campo_Input label="Fecha ingreso al sector" type="date" value={f.fechaIngreso} onChange={v => set("fechaIngreso", v)} />
-            <CampoSugerido label="Agente" id="res-agente" value={f.agente} onChange={v => set("agente", v)} opciones={AGENTES_RESOLUCIONES} />
+            {esJefa ? (
+              <CampoSugerido label="Agente (asignación)" id="res-agente" value={f.agente} onChange={v => set("agente", v)} opciones={AGENTES_RESOLUCIONES} />
+            ) : (
+              <Campo_Input label="Agente (lo asigna la jefa)" value={f.agente} onChange={() => {}} disabled />
+            )}
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Situación</label>
               <select value={f.situacion} onChange={e => set("situacion", e.target.value)}
@@ -152,6 +156,11 @@ function FormularioResolucion({ inicial, onCerrar, onGuardar, onEliminar }) {
                 className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800 resize-y" />
             </div>
           </div>
+
+          <label className={"flex items-center gap-2 text-sm " + (esJefa ? "text-slate-700" : "text-slate-400")}>
+            <input type="checkbox" checked={!!f.prioritario} disabled={!esJefa} onChange={e => set("prioritario", e.target.checked)} className="rounded border-slate-300" />
+            Prioritario{!esJefa && " (lo marca la jefa de la Subdirección)"}
+          </label>
 
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="flex justify-end gap-2">
@@ -191,15 +200,15 @@ function exportarExcel(filas) {
   const datos = [
     ["EXP.", "FECHA INGRESO AL SECTOR", "OBJETO", "FUERO", "ORGANISMO", "TIPO DE CONTRATACION", "NUMERO", "DIAS EN SECTOR",
       "TIPO DE RESOLUCION", "ESTADO", "ULTIMO MOV", "SECTOR ACTUAL", "AGENTE", "VENC. OFERTAS", "INICIO DE SERV", "MONTOS",
-      "ESTADO/OBSERVACIONES", "SITUACION"],
+      "ESTADO/OBSERVACIONES", "SITUACION", "PRIORITARIO"],
     ...filas.map(e => [
       e.exp, fecha(e.fechaIngreso), e.objeto, e.fuero || "", e.organismo || "", e.tipoContratacion || "", e.numero || "",
       diasEnSector(e) ?? "", e.tipoResolucion || "", e.estado || "", fecha(e.fechaUltimoMov), e.sectorActual || "", e.agente || "",
-      fecha(e.vencOfertas), e.inicioServicio || "", e.montos || "", e.observaciones || "", e.situacion,
+      fecha(e.vencOfertas), e.inicioServicio || "", e.montos || "", e.observaciones || "", e.situacion, e.prioritario ? "SI" : "",
     ]),
   ];
   const ws = XLSX.utils.aoa_to_sheet(datos);
-  ws["!cols"] = [14, 12, 40, 30, 30, 14, 10, 8, 18, 18, 12, 16, 8, 12, 16, 18, 50, 14].map(wch => ({ wch }));
+  ws["!cols"] = [14, 12, 40, 30, 30, 14, 10, 8, 18, 18, 12, 16, 8, 12, 16, 18, 50, 14, 12].map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Resoluciones");
   XLSX.writeFile(wb, "resoluciones-" + hoyLocalISO() + ".xlsx");
@@ -207,7 +216,9 @@ function exportarExcel(filas) {
 
 // Sistema del sector de Resoluciones: la planilla de seguimiento de
 // expedientes, sin conexión con el resto de la app.
-export default function PanelResoluciones({ mostrarToast }) {
+export default function PanelResoluciones({ sesion, mostrarToast }) {
+  // La jefa de la Subdirección asigna agentes y marca prioridades.
+  const esJefa = sesion.email === EMAIL_JEFA_SUBDIRECCION;
   const [expedientes, setExpedientes] = useState(null);
   const [f, setF] = useState(filtroVacio);
   const [form, setForm] = useState(null); // null | "nuevo" | id del expediente
@@ -255,7 +266,7 @@ export default function PanelResoluciones({ mostrarToast }) {
       if (f[campo] && e[campo] !== f[campo]) return false;
     }
     return true;
-  }), [lista, f]);
+  }).sort(compararResoluciones), [lista, f]);
 
   const seleccionado = form && form !== "nuevo" ? lista.find(e => e.id === form) : null;
 
@@ -274,6 +285,16 @@ export default function PanelResoluciones({ mostrarToast }) {
     setExpedientes(prev => seleccionado ? prev.map(e => (e.id === data.expediente.id ? data.expediente : e)) : [...prev, data.expediente]);
     setForm(null);
     mostrarToast(seleccionado ? "Expediente actualizado" : "Expediente " + data.expediente.exp + " cargado");
+  }
+
+  // Cambio rápido de la jefa desde la tabla (asignación o prioridad).
+  async function cambiarRapido(e, cambios) {
+    const data = await enviar("/api/resoluciones/" + e.id, "PATCH", cambios);
+    if (data.error) { mostrarToast(data.error); return; }
+    setExpedientes(prev => prev.map(x => (x.id === data.expediente.id ? data.expediente : x)));
+    mostrarToast("prioritario" in cambios
+      ? (cambios.prioritario ? e.exp + " marcado como prioritario" : e.exp + " ya no es prioritario")
+      : e.exp + " asignado a " + (cambios.agente || "nadie"));
   }
 
   async function eliminar() {
@@ -346,7 +367,26 @@ export default function PanelResoluciones({ mostrarToast }) {
               const dias = diasEnSector(e);
               return (
                 <tr key={e.id} onClick={() => setForm(e.id)} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 cursor-pointer align-top text-xs text-slate-700">
-                  <td className="py-2.5 px-3 font-mono font-semibold text-slate-900 whitespace-nowrap">{e.exp}</td>
+                  <td className="py-2.5 px-3 whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
+                      {esJefa && (
+                        <button
+                          type="button"
+                          onClick={ev => { ev.stopPropagation(); cambiarRapido(e, { prioritario: !e.prioritario }); }}
+                          title={e.prioritario ? "Quitar prioridad" : "Marcar como prioritario"}
+                          className={"p-0.5 rounded hover:bg-amber-50 " + (e.prioritario ? "text-amber-500" : "text-slate-300 hover:text-amber-500")}
+                        >
+                          <Star size={14} fill={e.prioritario ? "currentColor" : "none"} />
+                        </button>
+                      )}
+                      <span className="font-mono font-semibold text-slate-900">{e.exp}</span>
+                    </div>
+                    {e.prioritario && (
+                      <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800">
+                        Prioritario
+                      </span>
+                    )}
+                  </td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{fecha(e.fechaIngreso)}</td>
                   <td className="py-2.5 px-3"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td>
                   <td className="py-2.5 px-3">{e.fuero || "-"}</td>
@@ -362,7 +402,19 @@ export default function PanelResoluciones({ mostrarToast }) {
                   <td className="py-2.5 px-3">{e.estado || "-"}</td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{fecha(e.fechaUltimoMov)}</td>
                   <td className="py-2.5 px-3 font-medium text-slate-900">{e.sectorActual || "-"}</td>
-                  <td className="py-2.5 px-3">{e.agente || "-"}</td>
+                  <td className="py-2.5 px-3" onClick={esJefa ? ev => ev.stopPropagation() : undefined}>
+                    {esJefa ? (
+                      <select
+                        value={e.agente || ""}
+                        onChange={ev => cambiarRapido(e, { agente: ev.target.value })}
+                        title="Cambiar asignación"
+                        className="text-xs bg-white border border-slate-300 rounded-md px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                      >
+                        <option value="">Sin asignar</option>
+                        {[...new Set([...AGENTES_RESOLUCIONES, ...(e.agente ? [e.agente] : [])])].map(a => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                    ) : (e.agente || "-")}
+                  </td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{fecha(e.vencOfertas)}</td>
                   <td className="py-2.5 px-3">{e.inicioServicio || "-"}</td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{e.montos || "-"}</td>
@@ -379,6 +431,7 @@ export default function PanelResoluciones({ mostrarToast }) {
         <FormularioResolucion
           key={form}
           inicial={seleccionado}
+          esJefa={esJefa}
           onCerrar={() => setForm(null)}
           onGuardar={guardar}
           onEliminar={eliminar}

@@ -372,6 +372,9 @@ model ExpedienteResolucion {
   montos           String? // texto: monto y aclaraciones ("SIN DEFINIR PARTIDA")
   observaciones    String?
   situacion        String    @default("TRAMITANDO") // TRAMITANDO | FINALIZADO | CIRC. DE FIRMAS
+  // Lo marca la jefa de la Subdirección (igual que la asignación del
+  // agente): va primero en la planilla, con su etiqueta.
+  prioritario      Boolean   @default(false)
 
   movimientos   MovimientoResolucion[]
   creadoEn      DateTime               @default(now())

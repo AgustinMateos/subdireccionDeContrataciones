@@ -785,7 +785,7 @@ export default function App() {
 
       <main className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {esResoluciones ? (
-          <PanelResoluciones mostrarToast={mostrarToast} />
+          <PanelResoluciones sesion={sesion} mostrarToast={mostrarToast} />
         ) : esControlServicios ? (
           <PanelControlServicios mostrarToast={mostrarToast} />
         ) : vistaEfectiva === "valorModular" ? (
