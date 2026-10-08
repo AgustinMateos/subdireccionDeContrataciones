@@ -80,7 +80,7 @@ function GraficoBarras({ titulo, datos, total }) {
 }
 
 // Torta con agujero (dona). Las porciones más chicas se juntan en "Otros"
-// si no entran en la paleta. El color sigue a la categoría (orden fijo de
+// si no entran en la paleta (la leyenda igual las detalla). El color sigue a la categoría (orden fijo de
 // tipo y zona), no a su tamaño. Al pasar el mouse por una porción o por su
 // fila de la leyenda, se resalta y el centro muestra su cantidad y %.
 function GraficoTorta({ titulo, datos, total, orden }) {
@@ -153,16 +153,21 @@ function GraficoTorta({ titulo, datos, total, orden }) {
           </svg>
           <ul className="w-full min-w-0 space-y-0.5">
             {porciones.map(p => (
-              <li
-                key={p.etiqueta}
-                onMouseEnter={() => setActiva(p.etiqueta)}
-                title={p.detalle ? p.detalle.map(d => d.etiqueta + ": " + d.cantidad).join("\n") : undefined}
-                className={"flex items-center gap-2 rounded px-1.5 py-1 text-xs " + (activa === p.etiqueta ? "bg-slate-50" : "")}
-              >
-                <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: p.color }} />
-                <span className="flex-1 min-w-0 truncate text-slate-700">{p.etiqueta}</span>
-                <span className="font-semibold text-slate-900 tabular-nums">{p.cantidad}</span>
-                <span className="w-12 text-right text-slate-500 tabular-nums">{pct(p.cantidad)}</span>
+              <li key={p.etiqueta} onMouseEnter={() => setActiva(p.etiqueta)} className={"rounded px-1.5 py-1 text-xs " + (activa === p.etiqueta ? "bg-slate-50" : "")}>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: p.color }} />
+                  <span className="flex-1 min-w-0 truncate text-slate-700">{p.etiqueta}</span>
+                  <span className="font-semibold text-slate-900 tabular-nums">{p.cantidad}</span>
+                  <span className="w-12 text-right text-slate-500 tabular-nums">{pct(p.cantidad)}</span>
+                </div>
+                {/* Lo agrupado en "Otros", con su detalle a la vista. */}
+                {p.detalle && p.detalle.map(d => (
+                  <div key={d.etiqueta} className="flex items-center gap-2 pl-[18px] mt-0.5 text-slate-500">
+                    <span className="flex-1 min-w-0 truncate">{d.etiqueta}</span>
+                    <span className="tabular-nums">{d.cantidad}</span>
+                    <span className="w-12 text-right tabular-nums">{pct(d.cantidad)}</span>
+                  </div>
+                ))}
               </li>
             ))}
           </ul>
@@ -280,7 +285,6 @@ export default function GraficosControlServicios({ expedientes, porVencer }) {
       <TablaPorVencer porVencer={porVencer} />
       <div className="grid gap-6 lg:grid-cols-2">
         <GraficoTorta titulo="Expedientes en el sector" datos={porTipo} total={total} orden={ordenTipoZona} />
-        <GraficoBarras titulo="Expedientes por tipo y zona" datos={porTipo} total={total} />
         <GraficoBarras titulo="Cantidad de contrataciones por agente" datos={porAgente} total={total} />
       </div>
     </div>
