@@ -347,3 +347,50 @@ model MovimientoMesa {
 
   @@index([expedienteMesaId])
 }
+
+// ---------- Resoluciones ----------
+// Sistema aparte del sector de Resoluciones: sin relación con Mesa de
+// Entradas ni con los expedientes de los departamentos. Solo lo usan los
+// usuarios del departamento "resoluciones" (ver lib/resoluciones.js).
+
+model ExpedienteResolucion {
+  id               String    @id @default(cuid())
+  exp              String // no es único: la planilla repite un N° con dos trámites
+  fechaIngreso     DateTime? // ingreso al sector
+  objeto           String
+  fuero            String?
+  organismo        String?
+  tipoContratacion String? // L.PRIVADA | L.PUBLICA | DIRECTA | T.SIMPLIFICADO...
+  numero           String? // N° de contratación, ej. "139/26"
+  tipoResolucion   String? // FRACASAR | ADJUDICAR | AUTORIZAR...
+  estado           String? // de la resolución: Confeccion de Resol | Completado...
+  sectorActual     String?
+  fechaUltimoMov   DateTime? // de acá corren los días en el sector
+  agente           String?
+  vencOfertas      DateTime?
+  inicioServicio   String? // texto: una fecha o "A PARTIR DE LA OC"
+  montos           String? // texto: monto y aclaraciones ("SIN DEFINIR PARTIDA")
+  observaciones    String?
+  situacion        String    @default("TRAMITANDO") // TRAMITANDO | FINALIZADO | CIRC. DE FIRMAS
+
+  movimientos   MovimientoResolucion[]
+  creadoEn      DateTime               @default(now())
+  actualizadoEn DateTime               @updatedAt
+
+  @@index([exp])
+  @@index([situacion])
+}
+
+// Historial de pases de sector de un expediente de Resoluciones.
+model MovimientoResolucion {
+  id             String               @id @default(cuid())
+  expedienteId   String
+  expediente     ExpedienteResolucion @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
+  fecha          DateTime
+  sectorAnterior String?
+  sector         String
+  usuario        String
+  creadoEn       DateTime             @default(now())
+
+  @@index([expedienteId])
+}

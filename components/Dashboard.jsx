@@ -72,6 +72,8 @@ import ModalCambiarSector from "./ModalCambiarSector";
 import ModalEliminarTarjeta from "./ModalEliminarTarjeta";
 import MesaDeEntradas from "./MesaDeEntradas";
 import PanelControlServicios from "./PanelControlServicios";
+import PanelResoluciones from "./PanelResoluciones";
+import { SLUG_RESOLUCIONES, USUARIOS_RESOLUCIONES } from "@/lib/resoluciones";
 import ModalPendientesMesa from "./ModalPendientesMesa";
 import ModalCambiarEstadoConvocatoria from "./ModalCambiarEstadoConvocatoria";
 import PaginaExpediente from "./PaginaExpediente";
@@ -110,7 +112,7 @@ export default function App() {
         nombre: session.user.name,
         email: session.user.email,
         rol: session.user.rol,
-        rolLabel: ROL_USUARIO_LABEL[session.user.rol] || session.user.rol,
+        rolLabel: USUARIOS_RESOLUCIONES[session.user.email] || ROL_USUARIO_LABEL[session.user.rol] || session.user.rol,
         departamentoId: session.user.departamentoId,
         departamentoSlug: session.user.departamentoSlug,
         departamentoNombre: session.user.departamentoNombre,
@@ -761,6 +763,8 @@ export default function App() {
   // El panel de control de Servicios es lo único que ve su usuario (ver
   // EMAIL_CONTROL_SERVICIOS).
   const esControlServicios = sesion.email === EMAIL_CONTROL_SERVICIOS;
+  // Resoluciones es un sistema aparte: sus usuarios solo ven su planilla.
+  const esResoluciones = sesion.departamentoSlug === SLUG_RESOLUCIONES;
   // Defensivo: si se llega a una vista exclusiva de Informática y Varios sin pasar
   // por el botón del navbar (ej. estado previo de sesión), se vuelve al listado.
   const vistaEfectiva = (!esInformaticaYVarios && VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS.includes(vista))
@@ -780,7 +784,9 @@ export default function App() {
       <TopBar sesion={sesion} onLogout={() => signOut()} busqueda={busqueda} setBusqueda={setBusqueda} vista={vista} setVista={setVista} mostrarToast={mostrarToast} />
 
       <main className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {esControlServicios ? (
+        {esResoluciones ? (
+          <PanelResoluciones mostrarToast={mostrarToast} />
+        ) : esControlServicios ? (
           <PanelControlServicios mostrarToast={mostrarToast} />
         ) : vistaEfectiva === "valorModular" ? (
           <ValorModular

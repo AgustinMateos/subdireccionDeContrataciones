@@ -19,6 +19,8 @@ const USUARIOS_DEMO = [
   { email: "lector.mesa@pj.gob.ar", clave: "lector123", rolLabel: "Solo Lectura", depto: "Mesa de Entradas" },
   { email: "soporte.mesa@pj.gob.ar", clave: "soporte123", rolLabel: "Soporte", depto: "Mesa de Entradas" },
   { email: "control.servicios@pj.gob.ar", clave: "control123", rolLabel: "Solo Lectura", depto: "Control de Servicios" },
+  { email: "admin.resoluciones@pj.gob.ar", clave: "admin123", rolLabel: "Jefe de Departamento", depto: "Resoluciones" },
+  { email: "jefa.subdireccion@pj.gob.ar", clave: "subdireccion123", rolLabel: "Jefa de la Subdirección", depto: "Resoluciones" },
 ];
 
 export default function Login() {
@@ -103,7 +105,7 @@ export default function Login() {
           <div className="mt-8 pt-6 border-t border-slate-200">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-600 mb-3">Usuarios de prueba (clic para autocompletar)</p>
             <div className="space-y-4">
-              {["Informática y Varios", "Servicios", "Mesa de Entradas", "Control de Servicios"].map(depto => (
+              {["Informática y Varios", "Servicios", "Mesa de Entradas", "Control de Servicios", "Resoluciones"].map(depto => (
                 <div key={depto}>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">{depto}</p>
                   <div className="space-y-2">
