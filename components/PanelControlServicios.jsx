@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { ALERTA_ESTILO, ESTADOS_CONVOCATORIA } from "@/lib/constants";
 import FiltroDesplegable from "./FiltroDesplegable";
+import GraficosControlServicios from "./GraficosControlServicios";
 import { alerta, alertaFrenado, diasFrenado, diasRestantes, fechaUltimoMovimiento, fmtFecha, soloFechaLocal } from "@/lib/utils";
 
 const norm = s => String(s || "").trim().toLowerCase();
@@ -63,6 +64,7 @@ function normalizar(e) {
 export default function PanelControlServicios({ mostrarToast }) {
   const [expedientes, setExpedientes] = useState(null);
   const [f, setF] = useState(filtroVacio);
+  const [solapa, setSolapa] = useState("planilla"); // 'planilla' | 'graficos'
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
   const hayFiltros = Object.entries(f).some(([k, v]) => v !== filtroVacio()[k]);
 
@@ -109,7 +111,34 @@ export default function PanelControlServicios({ mostrarToast }) {
     return <div className="py-16 text-center text-sm text-slate-500">Cargando expedientes...</div>;
   }
 
+  const solapas = (
+    <div className="flex items-center gap-1 border-b border-slate-200">
+      {[["planilla", "Planilla"], ["graficos", "Gráficos"]].map(([valor, etiqueta]) => (
+        <button
+          key={valor}
+          type="button"
+          onClick={() => setSolapa(valor)}
+          className={"px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors " +
+            (solapa === valor ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}
+        >
+          {etiqueta}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (solapa === "graficos") {
+    return (
+      <div className="space-y-4">
+        {solapas}
+        <GraficosControlServicios expedientes={lista} />
+      </div>
+    );
+  }
+
   return (
+    <div className="space-y-4">
+    {solapas}
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-b border-slate-100 bg-slate-50/60">
         <div>
@@ -213,6 +242,7 @@ export default function PanelControlServicios({ mostrarToast }) {
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   );
 }
