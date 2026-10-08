@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { TIPOS_SERVICIOS, ZONAS } from "@/lib/constants";
+import { ALERTA_ESTILO, TIPOS_SERVICIOS, ZONAS } from "@/lib/constants";
+import { alerta, diasRestantes, fmtFecha } from "@/lib/utils";
 
 // Una sola serie por gráfico: un único color (el azul de la planilla), sin
 // paleta categórica — la categoría la dice la etiqueta de cada barra.
@@ -179,10 +180,87 @@ function ordenTipoZona(etiqueta) {
   return (i === -1 ? TIPOS_SERVICIOS.length : i) * 10 + (zona === -1 ? 9 : zona);
 }
 
+// Vigentes y parches que vencen dentro de 30 días con la renovación en
+// trámite sin orden de compra (o sin renovación) — ver
+// porVencerSinOrdenDeCompra en la API. Del más urgente al menos.
+function TablaPorVencer({ porVencer }) {
+  const filas = useMemo(() => porVencer
+    .map(e => {
+      const vence = String(e.fechaVencimiento).slice(0, 10);
+      return { ...e, vence, dias: diasRestantes(vence) };
+    })
+    .filter(e => e.dias >= 0 && e.dias <= 30)
+    .sort((a, b) => a.dias - b.dias), [porVencer]);
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50/60">
+        <h3 className="text-sm font-semibold text-slate-900">Por vencer en 30 días sin orden de compra en la renovación</h3>
+        <span className="text-[11px] text-slate-500">{filas.length} expediente{filas.length !== 1 ? "s" : ""}</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[860px]">
+          <thead>
+            <tr className="text-left text-xs text-slate-500 border-b border-slate-100 bg-slate-50/40">
+              <th className="py-2 px-3 font-medium">Exp.</th>
+              <th className="py-2 px-3 font-medium">Tipo</th>
+              <th className="py-2 px-3 font-medium">Organismo</th>
+              <th className="py-2 px-3 font-medium">Objeto</th>
+              <th className="py-2 px-3 font-medium">Vence</th>
+              <th className="py-2 px-3 font-medium">Renovación en trámite</th>
+              <th className="py-2 px-3 font-medium">Estado de convocatoria</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="py-8 text-center text-sm text-slate-500">
+                  Nada vence en los próximos 30 días sin orden de compra en la renovación.
+                </td>
+              </tr>
+            ) : filas.map(e => (
+              <tr key={e.id} className="border-b border-slate-50 last:border-0 align-top">
+                <td className="py-2.5 px-3 whitespace-nowrap">
+                  <div className="font-mono text-xs font-semibold text-slate-900">{e.exp}</div>
+                  <div className="text-[11px] text-slate-500">{e.rol === "parche" ? "Parche" : "Vigente"}</div>
+                </td>
+                <td className="py-2.5 px-3 text-xs text-slate-700">{tipoCorto(e.tipo) + (e.zona ? " " + e.zona : "")}</td>
+                <td className="py-2.5 px-3 text-xs text-slate-700 max-w-[200px]">{(e.organismos?.length ? e.organismos : e.fuero || []).join(" · ") || "-"}</td>
+                <td className="py-2.5 px-3 text-xs text-slate-700 max-w-[240px]">{e.objeto}</td>
+                <td className="py-2.5 px-3 text-xs text-slate-600 whitespace-nowrap">
+                  {fmtFecha(e.vence)}
+                  <div className="mt-1">
+                    <span className={"text-[11px] font-medium px-2 py-0.5 rounded border " + ALERTA_ESTILO[alerta(e.dias)]}>
+                      {e.dias === 0 ? "Vence hoy" : e.dias + " días"}
+                    </span>
+                  </div>
+                </td>
+                <td className="py-2.5 px-3 text-xs text-slate-700">
+                  {e.renovaciones.length === 0 ? (
+                    <span className="font-medium text-red-700">Sin renovación en trámite</span>
+                  ) : e.renovaciones.map(r => (
+                    <div key={r.exp} className="mb-1 last:mb-0">
+                      <span className="font-mono font-semibold text-slate-900">{r.exp}</span>
+                      <div className="text-[11px] text-slate-500">Sin orden de compra{r.encuadre ? " · " + r.encuadre : ""}</div>
+                    </div>
+                  ))}
+                </td>
+                <td className="py-2.5 px-3 text-xs text-slate-700">
+                  {e.renovaciones.map(r => r.estadoConvocatoria).filter(Boolean).join(" · ") || "-"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // Solapa "Gráficos" del panel de control de Servicios: los mismos
 // expedientes de la planilla (parches y renovaciones en trámite), contados
 // por tipo de servicio y zona, y por agente.
-export default function GraficosControlServicios({ expedientes }) {
+export default function GraficosControlServicios({ expedientes, porVencer }) {
   const porTipo = useMemo(
     () => contar(expedientes, e => tipoCorto(e.tipo) + (e.zona ? " " + e.zona : "")),
     [expedientes],
@@ -199,6 +277,7 @@ export default function GraficosControlServicios({ expedientes }) {
         <span className="text-3xl font-semibold text-slate-900 tabular-nums">{total}</span>
         <span className="text-sm text-slate-600">expedientes de Servicios en trámite (parches y renovaciones)</span>
       </div>
+      <TablaPorVencer porVencer={porVencer} />
       <div className="grid gap-6 lg:grid-cols-2">
         <GraficoTorta titulo="Expedientes en el sector" datos={porTipo} total={total} orden={ordenTipoZona} />
         <GraficoBarras titulo="Expedientes por tipo y zona" datos={porTipo} total={total} />

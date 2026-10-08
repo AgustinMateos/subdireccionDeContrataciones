@@ -63,6 +63,7 @@ function normalizar(e) {
 // los sigue cargando Servicios.
 export default function PanelControlServicios({ mostrarToast }) {
   const [expedientes, setExpedientes] = useState(null);
+  const [porVencer, setPorVencer] = useState([]);
   const [f, setF] = useState(filtroVacio);
   const [solapa, setSolapa] = useState("planilla"); // 'planilla' | 'graficos'
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
@@ -75,7 +76,10 @@ export default function PanelControlServicios({ mostrarToast }) {
         const res = await fetch("/api/control-servicios");
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        if (activo) setExpedientes((data.expedientes || []).map(normalizar));
+        if (activo) {
+          setExpedientes((data.expedientes || []).map(normalizar));
+          setPorVencer(data.porVencer || []);
+        }
       } catch (err) {
         if (activo) { setExpedientes([]); mostrarToast(err.message || "No se pudieron cargar los expedientes"); }
       }
@@ -131,7 +135,7 @@ export default function PanelControlServicios({ mostrarToast }) {
     return (
       <div className="space-y-4">
         {solapas}
-        <GraficosControlServicios expedientes={lista} />
+        <GraficosControlServicios expedientes={lista} porVencer={porVencer} />
       </div>
     );
   }
