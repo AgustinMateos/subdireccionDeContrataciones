@@ -219,8 +219,9 @@ export default function PanelResoluciones({ mostrarToast }) {
     (async () => {
       try {
         const res = await fetch("/api/resoluciones");
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
+        // Si el servidor falla sin respuesta, el cuerpo viene vacío.
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Error del servidor (" + res.status + "). Probá recargar la página.");
         if (activo) setExpedientes(data.expedientes || []);
       } catch (err) {
         if (activo) { setExpedientes([]); mostrarToast(err.message || "No se pudieron cargar los expedientes"); }
