@@ -26,6 +26,23 @@ function diasEnSector(e) {
   return Math.round((HOY - new Date(f + "T00:00:00")) / 86400000);
 }
 
+const ETIQUETA_CAMPO = { sectorActual: "Sector actual", tipoResolucion: "Tipo de resolución", estado: "Estado" };
+
+// Desplegable para cambiar un campo desde la tabla, sin abrir el
+// expediente. Suma el valor actual si no está en la lista.
+function SelectRapido({ valor, opciones, onChange, fuerte }) {
+  return (
+    <select
+      value={valor || ""}
+      onChange={ev => onChange(ev.target.value)}
+      className={"min-w-[165px] text-xs bg-white border border-slate-200 rounded-md px-1.5 py-1 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800 " + (fuerte ? "font-medium text-slate-900" : "text-slate-700")}
+    >
+      <option value="">-</option>
+      {[...new Set([...opciones, ...(valor ? [valor] : [])])].map(o => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+}
+
 function FiltroColumna({ valor, etiqueta, opciones, onChange }) {
   return (
     <FiltroDesplegable
@@ -67,13 +84,9 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
   const [guardando, setGuardando] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
 
+  // El último movimiento no cambia solo: se carga a mano.
   function set(campo, valor) {
-    setF(prev => {
-      const nuevo = { ...prev, [campo]: valor };
-      // Un pase de sector: la fecha del movimiento pasa a ser hoy (editable).
-      if (campo === "sectorActual" && valor !== (inicial?.sectorActual || "")) nuevo.fechaUltimoMov = hoyLocalISO();
-      return nuevo;
-    });
+    setF(prev => ({ ...prev, [campo]: valor }));
     setError("");
   }
 
@@ -173,7 +186,7 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
 
           {inicial && (
             <div className="space-y-2 border-t border-slate-100 pt-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Movimientos ({historial.length})</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Historial de movimientos ({historial.length})</h3>
               {historial.length === 0 ? (
                 <p className="text-sm text-slate-500">Sin movimientos registrados.</p>
               ) : (
@@ -181,6 +194,7 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
                   {historial.map(m => (
                     <li key={m.id} className="flex flex-wrap items-center gap-2 text-sm border border-slate-200 rounded-md px-3 py-2">
                       <span className="text-slate-500 w-20 shrink-0">{fecha(m.fecha)}</span>
+                      <span className="text-[11px] font-medium text-slate-500 w-32 shrink-0">{m.campo}</span>
                       {m.sectorAnterior && (<><span className="text-slate-600">{m.sectorAnterior}</span><ArrowRight size={13} className="text-slate-400" /></>)}
                       <span className="font-medium text-slate-900">{m.sector}</span>
                       <span className="ml-auto text-[11px] text-slate-400">{m.usuario}</span>
@@ -287,14 +301,19 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
     mostrarToast(seleccionado ? "Expediente actualizado" : "Expediente " + data.expediente.exp + " cargado");
   }
 
-  // Cambio rápido de la jefa desde la tabla (asignación o prioridad).
+  // Cambio rápido desde la tabla: sector actual, tipo de resolución o
+  // estado (cualquiera; queda en el historial), asignación o prioridad
+  // (solo la jefa).
   async function cambiarRapido(e, cambios) {
     const data = await enviar("/api/resoluciones/" + e.id, "PATCH", cambios);
     if (data.error) { mostrarToast(data.error); return; }
     setExpedientes(prev => prev.map(x => (x.id === data.expediente.id ? data.expediente : x)));
-    mostrarToast("prioritario" in cambios
-      ? (cambios.prioritario ? e.exp + " marcado como prioritario" : e.exp + " ya no es prioritario")
-      : e.exp + " asignado a " + (cambios.agente || "nadie"));
+    const [campo, valor] = Object.entries(cambios)[0];
+    mostrarToast(campo === "prioritario"
+      ? (valor ? e.exp + " marcado como prioritario" : e.exp + " ya no es prioritario")
+      : campo === "agente"
+        ? e.exp + " asignado a " + (valor || "nadie")
+        : e.exp + ": " + ETIQUETA_CAMPO[campo] + " → " + (valor || "sin definir"));
   }
 
   async function eliminar() {
@@ -398,10 +417,16 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
                       <span className={"text-[11px] font-medium px-2 py-0.5 rounded border whitespace-nowrap " + ALERTA_ESTILO[alertaFrenado(dias)]}>{dias} día{dias !== 1 ? "s" : ""}</span>
                     ) : "-"}
                   </td>
-                  <td className="py-2.5 px-3">{e.tipoResolucion || "-"}</td>
-                  <td className="py-2.5 px-3">{e.estado || "-"}</td>
+                  <td className="py-2.5 px-3" onClick={ev => ev.stopPropagation()}>
+                    <SelectRapido valor={e.tipoResolucion} opciones={TIPOS_RESOLUCION} onChange={v => cambiarRapido(e, { tipoResolucion: v })} />
+                  </td>
+                  <td className="py-2.5 px-3" onClick={ev => ev.stopPropagation()}>
+                    <SelectRapido valor={e.estado} opciones={ESTADOS_RESOLUCION} onChange={v => cambiarRapido(e, { estado: v })} />
+                  </td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{fecha(e.fechaUltimoMov)}</td>
-                  <td className="py-2.5 px-3 font-medium text-slate-900">{e.sectorActual || "-"}</td>
+                  <td className="py-2.5 px-3" onClick={ev => ev.stopPropagation()}>
+                    <SelectRapido valor={e.sectorActual} opciones={SECTORES_RESOLUCIONES} onChange={v => cambiarRapido(e, { sectorActual: v })} fuerte />
+                  </td>
                   <td className="py-2.5 px-3" onClick={esJefa ? ev => ev.stopPropagation() : undefined}>
                     {esJefa ? (
                       <select

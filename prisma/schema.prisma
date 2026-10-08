@@ -384,12 +384,16 @@ model ExpedienteResolucion {
   @@index([situacion])
 }
 
-// Historial de pases de sector de un expediente de Resoluciones.
+// Historial de cambios de un expediente de Resoluciones: sector actual,
+// tipo de resolución o estado (`campo`). sectorAnterior/sector guardan el
+// valor anterior y el nuevo del campo que cambió (los nombres vienen de
+// cuando solo se registraban pases de sector).
 model MovimientoResolucion {
   id             String               @id @default(cuid())
   expedienteId   String
   expediente     ExpedienteResolucion @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
-  fecha          DateTime
+  fecha          DateTime // día del cambio (no toca fechaUltimoMov del expediente)
+  campo          String               @default("Sector actual") // Sector actual | Tipo de resolución | Estado
   sectorAnterior String?
   sector         String
   usuario        String

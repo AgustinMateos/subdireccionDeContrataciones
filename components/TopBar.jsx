@@ -1,10 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, Phone, Globe, ExternalLink, User, Contact, FileDown, BarChart3, Building2, CalendarClock } from "lucide-react";
+import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, Phone, Globe, ExternalLink, User, Contact, FileDown, BarChart3, Building2, CalendarClock, Table2 } from "lucide-react";
 import { descargarArchivoBase64 } from "@/lib/utils";
 import { FORMULARIO_FALTAS_BASE64, EMAIL_CONTROL_SERVICIOS } from "@/lib/constants";
 import { SLUG_RESOLUCIONES } from "@/lib/resoluciones";
+// Secciones del navbar de Resoluciones. "expedientes" es su panel.
+const SECCIONES_RESOLUCIONES = [
+  { vista: "expedientes", etiqueta: "Panel" },
+  { vista: "valorModular", etiqueta: "Valor Modular", Icono: Landmark },
+  { vista: "listadoTelefonos", etiqueta: "Listado de Teléfonos", Icono: Phone },
+  { vista: "cuadroCronologico", etiqueta: "Cuadro cronológico", Icono: Table2 },
+];
+
 export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista, setVista, mostrarToast }) {
   const [variosAbierto, setVariosAbierto] = useState(false);
   const [informesAbierto, setInformesAbierto] = useState(false);
@@ -12,9 +20,11 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
   const [perfilAbierto, setPerfilAbierto] = useState(false);
   const esInformaticaYVarios = sesion.departamentoSlug === "informatica-y-varios";
   const esMesaDeEntradas = sesion.departamentoSlug === "mesa-de-entradas";
-  // El usuario del panel de control de Servicios y los de Resoluciones (un
-  // sistema aparte) solo ven su panel: sin buscador ni secciones.
-  const soloSuPanel = sesion.email === EMAIL_CONTROL_SERVICIOS || sesion.departamentoSlug === SLUG_RESOLUCIONES;
+  // El usuario del panel de control de Servicios solo ve su panel: sin
+  // buscador ni secciones. Resoluciones (un sistema aparte) tampoco tiene
+  // buscador y tiene sus propias secciones (ver SECCIONES_RESOLUCIONES).
+  const esResoluciones = sesion.departamentoSlug === SLUG_RESOLUCIONES;
+  const soloSuPanel = sesion.email === EMAIL_CONTROL_SERVICIOS || esResoluciones;
   const vistasVarios = ["cotizadorTaquigrafico", "cotizadorPolicia", "cotizadorAvisos"];
   const variosActivo = vistasVarios.includes(vista);
   const vistasInformes = esInformaticaYVarios ? ["informePoliciaAdicional", "informeOrganismos"] : ["informeServicios"];
@@ -67,6 +77,21 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
           </button>
         </div>
       </div>
+
+      {esResoluciones && (
+        <div className="px-4 sm:px-6 lg:px-8 flex items-center gap-1 h-11 border-t border-slate-100 overflow-x-auto">
+          {SECCIONES_RESOLUCIONES.map(({ vista: v, etiqueta, Icono }) => (
+            <button
+              key={v}
+              onClick={() => setVista(v)}
+              className={"h-full px-3 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap " +
+                (vista === v ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}
+            >
+              {Icono && <Icono size={13} />} {etiqueta}
+            </button>
+          ))}
+        </div>
+      )}
 
       {!soloSuPanel && (
       <div className="px-4 sm:px-6 lg:px-8 flex items-center gap-1 h-11 border-t border-slate-100 relative">

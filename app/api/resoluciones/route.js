@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { compararResoluciones, datosResolucion, soloCamposDeJefa } from "@/lib/resoluciones";
-import { INCLUDE_RESOLUCION, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { INCLUDE_RESOLUCION, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
 
 // Expedientes del sector de Resoluciones (sistema aparte).
 export async function GET() {
@@ -10,7 +10,8 @@ export async function GET() {
   return NextResponse.json({ expedientes: expedientes.sort(compararResoluciones) });
 }
 
-// Alta. Si se carga el sector actual, queda como primer movimiento.
+// Alta. Sector actual, tipo de resolución y estado cargados quedan como
+// primeros registros del historial.
 export async function POST(request) {
   const session = await sesionResoluciones();
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -18,14 +19,9 @@ export async function POST(request) {
   if (!datos.exp || !datos.objeto) {
     return NextResponse.json({ error: "Completá N° de expediente y objeto" }, { status: 400 });
   }
-  if (datos.sectorActual && !datos.fechaUltimoMov) datos.fechaUltimoMov = datos.fechaIngreso || new Date();
+  const cambios = registrosDeCambios(null, datos, session.user.name);
   const expediente = await prisma.expedienteResolucion.create({
-    data: {
-      ...datos,
-      movimientos: datos.sectorActual
-        ? { create: [{ fecha: datos.fechaUltimoMov, sector: datos.sectorActual, usuario: session.user.name }] }
-        : undefined,
-    },
+    data: { ...datos, movimientos: cambios.length ? { create: cambios } : undefined },
     include: INCLUDE_RESOLUCION,
   });
   return NextResponse.json({ expediente });

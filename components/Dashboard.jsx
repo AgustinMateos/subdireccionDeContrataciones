@@ -73,6 +73,7 @@ import ModalEliminarTarjeta from "./ModalEliminarTarjeta";
 import MesaDeEntradas from "./MesaDeEntradas";
 import PanelControlServicios from "./PanelControlServicios";
 import PanelResoluciones from "./PanelResoluciones";
+import CuadroCronologico from "./CuadroCronologico";
 import { SLUG_RESOLUCIONES, USUARIOS_RESOLUCIONES } from "@/lib/resoluciones";
 import ModalPendientesMesa from "./ModalPendientesMesa";
 import ModalCambiarEstadoConvocatoria from "./ModalCambiarEstadoConvocatoria";
@@ -104,6 +105,10 @@ const VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS = [
 ];
 
 const VISTAS_EXCLUIDAS_MESA_DE_ENTRADAS = ["aperturas", "informeServicios", "expedienteDetalle"];
+
+// Resoluciones solo tiene su panel ("expedientes"), Valor Modular,
+// Teléfonos y el cuadro cronológico.
+const VISTAS_RESOLUCIONES = ["expedientes", "valorModular", "listadoTelefonos", "cuadroCronologico"];
 
 export default function App() {
   const { data: session, status } = useSession();
@@ -763,8 +768,10 @@ export default function App() {
   // El panel de control de Servicios es lo único que ve su usuario (ver
   // EMAIL_CONTROL_SERVICIOS).
   const esControlServicios = sesion.email === EMAIL_CONTROL_SERVICIOS;
-  // Resoluciones es un sistema aparte: sus usuarios solo ven su planilla.
+  // Resoluciones es un sistema aparte: su planilla, Valor Modular,
+  // Teléfonos y el cuadro cronológico (solo lectura salvo la planilla).
   const esResoluciones = sesion.departamentoSlug === SLUG_RESOLUCIONES;
+  const vistaResoluciones = VISTAS_RESOLUCIONES.includes(vista) ? vista : "expedientes";
   // Defensivo: si se llega a una vista exclusiva de Informática y Varios sin pasar
   // por el botón del navbar (ej. estado previo de sesión), se vuelve al listado.
   const vistaEfectiva = (!esInformaticaYVarios && VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS.includes(vista))
@@ -785,7 +792,15 @@ export default function App() {
 
       <main className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {esResoluciones ? (
-          <PanelResoluciones sesion={sesion} mostrarToast={mostrarToast} />
+          vistaResoluciones === "valorModular" ? (
+            <ValorModular moduloValor={moduloValor} setModuloValor={guardarValorModular} sesion={sesion} />
+          ) : vistaResoluciones === "listadoTelefonos" ? (
+            <ListadoTelefonos sesion={sesion} mostrarToast={mostrarToast} seccionesIniciales={secciones} />
+          ) : vistaResoluciones === "cuadroCronologico" ? (
+            <CuadroCronologico />
+          ) : (
+            <PanelResoluciones sesion={sesion} mostrarToast={mostrarToast} />
+          )
         ) : esControlServicios ? (
           <PanelControlServicios mostrarToast={mostrarToast} />
         ) : vistaEfectiva === "valorModular" ? (
