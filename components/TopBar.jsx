@@ -95,12 +95,6 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
                     {sesion.email && <div className="text-[11px] text-slate-500 truncate">{sesion.email}</div>}
                   </div>
                   <button
-                    onClick={() => { setUsuarioAbierto(false); accederLegajo(); }}
-                    className="w-full flex items-center gap-2.5 text-left px-3 py-2 text-xs hover:bg-slate-50 text-slate-600"
-                  >
-                    <Contact size={14} className="text-slate-400" /> Mi legajo
-                  </button>
-                  <button
                     onClick={() => { setUsuarioAbierto(false); descargarFormularioFaltas(); }}
                     className="w-full flex items-center gap-2.5 text-left px-3 py-2 text-xs hover:bg-slate-50 text-slate-600"
                   >
