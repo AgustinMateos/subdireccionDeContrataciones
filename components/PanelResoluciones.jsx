@@ -15,7 +15,7 @@ import FiltroDesplegable from "./FiltroDesplegable";
 import BotonAccion from "./BotonAccion";
 import EstrellaPrioridad from "./EstrellaPrioridad";
 import { Campo_Input } from "./CamposFormulario";
-import { CampoSugerido } from "./FormularioMesa";
+import CampoOpciones from "./CampoOpciones";
 
 const norm = s => String(s || "").trim().toLowerCase();
 const fecha = f => (f ? fmtFecha(fechaISO(f)) : "-");
@@ -149,7 +149,7 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
             <Campo_Input label="Exp. *" value={f.exp} onChange={v => set("exp", v)} placeholder="13-05999/25" />
             <Campo_Input label="Fecha ingreso al sector" type="date" value={f.fechaIngreso} onChange={v => set("fechaIngreso", v)} />
             {esJefa ? (
-              <CampoSugerido label="Agente (asignación)" id="res-agente" value={f.agente} onChange={v => set("agente", v)} opciones={AGENTES_RESOLUCIONES} />
+              <CampoOpciones label="Agente (asignación)" value={f.agente} onChange={v => set("agente", v)} opciones={AGENTES_RESOLUCIONES} />
             ) : (
               <Campo_Input label="Agente (lo asigna la jefa)" value={f.agente} onChange={() => {}} disabled />
             )}
@@ -163,13 +163,13 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
             <div className="col-span-2 md:col-span-4">
               <Campo_Input label="Objeto *" value={f.objeto} onChange={v => set("objeto", v)} />
             </div>
-            <div className="col-span-2"><CampoSugerido label="Fuero" id="res-fuero" value={f.fuero} onChange={v => set("fuero", v)} opciones={FUEROS_RESOLUCIONES} /></div>
+            <div className="col-span-2"><CampoOpciones label="Fuero" value={f.fuero} onChange={v => set("fuero", v)} opciones={FUEROS_RESOLUCIONES} /></div>
             <div className="col-span-2"><Campo_Input label="Organismo" value={f.organismo} onChange={v => set("organismo", v)} /></div>
-            <CampoSugerido label="Tipo de contratación" id="res-tipo-contratacion" value={f.tipoContratacion} onChange={v => set("tipoContratacion", v)} opciones={TIPOS_CONTRATACION_RESOLUCIONES} />
+            <CampoOpciones label="Tipo de contratación" value={f.tipoContratacion} onChange={v => set("tipoContratacion", v)} opciones={TIPOS_CONTRATACION_RESOLUCIONES} />
             <Campo_Input label="Número" value={f.numero} onChange={v => set("numero", v)} placeholder="139/26" />
-            <CampoSugerido label="Tipo de resolución" id="res-tipo-resolucion" value={f.tipoResolucion} onChange={v => set("tipoResolucion", v)} opciones={TIPOS_RESOLUCION} />
-            <CampoSugerido label="Estado" id="res-estado" value={f.estado} onChange={v => set("estado", v)} opciones={ESTADOS_RESOLUCION} />
-            <CampoSugerido label="Sector actual" id="res-sector" value={f.sectorActual} onChange={v => set("sectorActual", v)} opciones={SECTORES_RESOLUCIONES} />
+            <CampoOpciones label="Tipo de resolución" value={f.tipoResolucion} onChange={v => set("tipoResolucion", v)} opciones={TIPOS_RESOLUCION} />
+            <CampoOpciones label="Estado" value={f.estado} onChange={v => set("estado", v)} opciones={ESTADOS_RESOLUCION} />
+            <CampoOpciones label="Sector actual" value={f.sectorActual} onChange={v => set("sectorActual", v)} opciones={SECTORES_RESOLUCIONES} />
             <Campo_Input label="Último movimiento" type="date" value={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
             <Campo_Input label="Venc. ofertas" type="date" value={f.vencOfertas} onChange={v => set("vencOfertas", v)} />
             <Campo_Input label="Inicio de servicio" value={f.inicioServicio} onChange={v => set("inicioServicio", v)} placeholder="1/12/2026 o A PARTIR DE LA OC" />
