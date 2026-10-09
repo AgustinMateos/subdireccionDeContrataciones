@@ -327,7 +327,8 @@ function TablaExpedientes({ lista, agentes, onReasignar, onPrioridad }) {
         <tr className="text-left text-[11px] text-slate-500 border-b border-slate-100 bg-slate-50/60">
           <th className="py-2 px-4 font-medium">Exp.</th>
           <th className="py-2 px-4 font-medium">Objeto</th>
-          <th className="py-2 px-4 font-medium">Tipo</th>
+          <th className="py-2 px-4 font-medium">Tipo de contratación</th>
+          <th className="py-2 px-4 font-medium">Tipo de resolución</th>
           <th className="py-2 px-4 font-medium">Sector actual</th>
           <th className="py-2 px-4 font-medium">Venc. ofertas</th>
           <th className="py-2 px-4 font-medium">Agente</th>
@@ -351,6 +352,7 @@ function TablaExpedientes({ lista, agentes, onReasignar, onPrioridad }) {
               </td>
               <td className="py-2 px-4 text-slate-700 max-w-[320px]"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td>
               <td className="py-2 px-4 text-slate-700 whitespace-nowrap">{e.tipoContratacion || "-"}</td>
+              <td className="py-2 px-4 text-slate-700">{e.tipoResolucion || "-"}</td>
               <td className="py-2 px-4 text-slate-700">{e.sectorActual || "-"}</td>
               <td className="py-2 px-4 whitespace-nowrap">
                 {venc ? fmtFecha(venc) : "-"}
