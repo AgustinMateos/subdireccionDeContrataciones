@@ -416,12 +416,12 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[1980px]">
+        <table className="w-full text-sm min-w-[1680px]">
           <thead>
             <tr className="text-left border-b border-slate-100 bg-slate-50/40 text-[11px] font-medium text-slate-500 uppercase tracking-wide">
               {["Exp.", "Ingreso al sector", "Objeto", "Fuero", "Organismo", "Tipo de contratación", "Número", "Días en sector",
                 "Tipo de resolución", "Estado", "Último mov.", "Sector actual", "Agente", "Venc. ofertas", "Inicio de serv.",
-                "Montos", "Observaciones"].map(t => <th key={t} className="pt-2 px-3">{t}</th>)}
+                "Montos"].map(t => <th key={t} className="pt-2 px-3">{t}</th>)}
             </tr>
             <tr className="text-left border-b border-slate-100 bg-slate-50/40">
               <th className="py-2 px-3 align-top w-[130px]"><input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} /></th>
@@ -440,12 +440,11 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
               <th className="py-2 px-3" />
               <th className="py-2 px-3" />
               <th className="py-2 px-3" />
-              <th className="py-2 px-3" />
             </tr>
           </thead>
           <tbody>
             {filas.length === 0 ? (
-              <tr><td colSpan={17} className="py-10 text-center text-sm text-slate-500">No hay expedientes con esos filtros.</td></tr>
+              <tr><td colSpan={16} className="py-10 text-center text-sm text-slate-500">No hay expedientes con esos filtros.</td></tr>
             ) : filas.map(e => {
               const dias = diasEnSector(e);
               return (
@@ -500,7 +499,6 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
                   <td className="py-2.5 px-3 whitespace-nowrap">{fecha(e.vencOfertas)}</td>
                   <td className="py-2.5 px-3">{e.inicioServicio || "-"}</td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{e.montos || "-"}</td>
-                  <td className="py-2.5 px-3 max-w-[320px]"><span className="line-clamp-3 whitespace-pre-line" title={e.observaciones || ""}>{e.observaciones || "-"}</span></td>
                 </tr>
               );
             })}
