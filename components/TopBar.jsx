@@ -4,13 +4,14 @@ import { useState } from "react";
 import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, Phone, Globe, ExternalLink, User, Contact, FileDown, BarChart3, Building2, CalendarClock, Table2 } from "lucide-react";
 import { descargarArchivoBase64 } from "@/lib/utils";
 import { FORMULARIO_FALTAS_BASE64, EMAIL_CONTROL_SERVICIOS } from "@/lib/constants";
-import { SLUG_RESOLUCIONES } from "@/lib/resoluciones";
+import { SLUG_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION } from "@/lib/resoluciones";
 // Secciones del navbar de Resoluciones. "expedientes" es su panel.
 const SECCIONES_RESOLUCIONES = [
   { vista: "expedientes", etiqueta: "Panel" },
   { vista: "valorModular", etiqueta: "Valor Modular", Icono: Landmark },
   { vista: "listadoTelefonos", etiqueta: "Listado de Teléfonos", Icono: Phone },
   { vista: "cuadroCronologico", etiqueta: "Cuadro cronológico", Icono: Table2 },
+  { vista: "graficosResoluciones", etiqueta: "Gráficos", Icono: BarChart3, soloJefa: true },
 ];
 
 export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista, setVista, mostrarToast }) {
@@ -80,7 +81,7 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
 
       {esResoluciones && (
         <div className="px-4 sm:px-6 lg:px-8 flex items-center gap-1 h-11 border-t border-slate-100 overflow-x-auto">
-          {SECCIONES_RESOLUCIONES.map(({ vista: v, etiqueta, Icono }) => (
+          {SECCIONES_RESOLUCIONES.filter(s => !s.soloJefa || sesion.email === EMAIL_JEFA_SUBDIRECCION).map(({ vista: v, etiqueta, Icono }) => (
             <button
               key={v}
               onClick={() => setVista(v)}

@@ -74,7 +74,8 @@ import MesaDeEntradas from "./MesaDeEntradas";
 import PanelControlServicios from "./PanelControlServicios";
 import PanelResoluciones from "./PanelResoluciones";
 import CuadroCronologico from "./CuadroCronologico";
-import { SLUG_RESOLUCIONES, USUARIOS_RESOLUCIONES } from "@/lib/resoluciones";
+import GraficosResoluciones from "./GraficosResoluciones";
+import { SLUG_RESOLUCIONES, USUARIOS_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION } from "@/lib/resoluciones";
 import ModalPendientesMesa from "./ModalPendientesMesa";
 import ModalCambiarEstadoConvocatoria from "./ModalCambiarEstadoConvocatoria";
 import PaginaExpediente from "./PaginaExpediente";
@@ -771,7 +772,10 @@ export default function App() {
   // Resoluciones es un sistema aparte: su planilla, Valor Modular,
   // Teléfonos y el cuadro cronológico (solo lectura salvo la planilla).
   const esResoluciones = sesion.departamentoSlug === SLUG_RESOLUCIONES;
-  const vistaResoluciones = VISTAS_RESOLUCIONES.includes(vista) ? vista : "expedientes";
+  // La solapa de gráficos es solo de la jefa de la Subdirección.
+  const vistaResoluciones = VISTAS_RESOLUCIONES.includes(vista) || (vista === "graficosResoluciones" && sesion.email === EMAIL_JEFA_SUBDIRECCION)
+    ? vista
+    : "expedientes";
   // Defensivo: si se llega a una vista exclusiva de Informática y Varios sin pasar
   // por el botón del navbar (ej. estado previo de sesión), se vuelve al listado.
   const vistaEfectiva = (!esInformaticaYVarios && VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS.includes(vista))
@@ -796,6 +800,8 @@ export default function App() {
             <ValorModular moduloValor={moduloValor} setModuloValor={guardarValorModular} sesion={sesion} />
           ) : vistaResoluciones === "listadoTelefonos" ? (
             <ListadoTelefonos sesion={sesion} mostrarToast={mostrarToast} seccionesIniciales={secciones} />
+          ) : vistaResoluciones === "graficosResoluciones" ? (
+            <GraficosResoluciones mostrarToast={mostrarToast} />
           ) : vistaResoluciones === "cuadroCronologico" ? (
             <CuadroCronologico />
           ) : (
