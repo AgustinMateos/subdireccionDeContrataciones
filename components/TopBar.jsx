@@ -20,6 +20,7 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
   const [informesAbierto, setInformesAbierto] = useState(false);
   const [publicacionesAbierto, setPublicacionesAbierto] = useState(false);
   const [perfilAbierto, setPerfilAbierto] = useState(false);
+  const [usuarioAbierto, setUsuarioAbierto] = useState(false); // menú del nombre de usuario
   const esInformaticaYVarios = sesion.departamentoSlug === "informatica-y-varios";
   const esMesaDeEntradas = sesion.departamentoSlug === "mesa-de-entradas";
   // El usuario del panel de control de Servicios solo ve su panel: sin
@@ -72,9 +73,49 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
         <div className="ml-auto flex items-center gap-3 shrink-0">
           {/* Avisos de lo que hace la jefa de la Subdirección (no los recibe ella). */}
           {esResoluciones && sesion.email !== EMAIL_JEFA_SUBDIRECCION && <NotificacionesResoluciones />}
-          <div className="hidden sm:block text-right leading-tight">
-            <div className="text-sm font-medium text-slate-900">{sesion.nombre}</div>
-            <div className="text-[11px] text-slate-500 uppercase tracking-wide">{sesion.rolLabel}</div>
+          {/* Nombre y cargo: abren el menú del usuario. */}
+          <div className="relative hidden sm:block">
+            <button
+              type="button"
+              onClick={() => setUsuarioAbierto(v => !v)}
+              className="flex items-center gap-1.5 text-right leading-tight rounded-md px-2 py-1 hover:bg-slate-50"
+            >
+              <span>
+                <span className="block text-sm font-medium text-slate-900">{sesion.nombre}</span>
+                <span className="block text-[11px] text-slate-500 uppercase tracking-wide">{sesion.rolLabel}</span>
+              </span>
+              <ChevronDown size={14} className={"text-slate-400 transition-transform " + (usuarioAbierto ? "rotate-180" : "")} />
+            </button>
+            {usuarioAbierto && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setUsuarioAbierto(false)} />
+                <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-lg shadow-lg z-30 py-1.5">
+                  <div className="px-3 py-2 border-b border-slate-100 mb-1">
+                    <div className="text-xs font-medium text-slate-900 truncate">{sesion.nombre}</div>
+                    {sesion.email && <div className="text-[11px] text-slate-500 truncate">{sesion.email}</div>}
+                  </div>
+                  <button
+                    onClick={() => { setUsuarioAbierto(false); accederLegajo(); }}
+                    className="w-full flex items-center gap-2.5 text-left px-3 py-2 text-xs hover:bg-slate-50 text-slate-600"
+                  >
+                    <Contact size={14} className="text-slate-400" /> Mi legajo
+                  </button>
+                  <button
+                    onClick={() => { setUsuarioAbierto(false); descargarFormularioFaltas(); }}
+                    className="w-full flex items-center gap-2.5 text-left px-3 py-2 text-xs hover:bg-slate-50 text-slate-600"
+                  >
+                    <FileDown size={14} className="text-slate-400" /> Formulario de faltas (.doc)
+                  </button>
+                  <div className="border-t border-slate-100 my-1" />
+                  <button
+                    onClick={() => { setUsuarioAbierto(false); onLogout(); }}
+                    className="w-full flex items-center gap-2.5 text-left px-3 py-2 text-xs hover:bg-red-50 text-red-700"
+                  >
+                    <LogOut size={14} /> Cerrar sesión
+                  </button>
+                </div>
+              </>
+            )}
           </div>
           <button onClick={onLogout} title="Cerrar sesión" className="p-2 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-600">
             <LogOut size={16} />
