@@ -314,7 +314,12 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
   const seleccionado = form && form !== "nuevo" ? lista.find(e => e.id === form) : null;
 
   async function enviar(url, method, body) {
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body && JSON.stringify(body) });
+    let res;
+    try {
+      res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body && JSON.stringify(body) });
+    } catch {
+      return { error: "Sin conexión: no se guardó el cambio" };
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { error: data.error || "No se pudo guardar" };
     return data;
@@ -334,8 +339,15 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
   // estado (cualquiera; queda en el historial), asignación o prioridad
   // (solo la jefa).
   async function cambiarRapido(e, cambios) {
+    // Se muestra al instante; si el servidor lo rechaza, se vuelve atrás.
+    const anteriores = Object.fromEntries(Object.keys(cambios).map(k => [k, e[k]]));
+    setExpedientes(prev => prev.map(x => (x.id === e.id ? { ...x, ...cambios } : x)));
     const data = await enviar("/api/resoluciones/" + e.id, "PATCH", cambios);
-    if (data.error) { mostrarToast(data.error); return; }
+    if (data.error) {
+      setExpedientes(prev => prev.map(x => (x.id === e.id ? { ...x, ...anteriores } : x)));
+      mostrarToast(data.error);
+      return;
+    }
     setExpedientes(prev => prev.map(x => (x.id === data.expediente.id ? data.expediente : x)));
     const [campo, valor] = Object.entries(cambios)[0];
     mostrarToast(campo === "prioritario"

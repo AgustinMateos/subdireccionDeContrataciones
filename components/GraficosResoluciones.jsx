@@ -39,11 +39,24 @@ export default function GraficosResoluciones({ mostrarToast }) {
   // Reasignación y prioridad (la API solo se las permite a la jefa de la
   // Subdirección).
   async function cambiar(e, cambios, mensaje) {
-    const res = await fetch("/api/resoluciones/" + e.id, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cambios),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) { mostrarToast(data.error || "No se pudo guardar el cambio"); return; }
+    // Se muestra al instante; si el servidor lo rechaza, se vuelve atrás.
+    const anteriores = Object.fromEntries(Object.keys(cambios).map(k => [k, e[k]]));
+    setExpedientes(prev => prev.map(x => (x.id === e.id ? { ...x, ...cambios } : x)));
+    let res, data;
+    try {
+      res = await fetch("/api/resoluciones/" + e.id, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cambios),
+      });
+      data = await res.json().catch(() => ({}));
+    } catch {
+      res = { ok: false };
+      data = { error: "Sin conexión: no se guardó el cambio" };
+    }
+    if (!res.ok) {
+      setExpedientes(prev => prev.map(x => (x.id === e.id ? { ...x, ...anteriores } : x)));
+      mostrarToast(data.error || "No se pudo guardar el cambio");
+      return;
+    }
     setExpedientes(prev => prev.map(x => (x.id === data.expediente.id ? data.expediente : x)));
     mostrarToast(mensaje);
   }
