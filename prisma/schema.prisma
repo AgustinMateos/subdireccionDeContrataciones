@@ -420,3 +420,29 @@ model NotificacionResolucion {
   @@index([leida])
   @@index([creadoEn])
 }
+
+// Plan de Obras (hoy el de 2026): seguimiento de las obras del plan anual,
+// solo para la jefa de la Subdirección. Monto y plazo son texto, como en
+// su planilla ("$ 110.832.640,00", "R1 90dh / R2 7dh", "16 meses").
+model ObraPlan {
+  id                  String    @id @default(cuid())
+  anio                Int       @default(2026)
+  orden               Int       @default(0) // posición en la planilla original
+  expediente          String? // algunas obras todavía no tienen
+  camara              String
+  destino             String?
+  objeto              String
+  monto               String?
+  encuadre            String?
+  estado              String?
+  fechaUltimoMov      DateTime?
+  dependenciaActual   String?
+  ordenCompra         String?
+  fechaNotificacionOC DateTime?
+  plazoEjecucion      String?
+  observaciones       String?
+  creadoEn            DateTime  @default(now())
+  actualizadoEn       DateTime  @updatedAt
+
+  @@index([anio])
+}

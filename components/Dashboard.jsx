@@ -75,6 +75,7 @@ import PanelControlServicios from "./PanelControlServicios";
 import PanelResoluciones from "./PanelResoluciones";
 import CuadroCronologico from "./CuadroCronologico";
 import GraficosResoluciones from "./GraficosResoluciones";
+import PlanObras from "./PlanObras";
 import { SLUG_RESOLUCIONES, USUARIOS_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION } from "@/lib/resoluciones";
 import ModalPendientesMesa from "./ModalPendientesMesa";
 import ModalCambiarEstadoConvocatoria from "./ModalCambiarEstadoConvocatoria";
@@ -772,8 +773,8 @@ export default function App() {
   // Resoluciones es un sistema aparte: su planilla, Valor Modular,
   // Teléfonos y el cuadro cronológico (solo lectura salvo la planilla).
   const esResoluciones = sesion.departamentoSlug === SLUG_RESOLUCIONES;
-  // La solapa de gráficos es solo de la jefa de la Subdirección.
-  const vistaResoluciones = VISTAS_RESOLUCIONES.includes(vista) || (vista === "graficosResoluciones" && sesion.email === EMAIL_JEFA_SUBDIRECCION)
+  // Gráficos y el Plan de Obras son solo de la jefa de la Subdirección.
+  const vistaResoluciones = VISTAS_RESOLUCIONES.includes(vista) || (["graficosResoluciones", "planObras"].includes(vista) && sesion.email === EMAIL_JEFA_SUBDIRECCION)
     ? vista
     : "expedientes";
   // Defensivo: si se llega a una vista exclusiva de Informática y Varios sin pasar
@@ -802,6 +803,8 @@ export default function App() {
             <ListadoTelefonos sesion={sesion} mostrarToast={mostrarToast} seccionesIniciales={secciones} />
           ) : vistaResoluciones === "graficosResoluciones" ? (
             <GraficosResoluciones mostrarToast={mostrarToast} />
+          ) : vistaResoluciones === "planObras" ? (
+            <PlanObras mostrarToast={mostrarToast} />
           ) : vistaResoluciones === "cuadroCronologico" ? (
             <CuadroCronologico />
           ) : (

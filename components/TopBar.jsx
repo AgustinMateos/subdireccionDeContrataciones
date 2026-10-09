@@ -13,6 +13,7 @@ const SECCIONES_RESOLUCIONES = [
   { vista: "listadoTelefonos", etiqueta: "Listado de Teléfonos", Icono: Phone },
   { vista: "cuadroCronologico", etiqueta: "Cuadro cronológico", Icono: Table2 },
   { vista: "graficosResoluciones", etiqueta: "Gráficos", Icono: BarChart3, soloJefa: true },
+  { vista: "planObras", etiqueta: "Plan de Obras 2026", Icono: Building2, soloJefa: true },
 ];
 
 export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista, setVista, mostrarToast }) {
