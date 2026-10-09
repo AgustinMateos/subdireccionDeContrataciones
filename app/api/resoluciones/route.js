@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { compararResoluciones, datosResolucion, soloCamposDeJefa } from "@/lib/resoluciones";
-import { INCLUDE_RESOLUCION, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { INCLUDE_RESOLUCION, avisarSiEsJefa, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
 
 // Expedientes del sector de Resoluciones (sistema aparte).
 export async function GET() {
@@ -24,5 +24,6 @@ export async function POST(request) {
     data: { ...datos, movimientos: cambios.length ? { create: cambios } : undefined },
     include: INCLUDE_RESOLUCION,
   });
+  await avisarSiEsJefa(prisma, session, null, datos, expediente);
   return NextResponse.json({ expediente });
 }

@@ -401,3 +401,22 @@ model MovimientoResolucion {
 
   @@index([expedienteId])
 }
+
+// Avisos para Resoluciones de lo que hace la jefa de la Subdirección en su
+// planilla (alta, modificación, reasignación, prioridad). Sin relación con
+// el expediente para que el aviso quede aunque se borre.
+model NotificacionResolucion {
+  id           String   @id @default(cuid())
+  expedienteId String?
+  exp          String
+  objeto       String?
+  accion       String // "alta" | "modificacion"
+  cambios      Json // [{ campo, anterior, nuevo }]
+  prioritario  Boolean  @default(false) // si el expediente quedó prioritario
+  creadoPor    String
+  leida        Boolean  @default(false)
+  creadoEn     DateTime @default(now())
+
+  @@index([leida])
+  @@index([creadoEn])
+}

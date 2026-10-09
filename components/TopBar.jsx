@@ -5,6 +5,7 @@ import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper
 import { descargarArchivoBase64 } from "@/lib/utils";
 import { FORMULARIO_FALTAS_BASE64, EMAIL_CONTROL_SERVICIOS } from "@/lib/constants";
 import { SLUG_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION } from "@/lib/resoluciones";
+import NotificacionesResoluciones from "./NotificacionesResoluciones";
 // Secciones del navbar de Resoluciones. "expedientes" es su panel.
 const SECCIONES_RESOLUCIONES = [
   { vista: "expedientes", etiqueta: "Panel" },
@@ -69,6 +70,8 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
         {(vista !== "expedientes" || soloSuPanel) && <div className="flex-1" />}
 
         <div className="ml-auto flex items-center gap-3 shrink-0">
+          {/* Avisos de lo que hace la jefa de la Subdirección (no los recibe ella). */}
+          {esResoluciones && sesion.email !== EMAIL_JEFA_SUBDIRECCION && <NotificacionesResoluciones />}
           <div className="hidden sm:block text-right leading-tight">
             <div className="text-sm font-medium text-slate-900">{sesion.nombre}</div>
             <div className="text-[11px] text-slate-500 uppercase tracking-wide">{sesion.rolLabel}</div>
