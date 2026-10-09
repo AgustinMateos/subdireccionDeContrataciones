@@ -73,14 +73,16 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
         <div className="ml-auto flex items-center gap-3 shrink-0">
           {/* Avisos de lo que hace la jefa de la Subdirección (no los recibe ella). */}
           {esResoluciones && sesion.email !== EMAIL_JEFA_SUBDIRECCION && <NotificacionesResoluciones />}
-          {/* Nombre y cargo: abren el menú del usuario. */}
-          <div className="relative hidden sm:block">
+          {/* Nombre y cargo: abren el menú del usuario (ahí está Cerrar
+              sesión). En pantallas angostas, un ícono en su lugar. */}
+          <div className="relative">
             <button
               type="button"
               onClick={() => setUsuarioAbierto(v => !v)}
               className="flex items-center gap-1.5 text-right leading-tight rounded-md px-2 py-1 hover:bg-slate-50"
             >
-              <span>
+              <User size={18} className="sm:hidden text-slate-600" />
+              <span className="hidden sm:block">
                 <span className="block text-sm font-medium text-slate-900">{sesion.nombre}</span>
                 <span className="block text-[11px] text-slate-500 uppercase tracking-wide">{sesion.rolLabel}</span>
               </span>
@@ -111,9 +113,6 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
               </>
             )}
           </div>
-          <button onClick={onLogout} title="Cerrar sesión" className="p-2 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-600">
-            <LogOut size={16} />
-          </button>
         </div>
       </div>
 
