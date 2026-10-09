@@ -9,7 +9,7 @@ import { hoyLocalISO } from "@/lib/mesaEntradas";
 import {
   FUEROS_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, SECTORES_RESOLUCIONES,
   SITUACIONES_RESOLUCIONES, ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta,
-  estaFueraDeResoluciones, fechaISO,
+  estaFueraDeResoluciones, fechaISO, EVENTO_CAMBIOS_RESOLUCIONES,
 } from "@/lib/resoluciones";
 import FiltroDesplegable from "./FiltroDesplegable";
 import BotonAccion from "./BotonAccion";
@@ -84,6 +84,10 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
+  // Versión del expediente al abrir el formulario: si la planilla se
+  // recarga con una más nueva (lo cambió otra persona), se avisa.
+  const [versionAlAbrir] = useState(inicial?.actualizadoEn);
+  const cambioMientrasEditaba = !!inicial && inicial.actualizadoEn !== versionAlAbrir;
 
   // El último movimiento no cambia solo: se carga a mano.
   function set(campo, valor) {
@@ -122,6 +126,11 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
         </div>
 
         <div className="p-6 space-y-5">
+          {cambioMientrasEditaba && (
+            <div className="border border-amber-300 bg-amber-50 rounded-md p-3 text-sm text-amber-900">
+              Este expediente cambió mientras lo tenías abierto (lo modificó otra persona). Cerrá sin guardar y volvé a abrirlo para ver los cambios; si guardás ahora, se pisan con lo que tenés en pantalla.
+            </div>
+          )}
           {confirmarEliminar && (
             <div className="border border-red-200 bg-red-50 rounded-md p-3 flex items-center justify-between gap-3">
               <p className="text-sm text-red-800">Este expediente y su historial se borrarán definitivamente.</p>
@@ -248,20 +257,28 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
   const hayFiltros = Object.entries(f).some(([k, v]) => v !== filtroVacio()[k]);
 
+  // Carga al montar y cada vez que la campana avisa que la jefa cambió
+  // algo (EVENTO_CAMBIOS_RESOLUCIONES); filtros y solapa se mantienen.
   useEffect(() => {
     let activo = true;
-    (async () => {
+    async function cargar(esRecarga) {
       try {
         const res = await fetch("/api/resoluciones");
         // Si el servidor falla sin respuesta, el cuerpo viene vacío.
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Error del servidor (" + res.status + "). Probá recargar la página.");
-        if (activo) setExpedientes(data.expedientes || []);
+        if (activo) {
+          setExpedientes(data.expedientes || []);
+          if (esRecarga) mostrarToast("La jefa de la Subdirección hizo cambios: planilla actualizada");
+        }
       } catch (err) {
-        if (activo) { setExpedientes([]); mostrarToast(err.message || "No se pudieron cargar los expedientes"); }
+        if (activo && !esRecarga) { setExpedientes([]); mostrarToast(err.message || "No se pudieron cargar los expedientes"); }
       }
-    })();
-    return () => { activo = false; };
+    }
+    const alCambiar = () => cargar(true);
+    cargar(false);
+    window.addEventListener(EVENTO_CAMBIOS_RESOLUCIONES, alCambiar);
+    return () => { activo = false; window.removeEventListener(EVENTO_CAMBIOS_RESOLUCIONES, alCambiar); };
     // Solo al montar: mostrarToast del Dashboard cambia en cada render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

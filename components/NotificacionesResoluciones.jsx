@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { EVENTO_CAMBIOS_RESOLUCIONES } from "@/lib/resoluciones";
 import { Bell, ArrowRight } from "lucide-react";
 import { fmtFechaHora } from "@/lib/utils";
 
@@ -18,11 +19,21 @@ function cuando(iso) {
 export default function NotificacionesResoluciones() {
   const [datos, setDatos] = useState({ notificaciones: [], noLeidas: 0 });
   const [abierto, setAbierto] = useState(false);
+  // Aviso más reciente ya visto (undefined hasta la primera carga).
+  const ultimoVisto = useRef(undefined);
 
   async function cargar() {
     try {
       const res = await fetch("/api/resoluciones/notificaciones");
-      if (res.ok) setDatos(await res.json());
+      if (!res.ok) return;
+      const nuevos = await res.json();
+      setDatos(nuevos);
+      // Llegó un aviso nuevo desde la última consulta: el panel recarga.
+      const ultimo = nuevos.notificaciones[0]?.id || null;
+      if (ultimoVisto.current !== undefined && ultimo !== ultimoVisto.current) {
+        window.dispatchEvent(new Event(EVENTO_CAMBIOS_RESOLUCIONES));
+      }
+      ultimoVisto.current = ultimo;
     } catch {
       // Sin conexión: se reintenta en la próxima vuelta.
     }
