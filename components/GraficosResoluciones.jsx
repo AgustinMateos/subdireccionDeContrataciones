@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Star } from "lucide-react";
+import { X, Star, Search } from "lucide-react";
 import { AGENTES_RESOLUCIONES, compararResoluciones, estaFueraDeResoluciones, fechaISO, TIPOS_CONTRATACION_RESOLUCIONES } from "@/lib/resoluciones";
 import { diasRestantes, fmtFecha } from "@/lib/utils";
 
@@ -31,6 +31,7 @@ export default function GraficosResoluciones({ mostrarToast }) {
   const [expedientes, setExpedientes] = useState(null);
   const [activo, setActivo] = useState(null);
   const [agenteAbierto, setAgenteAbierto] = useState(null); // fila tocada del cuadro
+  const [busquedaExp, setBusquedaExp] = useState("");
 
   // Reasignación (la API solo se la permite a la jefa de la Subdirección).
   async function reasignar(e, agente) {
@@ -100,8 +101,37 @@ export default function GraficosResoluciones({ mostrarToast }) {
   const totalTipo = t => filas.reduce((n, f) => n + (f.tipos[t] || 0), 0);
   const celda = n => (n ? n : <span className="text-slate-300">0</span>);
 
+  const agentes = [...new Set([...AGENTES_RESOLUCIONES, ...(expedientes || []).map(e => e.agente).filter(Boolean)])];
+  const resultadosBusqueda = buscarPorExp(expedientes || [], busquedaExp);
+
   return (
     <div className="space-y-6">
+      {/* Buscar un expediente por N° para reasignarlo sin saber de quién es. */}
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-3 flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[240px] max-w-md">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={busquedaExp}
+              onChange={ev => setBusquedaExp(ev.target.value)}
+              placeholder="Buscar por N° de expediente (ej. 13-01447/25 o 1447)"
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-md border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-800"
+            />
+          </div>
+          {busquedaExp.trim() && (
+            <span className="text-xs text-slate-500">
+              {resultadosBusqueda.length} expediente{resultadosBusqueda.length !== 1 ? "s" : ""}
+              <button type="button" onClick={() => setBusquedaExp("")} className="ml-3 font-medium text-slate-500 hover:text-slate-900">Limpiar</button>
+            </span>
+          )}
+        </div>
+        {busquedaExp.trim() && (
+          resultadosBusqueda.length === 0
+            ? <p className="px-5 pb-4 text-sm text-slate-500">No hay expedientes con ese número.</p>
+            : <div className="border-t border-slate-100"><TablaExpedientes lista={resultadosBusqueda} agentes={agentes} onReasignar={reasignar} /></div>
+        )}
+      </div>
+
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50/60 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -226,7 +256,7 @@ export default function GraficosResoluciones({ mostrarToast }) {
         <ExpedientesDelAgente
           agente={agenteAbierto}
           expedientes={(expedientes || []).filter(e => e.situacion !== "FINALIZADO" && (String(e.agente || "").trim() || SIN_ASIGNAR) === agenteAbierto)}
-          agentes={[...new Set([...AGENTES_RESOLUCIONES, ...(expedientes || []).map(e => e.agente).filter(Boolean)])]}
+          agentes={agentes}
           onReasignar={reasignar}
           onCerrar={() => setAgenteAbierto(null)}
         />
@@ -254,54 +284,76 @@ function ExpedientesDelAgente({ agente, expedientes, agentes, onReasignar, onCer
         {lista.length === 0 ? (
           <p className="px-6 py-8 text-sm text-slate-500">No le quedan expedientes en trámite.</p>
         ) : (
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-left text-[11px] text-slate-500 border-b border-slate-100 bg-slate-50/60">
-                <th className="py-2 px-4 font-medium">Exp.</th>
-                <th className="py-2 px-4 font-medium">Objeto</th>
-                <th className="py-2 px-4 font-medium">Tipo</th>
-                <th className="py-2 px-4 font-medium">Sector actual</th>
-                <th className="py-2 px-4 font-medium">Venc. ofertas</th>
-                <th className="py-2 px-4 font-medium">Agente</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lista.map(e => {
-                const venc = fechaISO(e.vencOfertas);
-                const dias = venc ? diasRestantes(venc) : null;
-                return (
-                  <tr key={e.id} className="border-b border-slate-50 align-top">
-                    <td className="py-2 px-4 whitespace-nowrap">
-                      <div className="flex items-center gap-1 font-mono font-semibold text-slate-900">
-                        {e.prioritario && <Star size={12} className="text-amber-500" fill="currentColor" />}{e.exp}
-                      </div>
-                    </td>
-                    <td className="py-2 px-4 text-slate-700 max-w-[320px]"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td>
-                    <td className="py-2 px-4 text-slate-700 whitespace-nowrap">{e.tipoContratacion || "-"}</td>
-                    <td className="py-2 px-4 text-slate-700">{e.sectorActual || "-"}</td>
-                    <td className="py-2 px-4 whitespace-nowrap">
-                      {venc ? fmtFecha(venc) : "-"}
-                      {dias != null && dias >= 0 && dias <= DIAS_POR_VENCER && (
-                        <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-red-300 bg-red-50 text-red-700">{dias} días</span>
-                      )}
-                    </td>
-                    <td className="py-2 px-4">
-                      <select
-                        value={e.agente || ""}
-                        onChange={ev => onReasignar(e, ev.target.value)}
-                        className="text-xs bg-white border border-slate-300 rounded-md px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-slate-800"
-                      >
-                        <option value="">Sin asignar</option>
-                        {agentes.map(a => <option key={a} value={a}>{a}</option>)}
-                      </select>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <TablaExpedientes lista={lista} agentes={agentes} onReasignar={onReasignar} />
         )}
       </div>
     </div>
   );
+}
+
+// Expedientes con un desplegable de agente para reasignar cada uno.
+function TablaExpedientes({ lista, agentes, onReasignar }) {
+  return (
+    <table className="w-full text-xs">
+      <thead>
+        <tr className="text-left text-[11px] text-slate-500 border-b border-slate-100 bg-slate-50/60">
+          <th className="py-2 px-4 font-medium">Exp.</th>
+          <th className="py-2 px-4 font-medium">Objeto</th>
+          <th className="py-2 px-4 font-medium">Tipo</th>
+          <th className="py-2 px-4 font-medium">Sector actual</th>
+          <th className="py-2 px-4 font-medium">Venc. ofertas</th>
+          <th className="py-2 px-4 font-medium">Agente</th>
+        </tr>
+      </thead>
+      <tbody>
+        {lista.map(e => {
+          const venc = fechaISO(e.vencOfertas);
+          const dias = venc ? diasRestantes(venc) : null;
+          return (
+            <tr key={e.id} className="border-b border-slate-50 align-top">
+              <td className="py-2 px-4 whitespace-nowrap">
+                <div className="flex items-center gap-1 font-mono font-semibold text-slate-900">
+                  {e.prioritario && <Star size={12} className="text-amber-500" fill="currentColor" />}{e.exp}
+                </div>
+                {e.situacion === "FINALIZADO" && <span className="text-[10px] font-medium text-slate-500">Finalizado</span>}
+              </td>
+              <td className="py-2 px-4 text-slate-700 max-w-[320px]"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td>
+              <td className="py-2 px-4 text-slate-700 whitespace-nowrap">{e.tipoContratacion || "-"}</td>
+              <td className="py-2 px-4 text-slate-700">{e.sectorActual || "-"}</td>
+              <td className="py-2 px-4 whitespace-nowrap">
+                {venc ? fmtFecha(venc) : "-"}
+                {dias != null && dias >= 0 && dias <= DIAS_POR_VENCER && (
+                  <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-red-300 bg-red-50 text-red-700">{dias} días</span>
+                )}
+              </td>
+              <td className="py-2 px-4">
+                <select
+                  value={e.agente || ""}
+                  onChange={ev => onReasignar(e, ev.target.value)}
+                  className="text-xs bg-white border border-slate-300 rounded-md px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                >
+                  <option value="">Sin asignar</option>
+                  {agentes.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+// Coincidencia por N° de expediente: el texto tal cual o solo los dígitos
+// ("1447" encuentra 13-01447/25). Primero los que siguen en trámite.
+function buscarPorExp(expedientes, texto) {
+  const q = texto.trim().toLowerCase();
+  if (!q) return [];
+  const digitos = q.replace(/\D/g, "");
+  return expedientes
+    .filter(e => {
+      const exp = String(e.exp || "").toLowerCase();
+      return exp.includes(q) || (digitos.length >= 3 && exp.replace(/\D/g, "").includes(digitos));
+    })
+    .sort((a, b) => (a.situacion === "FINALIZADO") - (b.situacion === "FINALIZADO") || compararResoluciones(a, b));
 }
