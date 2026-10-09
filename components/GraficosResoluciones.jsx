@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { estaFueraDeResoluciones, fechaISO, TIPOS_CONTRATACION_RESOLUCIONES } from "@/lib/resoluciones";
-import { diasRestantes } from "@/lib/utils";
+import { X, Star } from "lucide-react";
+import { AGENTES_RESOLUCIONES, compararResoluciones, estaFueraDeResoluciones, fechaISO, TIPOS_CONTRATACION_RESOLUCIONES } from "@/lib/resoluciones";
+import { diasRestantes, fmtFecha } from "@/lib/utils";
 
 // Dos series en orden fijo de la paleta categórica (validada para
 // daltonismo como par adyacente); el número va escrito en cada tramo y hay
@@ -29,6 +30,18 @@ function vencePronto(e) {
 export default function GraficosResoluciones({ mostrarToast }) {
   const [expedientes, setExpedientes] = useState(null);
   const [activo, setActivo] = useState(null);
+  const [agenteAbierto, setAgenteAbierto] = useState(null); // fila tocada del cuadro
+
+  // Reasignación (la API solo se la permite a la jefa de la Subdirección).
+  async function reasignar(e, agente) {
+    const res = await fetch("/api/resoluciones/" + e.id, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agente }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { mostrarToast(data.error || "No se pudo reasignar"); return; }
+    setExpedientes(prev => prev.map(x => (x.id === data.expediente.id ? data.expediente : x)));
+    mostrarToast(e.exp + " asignado a " + (agente || "nadie"));
+  }
 
   useEffect(() => {
     let vivo = true;
@@ -168,7 +181,12 @@ export default function GraficosResoluciones({ mostrarToast }) {
             </thead>
             <tbody>
               {filas.map(f => (
-                <tr key={f.agente} className="border-b border-slate-50 tabular-nums">
+                <tr
+                  key={f.agente}
+                  onClick={() => setAgenteAbierto(f.agente)}
+                  title={"Ver y reasignar los expedientes de " + f.agente}
+                  className="border-b border-slate-50 tabular-nums cursor-pointer hover:bg-slate-50"
+                >
                   <td className="py-1.5 px-4 text-slate-700 font-medium">{f.agente}</td>
                   <td className="py-1.5 px-4 text-right border-l border-slate-100">{celda(f.en)}</td>
                   <td className="py-1.5 px-4 text-right">{celda(f.fuera)}</td>
@@ -202,6 +220,87 @@ export default function GraficosResoluciones({ mostrarToast }) {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {agenteAbierto && (
+        <ExpedientesDelAgente
+          agente={agenteAbierto}
+          expedientes={(expedientes || []).filter(e => e.situacion !== "FINALIZADO" && (String(e.agente || "").trim() || SIN_ASIGNAR) === agenteAbierto)}
+          agentes={[...new Set([...AGENTES_RESOLUCIONES, ...(expedientes || []).map(e => e.agente).filter(Boolean)])]}
+          onReasignar={reasignar}
+          onCerrar={() => setAgenteAbierto(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Expedientes en trámite de un agente (la fila tocada del cuadro), con un
+// desplegable para reasignar cada uno. Al reasignarlo deja de estar en la
+// lista y el cuadro se actualiza.
+function ExpedientesDelAgente({ agente, expedientes, agentes, onReasignar, onCerrar }) {
+  const lista = [...expedientes].sort(compararResoluciones);
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/50" onClick={onCerrar} />
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[88vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3 sticky top-0 bg-white z-10">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">Expedientes de {agente}</h2>
+            <p className="text-xs text-slate-500">{lista.length} en trámite · cambiá el agente para reasignar</p>
+          </div>
+          <button onClick={onCerrar} className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500"><X size={18} /></button>
+        </div>
+        {lista.length === 0 ? (
+          <p className="px-6 py-8 text-sm text-slate-500">No le quedan expedientes en trámite.</p>
+        ) : (
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-[11px] text-slate-500 border-b border-slate-100 bg-slate-50/60">
+                <th className="py-2 px-4 font-medium">Exp.</th>
+                <th className="py-2 px-4 font-medium">Objeto</th>
+                <th className="py-2 px-4 font-medium">Tipo</th>
+                <th className="py-2 px-4 font-medium">Sector actual</th>
+                <th className="py-2 px-4 font-medium">Venc. ofertas</th>
+                <th className="py-2 px-4 font-medium">Agente</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lista.map(e => {
+                const venc = fechaISO(e.vencOfertas);
+                const dias = venc ? diasRestantes(venc) : null;
+                return (
+                  <tr key={e.id} className="border-b border-slate-50 align-top">
+                    <td className="py-2 px-4 whitespace-nowrap">
+                      <div className="flex items-center gap-1 font-mono font-semibold text-slate-900">
+                        {e.prioritario && <Star size={12} className="text-amber-500" fill="currentColor" />}{e.exp}
+                      </div>
+                    </td>
+                    <td className="py-2 px-4 text-slate-700 max-w-[320px]"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td>
+                    <td className="py-2 px-4 text-slate-700 whitespace-nowrap">{e.tipoContratacion || "-"}</td>
+                    <td className="py-2 px-4 text-slate-700">{e.sectorActual || "-"}</td>
+                    <td className="py-2 px-4 whitespace-nowrap">
+                      {venc ? fmtFecha(venc) : "-"}
+                      {dias != null && dias >= 0 && dias <= DIAS_POR_VENCER && (
+                        <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-red-300 bg-red-50 text-red-700">{dias} días</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-4">
+                      <select
+                        value={e.agente || ""}
+                        onChange={ev => onReasignar(e, ev.target.value)}
+                        className="text-xs bg-white border border-slate-300 rounded-md px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                      >
+                        <option value="">Sin asignar</option>
+                        {agentes.map(a => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
