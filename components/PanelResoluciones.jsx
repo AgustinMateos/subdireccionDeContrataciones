@@ -239,6 +239,8 @@ const SOLAPAS = [
   { id: "fuera", etiqueta: "Fuera de Resoluciones", incluye: estaFueraDeResoluciones },
   { id: "fracasos", etiqueta: "Fracasados y desiertas", incluye: esFracasoODesierta },
   { id: "completados", etiqueta: "Completados", incluye: esCompletado },
+  // Para que la jefa de la Subdirección asigne lo pendiente.
+  { id: "sinAsignar", etiqueta: "Sin asignar", incluye: e => !esCompletado(e) && !String(e.agente || "").trim(), soloJefa: true },
 ];
 
 function exportarExcel(filas, solapa) {
@@ -313,6 +315,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
     };
   }, [lista]);
 
+  const solapas = SOLAPAS.filter(s => !s.soloJefa || esJefa);
   const deLaSolapa = useMemo(() => lista.filter(SOLAPAS.find(s => s.id === solapa).incluye), [lista, solapa]);
   const filas = useMemo(() => deLaSolapa.filter(e => {
     if (f.exp && !norm(e.exp + " " + (e.numero || "")).includes(norm(f.exp))) return false;
@@ -391,7 +394,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
   return (
     <div className="space-y-4">
     <div className="flex items-center gap-1 border-b border-slate-200">
-      {SOLAPAS.map(s => (
+      {solapas.map(s => (
         <button
           key={s.id}
           type="button"
