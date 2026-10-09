@@ -4,11 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { X, Plus, Download, Trash2, ArrowRight } from "lucide-react";
 import * as XLSX from "xlsx";
 import { ALERTA_ESTILO, HOY } from "@/lib/constants";
-import { alertaFrenado, fmtFecha } from "@/lib/utils";
+import { fmtFecha } from "@/lib/utils";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
 import {
   FUEROS_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, SECTORES_RESOLUCIONES,
-  SITUACIONES_RESOLUCIONES, ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta,
+  ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta, esCompletado,
   estaFueraDeResoluciones, fechaISO, EVENTO_CAMBIOS_RESOLUCIONES,
 } from "@/lib/resoluciones";
 import FiltroDesplegable from "./FiltroDesplegable";
@@ -26,6 +26,14 @@ function diasEnSector(e) {
   const f = fechaISO(e.fechaUltimoMov);
   if (!f) return null;
   return Math.round((HOY - new Date(f + "T00:00:00")) / 86400000);
+}
+
+// Semáforo de los días en sector: hasta 10 verde, de 11 a 15 amarillo,
+// más de 15 rojo.
+function alertaDias(dias) {
+  if (dias <= 10) return "verde";
+  if (dias <= 15) return "amarillo";
+  return "rojo";
 }
 
 const ETIQUETA_CAMPO = { sectorActual: "Sector actual", tipoResolucion: "Tipo de resolución", estado: "Estado" };
@@ -61,14 +69,14 @@ function FiltroColumna({ valor, etiqueta, opciones, onChange }) {
 function filtroVacio() {
   return {
     exp: "", objeto: "", organismo: "", fuero: "", tipoContratacion: "", tipoResolucion: "",
-    estado: "", sectorActual: "", agente: "", situacion: "TRAMITANDO",
+    estado: "", sectorActual: "", agente: "",
   };
 }
 
 const VACIO = {
   exp: "", fechaIngreso: "", objeto: "", fuero: "", organismo: "", tipoContratacion: "", numero: "",
   tipoResolucion: "", estado: "", sectorActual: "", fechaUltimoMov: "", agente: "", vencOfertas: "",
-  inicioServicio: "", montos: "", observaciones: "", situacion: "TRAMITANDO", prioritario: false,
+  inicioServicio: "", montos: "", observaciones: "", prioritario: false,
 };
 
 function aFormulario(e) {
@@ -76,6 +84,9 @@ function aFormulario(e) {
   const f = {};
   for (const k of Object.keys(VACIO)) f[k] = e[k] ?? "";
   for (const k of ["fechaIngreso", "fechaUltimoMov", "vencOfertas"]) f[k] = fechaISO(e[k]);
+  // El cuadro de observaciones es para agregar una nueva: las anteriores
+  // quedan en el historial.
+  f.observaciones = "";
   return f;
 }
 
@@ -99,7 +110,8 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
   async function guardar() {
     if (!f.exp.trim() || !f.objeto.trim()) { setError("Completá N° de expediente y objeto."); return; }
     setGuardando(true);
-    const res = await onGuardar(f);
+    // Sin observación nueva, queda la última que tenía.
+    const res = await onGuardar({ ...f, observaciones: f.observaciones.trim() || inicial?.observaciones || "" });
     setGuardando(false);
     if (res?.error) setError(res.error);
   }
@@ -153,13 +165,6 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
             ) : (
               <Campo_Input label="Agente (lo asigna la jefa)" value={f.agente} onChange={() => {}} disabled />
             )}
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Situación</label>
-              <select value={f.situacion} onChange={e => set("situacion", e.target.value)}
-                className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800">
-                {SITUACIONES_RESOLUCIONES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
             <div className="col-span-2 md:col-span-4">
               <Campo_Input label="Objeto *" value={f.objeto} onChange={v => set("objeto", v)} />
             </div>
@@ -176,8 +181,9 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
             <Campo_Input label="Inicio de servicio" value={f.inicioServicio} onChange={v => set("inicioServicio", v)} placeholder="1/12/2026 o A PARTIR DE LA OC" />
             <div className="col-span-2 md:col-span-4"><Campo_Input label="Montos" value={f.montos} onChange={v => set("montos", v)} placeholder="$ 61.096.888,00" /></div>
             <div className="col-span-2 md:col-span-4">
-              <label className="block text-xs font-medium text-slate-600 mb-1">Estado / observaciones</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Observaciones</label>
               <textarea value={f.observaciones} onChange={e => set("observaciones", e.target.value)} rows={3}
+                placeholder={inicial ? "Agregar una observación (queda en el historial)..." : ""}
                 className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800 resize-y" />
             </div>
           </div>
@@ -207,8 +213,8 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
                     <li key={m.id} className="flex flex-wrap items-center gap-2 text-sm border border-slate-200 rounded-md px-3 py-2">
                       <span className="text-slate-500 w-20 shrink-0">{fecha(m.fecha)}</span>
                       <span className="text-[11px] font-medium text-slate-500 w-32 shrink-0">{m.campo}</span>
-                      {m.sectorAnterior && (<><span className="text-slate-600">{m.sectorAnterior}</span><ArrowRight size={13} className="text-slate-400" /></>)}
-                      <span className="font-medium text-slate-900">{m.sector}</span>
+                      {m.sectorAnterior && m.campo !== "Observaciones" && (<><span className="text-slate-600">{m.sectorAnterior}</span><ArrowRight size={13} className="text-slate-400" /></>)}
+                      <span className={"font-medium text-slate-900" + (m.campo === "Observaciones" ? " whitespace-pre-line" : "")}>{m.sector}</span>
                       <span className="ml-auto text-[11px] text-slate-400">{m.usuario}</span>
                     </li>
                   ))}
@@ -225,26 +231,28 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
 // Solapas del panel: qué expedientes muestra cada una.
 const SOLAPAS = [
   { id: "general", etiqueta: "General", incluye: () => true },
+  { id: "escritorio", etiqueta: "Escritorio", incluye: e => !esCompletado(e) },
   { id: "fuera", etiqueta: "Fuera de Resoluciones", incluye: estaFueraDeResoluciones },
   { id: "fracasos", etiqueta: "Fracasados y desiertas", incluye: esFracasoODesierta },
+  { id: "completados", etiqueta: "Completados", incluye: esCompletado },
 ];
 
 function exportarExcel(filas, solapa) {
   const datos = [
     ["EXP.", "FECHA INGRESO AL SECTOR", "OBJETO", "FUERO", "ORGANISMO", "TIPO DE CONTRATACION", "NUMERO", "DIAS EN SECTOR",
       "TIPO DE RESOLUCION", "ESTADO", "ULTIMO MOV", "SECTOR ACTUAL", "AGENTE", "VENC. OFERTAS", "INICIO DE SERV", "MONTOS",
-      "ESTADO/OBSERVACIONES", "SITUACION", "PRIORITARIO"],
+      "OBSERVACIONES", "PRIORITARIO"],
     ...filas.map(e => [
       e.exp, fecha(e.fechaIngreso), e.objeto, e.fuero || "", e.organismo || "", e.tipoContratacion || "", e.numero || "",
       diasEnSector(e) ?? "", e.tipoResolucion || "", e.estado || "", fecha(e.fechaUltimoMov), e.sectorActual || "", e.agente || "",
-      fecha(e.vencOfertas), e.inicioServicio || "", e.montos || "", e.observaciones || "", e.situacion, e.prioritario ? "SI" : "",
+      fecha(e.vencOfertas), e.inicioServicio || "", e.montos || "", e.observaciones || "", e.prioritario ? "SI" : "",
     ]),
   ];
   const ws = XLSX.utils.aoa_to_sheet(datos);
-  ws["!cols"] = [14, 12, 40, 30, 30, 14, 10, 8, 18, 18, 12, 16, 8, 12, 16, 18, 50, 14, 12].map(wch => ({ wch }));
+  ws["!cols"] = [14, 12, 40, 30, 30, 14, 10, 8, 18, 18, 12, 16, 8, 12, 16, 18, 50, 12].map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Resoluciones");
-  XLSX.writeFile(wb, "resoluciones-" + (solapa === "general" ? "" : solapa + "-") + hoyLocalISO() + ".xlsx");
+  XLSX.writeFile(wb, "resoluciones-" + (solapa === "escritorio" ? "" : solapa + "-") + hoyLocalISO() + ".xlsx");
 }
 
 // Sistema del sector de Resoluciones: la planilla de seguimiento de
@@ -254,7 +262,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
   const esJefa = sesion.email === EMAIL_JEFA_SUBDIRECCION;
   const [expedientes, setExpedientes] = useState(null);
   const [f, setF] = useState(filtroVacio);
-  const [solapa, setSolapa] = useState("general");
+  const [solapa, setSolapa] = useState("escritorio");
   const [form, setForm] = useState(null); // null | "nuevo" | id del expediente
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
   const hayFiltros = Object.entries(f).some(([k, v]) => v !== filtroVacio()[k]);
@@ -296,7 +304,6 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
       estado: de("estado", ESTADOS_RESOLUCION),
       sectorActual: de("sectorActual", []),
       agente: de("agente", AGENTES_RESOLUCIONES),
-      situacion: de("situacion", SITUACIONES_RESOLUCIONES),
     };
   }, [lista]);
 
@@ -305,7 +312,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
     if (f.exp && !norm(e.exp + " " + (e.numero || "")).includes(norm(f.exp))) return false;
     if (f.objeto && !norm(e.objeto + " " + (e.observaciones || "")).includes(norm(f.objeto))) return false;
     if (f.organismo && !norm(e.organismo).includes(norm(f.organismo))) return false;
-    for (const campo of ["fuero", "tipoContratacion", "tipoResolucion", "estado", "sectorActual", "agente", "situacion"]) {
+    for (const campo of ["fuero", "tipoContratacion", "tipoResolucion", "estado", "sectorActual", "agente"]) {
       if (f[campo] && e[campo] !== f[campo]) return false;
     }
     return true;
@@ -382,7 +389,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
         >
           {s.etiqueta}
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 tabular-nums">
-            {lista.filter(s.incluye).filter(e => !f.situacion || e.situacion === f.situacion).length}
+            {lista.filter(s.incluye).length}
           </span>
         </button>
       ))}
@@ -409,12 +416,12 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[2100px]">
+        <table className="w-full text-sm min-w-[1980px]">
           <thead>
             <tr className="text-left border-b border-slate-100 bg-slate-50/40 text-[11px] font-medium text-slate-500 uppercase tracking-wide">
               {["Exp.", "Ingreso al sector", "Objeto", "Fuero", "Organismo", "Tipo de contratación", "Número", "Días en sector",
                 "Tipo de resolución", "Estado", "Último mov.", "Sector actual", "Agente", "Venc. ofertas", "Inicio de serv.",
-                "Montos", "Estado / observaciones", "Situación"].map(t => <th key={t} className="pt-2 px-3">{t}</th>)}
+                "Montos", "Observaciones"].map(t => <th key={t} className="pt-2 px-3">{t}</th>)}
             </tr>
             <tr className="text-left border-b border-slate-100 bg-slate-50/40">
               <th className="py-2 px-3 align-top w-[130px]"><input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} /></th>
@@ -434,12 +441,11 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
               <th className="py-2 px-3" />
               <th className="py-2 px-3" />
               <th className="py-2 px-3" />
-              <th className="py-2 px-3 align-top w-[130px]"><FiltroColumna valor={f.situacion} etiqueta="Todas" opciones={opciones.situacion} onChange={v => set("situacion", v)} /></th>
             </tr>
           </thead>
           <tbody>
             {filas.length === 0 ? (
-              <tr><td colSpan={18} className="py-10 text-center text-sm text-slate-500">No hay expedientes con esos filtros.</td></tr>
+              <tr><td colSpan={17} className="py-10 text-center text-sm text-slate-500">No hay expedientes con esos filtros.</td></tr>
             ) : filas.map(e => {
               const dias = diasEnSector(e);
               return (
@@ -463,7 +469,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
                   <td className="py-2.5 px-3 whitespace-nowrap">{e.numero || "-"}</td>
                   <td className="py-2.5 px-3">
                     {dias != null ? (
-                      <span className={"text-[11px] font-medium px-2 py-0.5 rounded border whitespace-nowrap " + ALERTA_ESTILO[alertaFrenado(dias)]}>{dias} día{dias !== 1 ? "s" : ""}</span>
+                      <span className={"text-[11px] font-medium px-2 py-0.5 rounded border whitespace-nowrap " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""}</span>
                     ) : "-"}
                   </td>
                   <td className="py-2.5 px-3" onClick={ev => ev.stopPropagation()}>
@@ -495,7 +501,6 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
                   <td className="py-2.5 px-3">{e.inicioServicio || "-"}</td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{e.montos || "-"}</td>
                   <td className="py-2.5 px-3 max-w-[320px]"><span className="line-clamp-3 whitespace-pre-line" title={e.observaciones || ""}>{e.observaciones || "-"}</span></td>
-                  <td className="py-2.5 px-3 whitespace-nowrap">{e.situacion}</td>
                 </tr>
               );
             })}

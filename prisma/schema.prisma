@@ -371,7 +371,7 @@ model ExpedienteResolucion {
   inicioServicio   String? // texto: una fecha o "A PARTIR DE LA OC"
   montos           String? // texto: monto y aclaraciones ("SIN DEFINIR PARTIDA")
   observaciones    String?
-  situacion        String    @default("TRAMITANDO") // TRAMITANDO | FINALIZADO | CIRC. DE FIRMAS
+  situacion        String    @default("TRAMITANDO") // ya no se usa: lo finalizado va en estado ("Completado")
   // Lo marca la jefa de la Subdirección (igual que la asignación del
   // agente): va primero en la planilla, con su etiqueta.
   prioritario      Boolean   @default(false)
@@ -385,7 +385,7 @@ model ExpedienteResolucion {
 }
 
 // Historial de cambios de un expediente de Resoluciones: sector actual,
-// tipo de resolución o estado (`campo`). sectorAnterior/sector guardan el
+// tipo de resolución, estado u observaciones (`campo`). sectorAnterior/sector guardan el
 // valor anterior y el nuevo del campo que cambió (los nombres vienen de
 // cuando solo se registraban pases de sector).
 model MovimientoResolucion {
@@ -393,7 +393,7 @@ model MovimientoResolucion {
   expedienteId   String
   expediente     ExpedienteResolucion @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
   fecha          DateTime // día del cambio (no toca fechaUltimoMov del expediente)
-  campo          String               @default("Sector actual") // Sector actual | Tipo de resolución | Estado
+  campo          String               @default("Sector actual") // Sector actual | Tipo de resolución | Estado | Observaciones
   sectorAnterior String?
   sector         String
   usuario        String

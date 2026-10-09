@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { X, Search } from "lucide-react";
-import { AGENTES_RESOLUCIONES, compararResoluciones, estaFueraDeResoluciones, fechaISO, TIPOS_CONTRATACION_RESOLUCIONES } from "@/lib/resoluciones";
+import { AGENTES_RESOLUCIONES, compararResoluciones, esCompletado, estaFueraDeResoluciones, fechaISO, TIPOS_CONTRATACION_RESOLUCIONES } from "@/lib/resoluciones";
 import { diasRestantes, fmtFecha } from "@/lib/utils";
 import EstrellaPrioridad from "./EstrellaPrioridad";
 
@@ -27,7 +27,7 @@ function vencePronto(e) {
 }
 
 // Solapa de gráficos de la jefa de la Subdirección: cuántos expedientes en
-// trámite (no finalizados) tiene cada agente en Resoluciones y fuera.
+// trámite (no completados) tiene cada agente en Resoluciones y fuera.
 export default function GraficosResoluciones({ mostrarToast }) {
   const [expedientes, setExpedientes] = useState(null);
   const [activo, setActivo] = useState(null);
@@ -84,7 +84,7 @@ export default function GraficosResoluciones({ mostrarToast }) {
   const filas = useMemo(() => {
     const porAgente = new Map();
     for (const e of expedientes || []) {
-      if (e.situacion === "FINALIZADO") continue;
+      if (esCompletado(e)) continue;
       const agente = String(e.agente || "").trim() || SIN_ASIGNAR;
       const fila = porAgente.get(agente) || { agente, en: 0, fuera: 0, tipos: {}, prioritarios: 0, porVencer: 0 };
       fila[estaFueraDeResoluciones(e) ? "fuera" : "en"]++;
@@ -156,7 +156,7 @@ export default function GraficosResoluciones({ mostrarToast }) {
         <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50/60 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-slate-900">Expedientes por agente</h3>
-            <span className="text-[11px] text-slate-500">En trámite (sin finalizados): {totales.en + totales.fuera} expedientes</span>
+            <span className="text-[11px] text-slate-500">En trámite (sin completados): {totales.en + totales.fuera} expedientes</span>
           </div>
           <div className="flex items-center gap-4 text-xs text-slate-700">
             {SERIES.map(s => (
@@ -293,7 +293,7 @@ export default function GraficosResoluciones({ mostrarToast }) {
           agente={abiertoEn.agente}
           ubicacion={SERIES.find(s => s.clave === abiertoEn.ubicacion)?.etiqueta}
           expedientes={(expedientes || []).filter(e =>
-            e.situacion !== "FINALIZADO"
+            !esCompletado(e)
             && (String(e.agente || "").trim() || SIN_ASIGNAR) === abiertoEn.agente
             && (!abiertoEn.ubicacion || (abiertoEn.ubicacion === "fuera") === estaFueraDeResoluciones(e)))}
           agentes={agentes}
@@ -361,7 +361,7 @@ function TablaExpedientes({ lista, agentes, onReasignar, onPrioridad }) {
                 {e.prioritario && (
                   <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800">Prioritario</span>
                 )}
-                {e.situacion === "FINALIZADO" && <span className="block text-[10px] font-medium text-slate-500">Finalizado</span>}
+                {esCompletado(e) && <span className="block text-[10px] font-medium text-slate-500">Completado</span>}
               </td>
               <td className="py-2 px-4 text-slate-700 max-w-[320px]"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td>
               <td className="py-2 px-4 text-slate-700 whitespace-nowrap">{e.tipoContratacion || "-"}</td>
@@ -402,5 +402,5 @@ function buscarPorExp(expedientes, texto) {
       const exp = String(e.exp || "").toLowerCase();
       return exp.includes(q) || (digitos.length >= 3 && exp.replace(/\D/g, "").includes(digitos));
     })
-    .sort((a, b) => (a.situacion === "FINALIZADO") - (b.situacion === "FINALIZADO") || compararResoluciones(a, b));
+    .sort(compararResoluciones);
 }
