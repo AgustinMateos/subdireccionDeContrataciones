@@ -1,4 +1,8 @@
-// Una sola vez, para los expedientes de Resoluciones ya cargados:
+// Para los expedientes de Resoluciones ya cargados (correrlo antes de
+// publicar cambios que necesiten columnas nuevas):
+//  0. Agrega las columnas de la renovación automática del vencimiento de
+//     ofertas si no están (sin `db push`, para no tocar columnas de otras
+//     ramas que la base pueda tener).
 //  1. Pasa al historial la observación que cada uno tenía antes de que las
 //     observaciones se registraran (saltea los que ya tienen alguna).
 //  2. Los de situación FINALIZADO quedan con estado "Completado" (la
@@ -12,6 +16,12 @@ const prisma = new PrismaClient();
 const USUARIO = "Registro anterior";
 
 async function main() {
+  await prisma.$executeRawUnsafe(`ALTER TABLE "ExpedienteResolucion"
+    ADD COLUMN IF NOT EXISTS "renovacionAutomatica" BOOLEAN NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS "renovacionDias" INTEGER,
+    ADD COLUMN IF NOT EXISTS "renovacionHabiles" BOOLEAN NOT NULL DEFAULT true`);
+  console.log("Columnas de renovación automática: listas");
+
   const conObservaciones = await prisma.expedienteResolucion.findMany({
     where: { observaciones: { not: null }, movimientos: { none: { campo: "Observaciones" } } },
   });

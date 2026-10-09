@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { EMAIL_JEFA_SUBDIRECCION } from "@/lib/resoluciones";
-import { sesionResoluciones } from "@/lib/resolucionesServidor";
+import { aplicarRenovaciones, sesionResoluciones } from "@/lib/resolucionesServidor";
 
-// Los avisos son para Resoluciones; la jefa de la Subdirección es quien
-// los genera y no los recibe.
+// Los avisos son para Resoluciones: lo que hace la jefa de la Subdirección
+// (que no los recibe) y las renovaciones automáticas.
 async function sesionDestinatario() {
   const session = await sesionResoluciones();
   return session && session.user.email !== EMAIL_JEFA_SUBDIRECCION ? session : null;
 }
 
-// Últimos avisos y cuántos sin leer.
+// Últimos avisos y cuántos sin leer. La campana consulta cada minuto: de
+// paso se aplican las renovaciones automáticas (y su aviso llega solo).
 export async function GET() {
   if (!(await sesionDestinatario())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  await aplicarRenovaciones(prisma);
   const [notificaciones, noLeidas] = await Promise.all([
     prisma.notificacionResolucion.findMany({ orderBy: { creadoEn: "desc" }, take: 50 }),
     prisma.notificacionResolucion.count({ where: { leida: false } }),

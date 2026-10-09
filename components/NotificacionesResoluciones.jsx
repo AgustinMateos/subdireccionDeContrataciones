@@ -15,7 +15,8 @@ function cuando(iso) {
 }
 
 // Campana de avisos de Resoluciones: lo que la jefa de la Subdirección
-// cargó, modificó, reasignó o marcó como prioritario.
+// cargó, modificó, reasignó o marcó como prioritario, y las renovaciones
+// automáticas del vencimiento de ofertas.
 export default function NotificacionesResoluciones() {
   const [datos, setDatos] = useState({ notificaciones: [], noLeidas: 0 });
   const [abierto, setAbierto] = useState(false);
@@ -56,7 +57,7 @@ export default function NotificacionesResoluciones() {
     <div className="relative">
       <button
         onClick={() => { setAbierto(v => !v); if (!abierto) cargar(); }}
-        title="Avisos de la jefa de la Subdirección"
+        title="Avisos de la jefa de la Subdirección y renovaciones automáticas"
         className="relative p-2 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-600"
       >
         <Bell size={16} />
@@ -99,7 +100,9 @@ export default function NotificacionesResoluciones() {
                     </div>
                     {n.objeto && <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{n.objeto}</p>}
                     <p className="text-[11px] text-slate-500 mt-1">
-                      {n.creadoPor} {n.accion === "alta" ? "cargó este expediente" : "modificó:"}
+                      {n.accion === "renovacion"
+                        ? "Se renovó automáticamente el vencimiento de ofertas:"
+                        : n.creadoPor + (n.accion === "alta" ? " cargó este expediente" : " modificó:")}
                     </p>
                     {(n.cambios || []).length > 0 && (
                       <ul className="mt-1 space-y-0.5">

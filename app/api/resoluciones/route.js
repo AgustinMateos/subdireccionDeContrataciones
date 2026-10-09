@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { compararResoluciones, datosResolucion, soloCamposDeJefa } from "@/lib/resoluciones";
-import { INCLUDE_RESOLUCION, avisarSiEsJefa, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { INCLUDE_RESOLUCION, aplicarRenovaciones, avisarSiEsJefa, conPlanObras, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
 
-// Expedientes del sector de Resoluciones (sistema aparte).
+// Expedientes del sector de Resoluciones (sistema aparte). Antes se
+// aplican las renovaciones automáticas de vencimiento de ofertas.
 export async function GET() {
   if (!(await sesionResoluciones())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  const expedientes = await prisma.expedienteResolucion.findMany({ include: INCLUDE_RESOLUCION });
+  await aplicarRenovaciones(prisma);
+  const expedientes = await conPlanObras(prisma, await prisma.expedienteResolucion.findMany({ include: INCLUDE_RESOLUCION }));
   return NextResponse.json({ expedientes: expedientes.sort(compararResoluciones) });
 }
 
@@ -25,5 +27,5 @@ export async function POST(request) {
     include: INCLUDE_RESOLUCION,
   });
   await avisarSiEsJefa(prisma, session, null, datos, expediente);
-  return NextResponse.json({ expediente });
+  return NextResponse.json({ expediente: await conPlanObras(prisma, expediente) });
 }

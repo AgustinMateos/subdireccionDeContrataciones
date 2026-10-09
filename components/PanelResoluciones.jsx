@@ -8,12 +8,13 @@ import { fmtFecha } from "@/lib/utils";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
 import {
   FUEROS_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, SECTORES_RESOLUCIONES,
-  ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta, esCompletado,
+  ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta, esCompletado, esParaAdjudicar, esPrioritario,
   estaFueraDeResoluciones, fechaISO, EVENTO_CAMBIOS_RESOLUCIONES,
 } from "@/lib/resoluciones";
 import FiltroDesplegable from "./FiltroDesplegable";
 import BotonAccion from "./BotonAccion";
 import EstrellaPrioridad from "./EstrellaPrioridad";
+import EtiquetasPrioridad from "./EtiquetasPrioridad";
 import { Campo_Input } from "./CamposFormulario";
 import CampoOpciones from "./CampoOpciones";
 
@@ -81,6 +82,7 @@ const VACIO = {
   exp: "", fechaIngreso: "", objeto: "", fuero: "", organismo: "", tipoContratacion: "", numero: "",
   tipoResolucion: "", estado: "", sectorActual: "", fechaUltimoMov: "", agente: "", vencOfertas: "",
   inicioServicio: "", montos: "", observaciones: "", prioritario: false,
+  renovacionAutomatica: false, renovacionDias: "", renovacionHabiles: true,
 };
 
 function aFormulario(e) {
@@ -113,6 +115,8 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
 
   async function guardar() {
     if (!f.exp.trim() || !f.objeto.trim()) { setError("Completá N° de expediente y objeto."); return; }
+    if (f.renovacionAutomatica && !(Number(f.renovacionDias) > 0)) { setError("Completá los días de la renovación automática."); return; }
+    if (f.renovacionAutomatica && !f.vencOfertas) { setError("Para la renovación automática cargá el vencimiento de ofertas."); return; }
     setGuardando(true);
     // Sin observación nueva, queda la última que tenía.
     const res = await onGuardar({ ...f, observaciones: f.observaciones.trim() || inicial?.observaciones || "" });
@@ -183,6 +187,25 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
             <Campo_Input label="Último movimiento" type="date" value={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
             <Campo_Input label="Venc. ofertas" type="date" value={f.vencOfertas} onChange={v => set("vencOfertas", v)} />
             <Campo_Input label="Inicio de servicio" value={f.inicioServicio} onChange={v => set("inicioServicio", v)} placeholder="1/12/2026 o A PARTIR DE LA OC" />
+            <div className="col-span-2 md:col-span-4 border border-slate-200 rounded-md px-3 py-2.5 space-y-2">
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" checked={!!f.renovacionAutomatica} onChange={e => set("renovacionAutomatica", e.target.checked)} className="rounded border-slate-300" />
+                Renovación automática del vencimiento de ofertas
+              </label>
+              {f.renovacionAutomatica && (
+                <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700">
+                  <span>Al vencer, se renueva por</span>
+                  <input type="number" min="1" value={f.renovacionDias} onChange={e => set("renovacionDias", e.target.value)}
+                    className="w-20 text-sm border border-slate-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+                  <select value={f.renovacionHabiles ? "habiles" : "corridos"} onChange={e => set("renovacionHabiles", e.target.value === "habiles")}
+                    className="text-sm border border-slate-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800">
+                    <option value="habiles">días hábiles</option>
+                    <option value="corridos">días corridos</option>
+                  </select>
+                  <span className="text-xs text-slate-500">Queda en el historial y avisa en la campana.</span>
+                </div>
+              )}
+            </div>
             <div className="col-span-2 md:col-span-4"><Campo_Input label="Montos" value={f.montos} onChange={v => set("montos", v)} placeholder="$ 61.096.888,00" /></div>
             <div className="col-span-2 md:col-span-4">
               <label className="block text-xs font-medium text-slate-600 mb-1">Observaciones</label>
@@ -236,6 +259,9 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
 const SOLAPAS = [
   { id: "general", etiqueta: "General", incluye: () => true },
   { id: "escritorio", etiqueta: "Escritorio", incluye: e => !esCompletado(e) },
+  // Los que siguen en trámite: marcados con estrella o en el Plan de Obras.
+  { id: "prioritarios", etiqueta: "Prioritarios", incluye: e => !esCompletado(e) && esPrioritario(e) },
+  { id: "adjudicar", etiqueta: "Para adjudicar", incluye: e => !esCompletado(e) && esParaAdjudicar(e) },
   { id: "fuera", etiqueta: "Fuera de Resoluciones", incluye: estaFueraDeResoluciones },
   { id: "fracasos", etiqueta: "Fracasados y desiertas", incluye: esFracasoODesierta },
   { id: "completados", etiqueta: "Completados", incluye: esCompletado },
@@ -251,7 +277,7 @@ function exportarExcel(filas, solapa) {
     ...filas.map(e => [
       e.exp, fecha(e.fechaIngreso), e.objeto, e.fuero || "", e.organismo || "", e.tipoContratacion || "", e.numero || "",
       diasEnSector(e) ?? "", e.tipoResolucion || "", e.estado || "", fecha(e.fechaUltimoMov), e.sectorActual || "", e.agente || "",
-      fecha(e.vencOfertas), e.inicioServicio || "", e.montos || "", e.observaciones || "", e.prioritario ? "SI" : "",
+      fecha(e.vencOfertas), e.inicioServicio || "", e.montos || "", e.observaciones || "", e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
     ]),
   ];
   const ws = XLSX.utils.aoa_to_sheet(datos);
@@ -469,11 +495,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
                       {esJefa && <EstrellaPrioridad prioritario={e.prioritario} onClick={() => cambiarRapido(e, { prioritario: !e.prioritario })} />}
                       <span className="font-mono font-semibold text-slate-900">{e.exp}</span>
                     </div>
-                    {e.prioritario && (
-                      <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800">
-                        Prioritario
-                      </span>
-                    )}
+                    <EtiquetasPrioridad expediente={e} />
                   </td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{fecha(e.fechaIngreso)}</td>
                   <td className="py-2.5 px-3"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td>
@@ -511,7 +533,14 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
                       </select>
                     ) : (e.agente || "-")}
                   </td>
-                  <td className="py-2.5 px-3 whitespace-nowrap">{fecha(e.vencOfertas)}</td>
+                  <td className="py-2.5 px-3 whitespace-nowrap">
+                    {fecha(e.vencOfertas)}
+                    {e.renovacionAutomatica && e.renovacionDias > 0 && (
+                      <span className="block text-[10px] text-slate-500" title="Renovación automática">
+                        ↻ {e.renovacionDias} {e.renovacionHabiles ? "háb." : "corr."}
+                      </span>
+                    )}
+                  </td>
                   <td className="py-2.5 px-3">{e.inicioServicio || "-"}</td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{e.montos || "-"}</td>
                 </tr>

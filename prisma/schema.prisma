@@ -375,6 +375,12 @@ model ExpedienteResolucion {
   // Lo marca la jefa de la Subdirección (igual que la asignación del
   // agente): va primero en la planilla, con su etiqueta.
   prioritario      Boolean   @default(false)
+  // Renovación automática del vencimiento de ofertas: al pasar vencOfertas
+  // se corre solo `renovacionDias` días (hábiles o corridos), con
+  // constancia en el historial y aviso en la campana.
+  renovacionAutomatica Boolean @default(false)
+  renovacionDias       Int?
+  renovacionHabiles    Boolean @default(true)
 
   movimientos   MovimientoResolucion[]
   creadoEn      DateTime               @default(now())

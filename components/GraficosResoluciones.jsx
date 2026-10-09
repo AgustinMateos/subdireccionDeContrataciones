@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { X, Search } from "lucide-react";
-import { AGENTES_RESOLUCIONES, compararResoluciones, esCompletado, estaFueraDeResoluciones, fechaISO, TIPOS_CONTRATACION_RESOLUCIONES } from "@/lib/resoluciones";
+import { AGENTES_RESOLUCIONES, compararResoluciones, esCompletado, esPrioritario, estaFueraDeResoluciones, fechaISO, TIPOS_CONTRATACION_RESOLUCIONES } from "@/lib/resoluciones";
 import { diasRestantes, fmtFecha } from "@/lib/utils";
 import EstrellaPrioridad from "./EstrellaPrioridad";
+import EtiquetasPrioridad from "./EtiquetasPrioridad";
 
 // Dos series en orden fijo de la paleta categórica (validada para
 // daltonismo como par adyacente); el número va escrito en cada tramo y hay
@@ -90,7 +91,7 @@ export default function GraficosResoluciones({ mostrarToast }) {
       fila[estaFueraDeResoluciones(e) ? "fuera" : "en"]++;
       const tipo = String(e.tipoContratacion || "").trim() || SIN_TIPO;
       fila.tipos[tipo] = (fila.tipos[tipo] || 0) + 1;
-      if (e.prioritario) fila.prioritarios++;
+      if (esPrioritario(e)) fila.prioritarios++;
       if (vencePronto(e)) fila.porVencer++;
       porAgente.set(agente, fila);
     }
@@ -358,9 +359,7 @@ function TablaExpedientes({ lista, agentes, onReasignar, onPrioridad }) {
                   <EstrellaPrioridad prioritario={e.prioritario} onClick={() => onPrioridad(e)} />
                   {e.exp}
                 </div>
-                {e.prioritario && (
-                  <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800">Prioritario</span>
-                )}
+                <EtiquetasPrioridad expediente={e} />
                 {/* Un completado ya se fue de Resoluciones: no cuenta en los gráficos. */}
                 {esCompletado(e) && (
                   <span className="block w-fit mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-slate-300 bg-slate-100 text-slate-600">
