@@ -33,16 +33,20 @@ export default function GraficosResoluciones({ mostrarToast }) {
   const [agenteAbierto, setAgenteAbierto] = useState(null); // fila tocada del cuadro
   const [busquedaExp, setBusquedaExp] = useState("");
 
-  // Reasignación (la API solo se la permite a la jefa de la Subdirección).
-  async function reasignar(e, agente) {
+  // Reasignación y prioridad (la API solo se las permite a la jefa de la
+  // Subdirección).
+  async function cambiar(e, cambios, mensaje) {
     const res = await fetch("/api/resoluciones/" + e.id, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agente }),
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cambios),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) { mostrarToast(data.error || "No se pudo reasignar"); return; }
+    if (!res.ok) { mostrarToast(data.error || "No se pudo guardar el cambio"); return; }
     setExpedientes(prev => prev.map(x => (x.id === data.expediente.id ? data.expediente : x)));
-    mostrarToast(e.exp + " asignado a " + (agente || "nadie"));
+    mostrarToast(mensaje);
   }
+  const reasignar = (e, agente) => cambiar(e, { agente }, e.exp + " asignado a " + (agente || "nadie"));
+  const alternarPrioridad = e => cambiar(e, { prioritario: !e.prioritario },
+    e.prioritario ? e.exp + " ya no es prioritario" : e.exp + " marcado como prioritario");
 
   useEffect(() => {
     let vivo = true;
@@ -128,7 +132,7 @@ export default function GraficosResoluciones({ mostrarToast }) {
         {busquedaExp.trim() && (
           resultadosBusqueda.length === 0
             ? <p className="px-5 pb-4 text-sm text-slate-500">No hay expedientes con ese número.</p>
-            : <div className="border-t border-slate-100"><TablaExpedientes lista={resultadosBusqueda} agentes={agentes} onReasignar={reasignar} /></div>
+            : <div className="border-t border-slate-100"><TablaExpedientes lista={resultadosBusqueda} agentes={agentes} onReasignar={reasignar} onPrioridad={alternarPrioridad} /></div>
         )}
       </div>
 
@@ -258,6 +262,7 @@ export default function GraficosResoluciones({ mostrarToast }) {
           expedientes={(expedientes || []).filter(e => e.situacion !== "FINALIZADO" && (String(e.agente || "").trim() || SIN_ASIGNAR) === agenteAbierto)}
           agentes={agentes}
           onReasignar={reasignar}
+          onPrioridad={alternarPrioridad}
           onCerrar={() => setAgenteAbierto(null)}
         />
       )}
@@ -268,7 +273,7 @@ export default function GraficosResoluciones({ mostrarToast }) {
 // Expedientes en trámite de un agente (la fila tocada del cuadro), con un
 // desplegable para reasignar cada uno. Al reasignarlo deja de estar en la
 // lista y el cuadro se actualiza.
-function ExpedientesDelAgente({ agente, expedientes, agentes, onReasignar, onCerrar }) {
+function ExpedientesDelAgente({ agente, expedientes, agentes, onReasignar, onPrioridad, onCerrar }) {
   const lista = [...expedientes].sort(compararResoluciones);
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
@@ -284,7 +289,7 @@ function ExpedientesDelAgente({ agente, expedientes, agentes, onReasignar, onCer
         {lista.length === 0 ? (
           <p className="px-6 py-8 text-sm text-slate-500">No le quedan expedientes en trámite.</p>
         ) : (
-          <TablaExpedientes lista={lista} agentes={agentes} onReasignar={onReasignar} />
+          <TablaExpedientes lista={lista} agentes={agentes} onReasignar={onReasignar} onPrioridad={onPrioridad} />
         )}
       </div>
     </div>
@@ -292,7 +297,7 @@ function ExpedientesDelAgente({ agente, expedientes, agentes, onReasignar, onCer
 }
 
 // Expedientes con un desplegable de agente para reasignar cada uno.
-function TablaExpedientes({ lista, agentes, onReasignar }) {
+function TablaExpedientes({ lista, agentes, onReasignar, onPrioridad }) {
   return (
     <table className="w-full text-xs">
       <thead>
@@ -313,9 +318,20 @@ function TablaExpedientes({ lista, agentes, onReasignar }) {
             <tr key={e.id} className="border-b border-slate-50 align-top">
               <td className="py-2 px-4 whitespace-nowrap">
                 <div className="flex items-center gap-1 font-mono font-semibold text-slate-900">
-                  {e.prioritario && <Star size={12} className="text-amber-500" fill="currentColor" />}{e.exp}
+                  <button
+                    type="button"
+                    onClick={() => onPrioridad(e)}
+                    title={e.prioritario ? "Quitar prioridad" : "Marcar como prioritario"}
+                    className={"p-0.5 rounded hover:bg-amber-50 " + (e.prioritario ? "text-amber-500" : "text-slate-300 hover:text-amber-500")}
+                  >
+                    <Star size={14} fill={e.prioritario ? "currentColor" : "none"} />
+                  </button>
+                  {e.exp}
                 </div>
-                {e.situacion === "FINALIZADO" && <span className="text-[10px] font-medium text-slate-500">Finalizado</span>}
+                {e.prioritario && (
+                  <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800">Prioritario</span>
+                )}
+                {e.situacion === "FINALIZADO" && <span className="block text-[10px] font-medium text-slate-500">Finalizado</span>}
               </td>
               <td className="py-2 px-4 text-slate-700 max-w-[320px]"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td>
               <td className="py-2 px-4 text-slate-700 whitespace-nowrap">{e.tipoContratacion || "-"}</td>
