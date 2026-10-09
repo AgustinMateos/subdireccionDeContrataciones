@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { CAMPOS_DE_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, datosResolucion, sinCamposDeResoluciones, soloCamposDeJefa } from "@/lib/resoluciones";
-import { INCLUDE_RESOLUCION, avisarSiEsJefa, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { INCLUDE_RESOLUCION, avisarSiEsJefa, conContadorReactivado, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
 
 // Edición. Los cambios de sector actual, tipo de resolución y estado
 // quedan en el historial; la fecha del último movimiento solo cambia si se
-// edita a mano.
+// edita a mano o si un completado vuelve a otro estado (reingresa: hoy).
 export async function PUT(request, { params }) {
   const { id } = await params;
   const session = await sesionResoluciones();
@@ -15,7 +15,8 @@ export async function PUT(request, { params }) {
 
   // Si no es la jefa, la asignación y la prioridad quedan como estaban.
   // La jefa no cambia tipo de resolución, estado ni sector actual.
-  const datos = sinCamposDeResoluciones(soloCamposDeJefa(datosResolucion(await request.json()), session.user.email), session.user.email);
+  const datos = conContadorReactivado(existente,
+    sinCamposDeResoluciones(soloCamposDeJefa(datosResolucion(await request.json()), session.user.email), session.user.email));
   if (!datos.exp || !datos.objeto) {
     return NextResponse.json({ error: "Completá N° de expediente y objeto" }, { status: 400 });
   }
@@ -47,11 +48,12 @@ export async function PATCH(request, { params }) {
   const existente = await prisma.expedienteResolucion.findUnique({ where: { id } });
   if (!existente) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-  const data = {};
+  let data = {};
   for (const k of ["sectorActual", "tipoResolucion", "estado", "agente"]) {
     if (k in body) data[k] = String(body[k] || "").trim() || null;
   }
   if ("prioritario" in body) data.prioritario = body.prioritario === true;
+  data = conContadorReactivado(existente, data);
   const cambios = registrosDeCambios(existente, data, session.user.name);
   const expediente = await prisma.expedienteResolucion.update({
     where: { id },

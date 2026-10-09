@@ -21,8 +21,10 @@ const norm = s => String(s || "").trim().toLowerCase();
 const fecha = f => (f ? fmtFecha(fechaISO(f)) : "-");
 const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-900 hover:border-slate-500 transition-colors focus:outline-none focus:border-slate-500 placeholder:text-slate-400";
 
-// Días desde el último movimiento (la columna "Días en sector").
+// Días desde el último movimiento (la columna "Días en sector"). Un
+// completado ya se fue del sector: no cuenta.
 function diasEnSector(e) {
+  if (esCompletado(e)) return null;
   const f = fechaISO(e.fechaUltimoMov);
   if (!f) return null;
   return Math.round((HOY - new Date(f + "T00:00:00")) / 86400000);
@@ -254,7 +256,7 @@ function exportarExcel(filas, solapa) {
   ws["!cols"] = [14, 12, 40, 30, 30, 14, 10, 8, 18, 18, 12, 16, 8, 12, 16, 18, 50, 12].map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Resoluciones");
-  XLSX.writeFile(wb, "resoluciones-" + (solapa === "escritorio" ? "" : solapa + "-") + hoyLocalISO() + ".xlsx");
+  XLSX.writeFile(wb, "resoluciones-" + (solapa === "general" ? "" : solapa + "-") + hoyLocalISO() + ".xlsx");
 }
 
 // Sistema del sector de Resoluciones: la planilla de seguimiento de
@@ -264,7 +266,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
   const esJefa = sesion.email === EMAIL_JEFA_SUBDIRECCION;
   const [expedientes, setExpedientes] = useState(null);
   const [f, setF] = useState(filtroVacio);
-  const [solapa, setSolapa] = useState("escritorio");
+  const [solapa, setSolapa] = useState("general");
   const [form, setForm] = useState(null); // null | "nuevo" | id del expediente
   const [pagina, setPagina] = useState(0);
   // Cambiar un filtro o la solapa vuelve a la primera página.
