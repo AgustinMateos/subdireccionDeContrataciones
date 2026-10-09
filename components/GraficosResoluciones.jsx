@@ -31,7 +31,9 @@ function vencePronto(e) {
 export default function GraficosResoluciones({ mostrarToast }) {
   const [expedientes, setExpedientes] = useState(null);
   const [activo, setActivo] = useState(null);
-  const [agenteAbierto, setAgenteAbierto] = useState(null); // fila tocada del cuadro
+  // Lo tocado en el gráfico o el cuadro: { agente, ubicacion } con
+  // ubicacion "en" | "fuera" (un tramo de la barra) o null (todo el agente).
+  const [abiertoEn, setAbiertoEn] = useState(null);
   const [busquedaExp, setBusquedaExp] = useState("");
 
   // Reasignación y prioridad (la API solo se las permite a la jefa de la
@@ -164,13 +166,22 @@ export default function GraficosResoluciones({ mostrarToast }) {
                   onMouseEnter={() => setActivo(f.agente)}
                   className={"grid grid-cols-[90px_1fr_auto] items-center gap-3 rounded px-1 py-1 " + (esActivo ? "bg-slate-50" : "")}
                 >
-                  <span className="text-xs font-medium text-slate-700 truncate" title={f.agente}>{f.agente}</span>
+                  <button
+                    type="button"
+                    onClick={() => setAbiertoEn({ agente: f.agente, ubicacion: null })}
+                    title={"Ver los expedientes de " + f.agente}
+                    className="text-left text-xs font-medium text-slate-700 truncate hover:text-slate-900 hover:underline"
+                  >
+                    {f.agente}
+                  </button>
                   <div className="flex h-5 min-w-0" style={{ width: (total / max) * 100 + "%", opacity: activo && !esActivo ? 0.45 : 1 }}>
                     {SERIES.map((s, i) => f[s.clave] > 0 && (
-                      <div
+                      <button
+                        type="button"
                         key={s.clave}
-                        title={s.etiqueta + ": " + f[s.clave]}
-                        className={"h-full flex items-center justify-center text-[11px] font-semibold text-white tabular-nums " +
+                        onClick={() => setAbiertoEn({ agente: f.agente, ubicacion: s.clave })}
+                        title={s.etiqueta + ": " + f[s.clave] + " (ver expedientes)"}
+                        className={"h-full flex items-center justify-center text-[11px] font-semibold text-white tabular-nums cursor-pointer hover:brightness-110 " +
                           (i === SERIES.length - 1 || !f[SERIES[i + 1].clave] ? "rounded-r" : "")}
                         style={{
                           width: (f[s.clave] / total) * 100 + "%",
@@ -181,10 +192,17 @@ export default function GraficosResoluciones({ mostrarToast }) {
                         }}
                       >
                         {f[s.clave]}
-                      </div>
+                      </button>
                     ))}
                   </div>
-                  <span className="text-xs font-semibold text-slate-900 tabular-nums w-8 text-right">{total}</span>
+                  <button
+                    type="button"
+                    onClick={() => setAbiertoEn({ agente: f.agente, ubicacion: null })}
+                    title={"Ver los expedientes de " + f.agente}
+                    className="text-xs font-semibold text-slate-900 tabular-nums w-8 text-right hover:underline"
+                  >
+                    {total}
+                  </button>
                 </div>
               );
             })}
@@ -218,7 +236,7 @@ export default function GraficosResoluciones({ mostrarToast }) {
               {filas.map(f => (
                 <tr
                   key={f.agente}
-                  onClick={() => setAgenteAbierto(f.agente)}
+                  onClick={() => setAbiertoEn({ agente: f.agente, ubicacion: null })}
                   title={"Ver y reasignar los expedientes de " + f.agente}
                   className="border-b border-slate-50 tabular-nums cursor-pointer hover:bg-slate-50"
                 >
@@ -257,14 +275,18 @@ export default function GraficosResoluciones({ mostrarToast }) {
         </div>
       </div>
 
-      {agenteAbierto && (
+      {abiertoEn && (
         <ExpedientesDelAgente
-          agente={agenteAbierto}
-          expedientes={(expedientes || []).filter(e => e.situacion !== "FINALIZADO" && (String(e.agente || "").trim() || SIN_ASIGNAR) === agenteAbierto)}
+          agente={abiertoEn.agente}
+          ubicacion={SERIES.find(s => s.clave === abiertoEn.ubicacion)?.etiqueta}
+          expedientes={(expedientes || []).filter(e =>
+            e.situacion !== "FINALIZADO"
+            && (String(e.agente || "").trim() || SIN_ASIGNAR) === abiertoEn.agente
+            && (!abiertoEn.ubicacion || (abiertoEn.ubicacion === "fuera") === estaFueraDeResoluciones(e)))}
           agentes={agentes}
           onReasignar={reasignar}
           onPrioridad={alternarPrioridad}
-          onCerrar={() => setAgenteAbierto(null)}
+          onCerrar={() => setAbiertoEn(null)}
         />
       )}
     </div>
@@ -274,7 +296,7 @@ export default function GraficosResoluciones({ mostrarToast }) {
 // Expedientes en trámite de un agente (la fila tocada del cuadro), con un
 // desplegable para reasignar cada uno. Al reasignarlo deja de estar en la
 // lista y el cuadro se actualiza.
-function ExpedientesDelAgente({ agente, expedientes, agentes, onReasignar, onPrioridad, onCerrar }) {
+function ExpedientesDelAgente({ agente, ubicacion, expedientes, agentes, onReasignar, onPrioridad, onCerrar }) {
   const lista = [...expedientes].sort(compararResoluciones);
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
@@ -282,7 +304,7 @@ function ExpedientesDelAgente({ agente, expedientes, agentes, onReasignar, onPri
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[88vh] overflow-y-auto">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3 sticky top-0 bg-white z-10">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">Expedientes de {agente}</h2>
+            <h2 className="text-base font-semibold text-slate-900">Expedientes de {agente}{ubicacion ? " · " + ubicacion : ""}</h2>
             <p className="text-xs text-slate-500">{lista.length} en trámite · cambiá el agente para reasignar</p>
           </div>
           <button onClick={onCerrar} className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500"><X size={18} /></button>
