@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { estaFueraDeResoluciones } from "@/lib/resoluciones";
+import { estaFueraDeResoluciones, fechaISO, TIPOS_CONTRATACION_RESOLUCIONES } from "@/lib/resoluciones";
+import { diasRestantes } from "@/lib/utils";
 
 // Dos series en orden fijo de la paleta categórica (validada para
 // daltonismo como par adyacente); el número va escrito en cada tramo y hay
@@ -12,6 +13,16 @@ const SERIES = [
 ];
 
 const SIN_ASIGNAR = "Sin asignar";
+const SIN_TIPO = "Sin tipo";
+const DIAS_POR_VENCER = 30;
+
+// Vencimiento de ofertas entre hoy y dentro de DIAS_POR_VENCER días.
+function vencePronto(e) {
+  const f = fechaISO(e.vencOfertas);
+  if (!f) return false;
+  const dias = diasRestantes(f);
+  return dias >= 0 && dias <= DIAS_POR_VENCER;
+}
 
 // Solapa de gráficos de la jefa de la Subdirección: cuántos expedientes en
 // trámite (no finalizados) tiene cada agente en Resoluciones y fuera.
@@ -41,8 +52,12 @@ export default function GraficosResoluciones({ mostrarToast }) {
     for (const e of expedientes || []) {
       if (e.situacion === "FINALIZADO") continue;
       const agente = String(e.agente || "").trim() || SIN_ASIGNAR;
-      const fila = porAgente.get(agente) || { agente, en: 0, fuera: 0 };
+      const fila = porAgente.get(agente) || { agente, en: 0, fuera: 0, tipos: {}, prioritarios: 0, porVencer: 0 };
       fila[estaFueraDeResoluciones(e) ? "fuera" : "en"]++;
+      const tipo = String(e.tipoContratacion || "").trim() || SIN_TIPO;
+      fila.tipos[tipo] = (fila.tipos[tipo] || 0) + 1;
+      if (e.prioritario) fila.prioritarios++;
+      if (vencePronto(e)) fila.porVencer++;
       porAgente.set(agente, fila);
     }
     // Más cargado primero; "Sin asignar" siempre al final.
@@ -55,7 +70,22 @@ export default function GraficosResoluciones({ mostrarToast }) {
   }
 
   const max = Math.max(1, ...filas.map(f => f.en + f.fuera));
-  const totales = filas.reduce((t, f) => ({ en: t.en + f.en, fuera: t.fuera + f.fuera }), { en: 0, fuera: 0 });
+  const totales = filas.reduce((t, f) => ({
+    en: t.en + f.en,
+    fuera: t.fuera + f.fuera,
+    prioritarios: t.prioritarios + f.prioritarios,
+    porVencer: t.porVencer + f.porVencer,
+  }), { en: 0, fuera: 0, prioritarios: 0, porVencer: 0 });
+  // Columnas de tipo de contratación: las de la lista que aparecen, en su
+  // orden, más las que se cargaron fuera de lista; "Sin tipo" al final.
+  const presentes = new Set(filas.flatMap(f => Object.keys(f.tipos)));
+  const tipos = [
+    ...TIPOS_CONTRATACION_RESOLUCIONES.filter(t => presentes.has(t)),
+    ...[...presentes].filter(t => !TIPOS_CONTRATACION_RESOLUCIONES.includes(t) && t !== SIN_TIPO).sort(),
+    ...(presentes.has(SIN_TIPO) ? [SIN_TIPO] : []),
+  ];
+  const totalTipo = t => filas.reduce((n, f) => n + (f.tipos[t] || 0), 0);
+  const celda = n => (n ? n : <span className="text-slate-300">0</span>);
 
   return (
     <div className="space-y-6">
@@ -114,34 +144,64 @@ export default function GraficosResoluciones({ mostrarToast }) {
         )}
       </div>
 
-      {/* Los mismos números en tabla. */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden max-w-xl">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs text-slate-500 border-b border-slate-100 bg-slate-50/60">
-              <th className="py-2 px-4 font-medium">Agente</th>
-              <th className="py-2 px-4 font-medium text-right">En Resoluciones</th>
-              <th className="py-2 px-4 font-medium text-right">Fuera</th>
-              <th className="py-2 px-4 font-medium text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filas.map(f => (
-              <tr key={f.agente} className="border-b border-slate-50">
-                <td className="py-1.5 px-4 text-slate-700">{f.agente}</td>
-                <td className="py-1.5 px-4 text-right tabular-nums">{f.en}</td>
-                <td className="py-1.5 px-4 text-right tabular-nums">{f.fuera}</td>
-                <td className="py-1.5 px-4 text-right font-semibold tabular-nums">{f.en + f.fuera}</td>
+      {/* Los mismos números en tabla, con el detalle por tipo de
+          contratación, prioritarios y vencimientos próximos. */}
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-[11px] text-slate-500 bg-slate-50/60">
+                <th rowSpan={2} className="py-2 px-4 font-medium text-left align-bottom">Agente</th>
+                <th colSpan={3} className="pt-2 px-4 font-medium text-center border-l border-slate-200">Ubicación</th>
+                {tipos.length > 0 && <th colSpan={tipos.length} className="pt-2 px-4 font-medium text-center border-l border-slate-200">Tipo de contratación</th>}
+                <th rowSpan={2} className="py-2 px-4 font-medium text-right align-bottom border-l border-slate-200">Prioritarios</th>
+                <th rowSpan={2} className="py-2 px-4 font-medium text-right align-bottom">Vencen en {DIAS_POR_VENCER} días</th>
               </tr>
-            ))}
-            <tr className="bg-slate-50/60 font-semibold">
-              <td className="py-1.5 px-4">Total</td>
-              <td className="py-1.5 px-4 text-right tabular-nums">{totales.en}</td>
-              <td className="py-1.5 px-4 text-right tabular-nums">{totales.fuera}</td>
-              <td className="py-1.5 px-4 text-right tabular-nums">{totales.en + totales.fuera}</td>
-            </tr>
-          </tbody>
-        </table>
+              <tr className="text-[11px] text-slate-500 border-b border-slate-100 bg-slate-50/60">
+                <th className="pb-2 px-4 font-medium text-right border-l border-slate-200">En Resoluciones</th>
+                <th className="pb-2 px-4 font-medium text-right">Fuera</th>
+                <th className="pb-2 px-4 font-medium text-right">Total</th>
+                {tipos.map((t, i) => (
+                  <th key={t} className={"pb-2 px-3 font-medium text-right whitespace-nowrap " + (i === 0 ? "border-l border-slate-200" : "")}>{t}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filas.map(f => (
+                <tr key={f.agente} className="border-b border-slate-50 tabular-nums">
+                  <td className="py-1.5 px-4 text-slate-700 font-medium">{f.agente}</td>
+                  <td className="py-1.5 px-4 text-right border-l border-slate-100">{celda(f.en)}</td>
+                  <td className="py-1.5 px-4 text-right">{celda(f.fuera)}</td>
+                  <td className="py-1.5 px-4 text-right font-semibold">{f.en + f.fuera}</td>
+                  {tipos.map((t, i) => (
+                    <td key={t} className={"py-1.5 px-3 text-right " + (i === 0 ? "border-l border-slate-100" : "")}>{celda(f.tipos[t] || 0)}</td>
+                  ))}
+                  <td className="py-1.5 px-4 text-right border-l border-slate-100">
+                    {f.prioritarios ? (
+                      <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800">{f.prioritarios}</span>
+                    ) : celda(0)}
+                  </td>
+                  <td className="py-1.5 px-4 text-right">
+                    {f.porVencer ? (
+                      <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border border-red-300 bg-red-50 text-red-700">{f.porVencer}</span>
+                    ) : celda(0)}
+                  </td>
+                </tr>
+              ))}
+              <tr className="bg-slate-50/60 font-semibold tabular-nums">
+                <td className="py-1.5 px-4">Total</td>
+                <td className="py-1.5 px-4 text-right border-l border-slate-100">{totales.en}</td>
+                <td className="py-1.5 px-4 text-right">{totales.fuera}</td>
+                <td className="py-1.5 px-4 text-right">{totales.en + totales.fuera}</td>
+                {tipos.map((t, i) => (
+                  <td key={t} className={"py-1.5 px-3 text-right " + (i === 0 ? "border-l border-slate-100" : "")}>{totalTipo(t)}</td>
+                ))}
+                <td className="py-1.5 px-4 text-right border-l border-slate-100">{totales.prioritarios}</td>
+                <td className="py-1.5 px-4 text-right">{totales.porVencer}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
