@@ -361,7 +361,12 @@ function TablaExpedientes({ lista, agentes, onReasignar, onPrioridad }) {
                 {e.prioritario && (
                   <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800">Prioritario</span>
                 )}
-                {esCompletado(e) && <span className="block text-[10px] font-medium text-slate-500">Completado</span>}
+                {/* Un completado ya se fue de Resoluciones: no cuenta en los gráficos. */}
+                {esCompletado(e) && (
+                  <span className="block w-fit mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-slate-300 bg-slate-100 text-slate-600">
+                    Completado · fuera del sector Resoluciones
+                  </span>
+                )}
               </td>
               <td className="py-2 px-4 text-slate-700 max-w-[320px]"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td>
               <td className="py-2 px-4 text-slate-700 whitespace-nowrap">{e.tipoContratacion || "-"}</td>
