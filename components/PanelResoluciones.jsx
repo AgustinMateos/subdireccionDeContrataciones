@@ -167,9 +167,10 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
             <div className="col-span-2"><Campo_Input label="Organismo" value={f.organismo} onChange={v => set("organismo", v)} /></div>
             <CampoOpciones label="Tipo de contratación" value={f.tipoContratacion} onChange={v => set("tipoContratacion", v)} opciones={TIPOS_CONTRATACION_RESOLUCIONES} />
             <Campo_Input label="Número" value={f.numero} onChange={v => set("numero", v)} placeholder="139/26" />
-            <CampoOpciones label="Tipo de resolución" value={f.tipoResolucion} onChange={v => set("tipoResolucion", v)} opciones={TIPOS_RESOLUCION} />
-            <CampoOpciones label="Estado" value={f.estado} onChange={v => set("estado", v)} opciones={ESTADOS_RESOLUCION} />
-            <CampoOpciones label="Sector actual" value={f.sectorActual} onChange={v => set("sectorActual", v)} opciones={SECTORES_RESOLUCIONES} />
+            {/* La jefa no modifica tipo de resolución, estado ni sector actual (sí los carga en un alta). */}
+            <CampoOpciones label="Tipo de resolución" value={f.tipoResolucion} onChange={v => set("tipoResolucion", v)} opciones={TIPOS_RESOLUCION} disabled={esJefa && !!inicial} />
+            <CampoOpciones label="Estado" value={f.estado} onChange={v => set("estado", v)} opciones={ESTADOS_RESOLUCION} disabled={esJefa && !!inicial} />
+            <CampoOpciones label="Sector actual" value={f.sectorActual} onChange={v => set("sectorActual", v)} opciones={SECTORES_RESOLUCIONES} disabled={esJefa && !!inicial} />
             <Campo_Input label="Último movimiento" type="date" value={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
             <Campo_Input label="Venc. ofertas" type="date" value={f.vencOfertas} onChange={v => set("vencOfertas", v)} />
             <Campo_Input label="Inicio de servicio" value={f.inicioServicio} onChange={v => set("inicioServicio", v)} placeholder="1/12/2026 o A PARTIR DE LA OC" />
@@ -454,14 +455,16 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
                     ) : "-"}
                   </td>
                   <td className="py-2.5 px-3" onClick={ev => ev.stopPropagation()}>
-                    <SelectRapido valor={e.tipoResolucion} opciones={TIPOS_RESOLUCION} onChange={v => cambiarRapido(e, { tipoResolucion: v })} />
+                    {esJefa ? (e.tipoResolucion || "-") : <SelectRapido valor={e.tipoResolucion} opciones={TIPOS_RESOLUCION} onChange={v => cambiarRapido(e, { tipoResolucion: v })} />}
                   </td>
                   <td className="py-2.5 px-3" onClick={ev => ev.stopPropagation()}>
-                    <SelectRapido valor={e.estado} opciones={ESTADOS_RESOLUCION} onChange={v => cambiarRapido(e, { estado: v })} />
+                    {esJefa ? (e.estado || "-") : <SelectRapido valor={e.estado} opciones={ESTADOS_RESOLUCION} onChange={v => cambiarRapido(e, { estado: v })} />}
                   </td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{fecha(e.fechaUltimoMov)}</td>
                   <td className="py-2.5 px-3" onClick={ev => ev.stopPropagation()}>
-                    <SelectRapido valor={e.sectorActual} opciones={SECTORES_RESOLUCIONES} onChange={v => cambiarRapido(e, { sectorActual: v })} fuerte />
+                    {esJefa
+                      ? <span className="font-medium text-slate-900">{e.sectorActual || "-"}</span>
+                      : <SelectRapido valor={e.sectorActual} opciones={SECTORES_RESOLUCIONES} onChange={v => cambiarRapido(e, { sectorActual: v })} fuerte />}
                   </td>
                   <td className="py-2.5 px-3" onClick={esJefa ? ev => ev.stopPropagation() : undefined}>
                     {esJefa ? (

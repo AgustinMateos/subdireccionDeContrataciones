@@ -6,14 +6,14 @@ import { ChevronDown, Check } from "lucide-react";
 // Campo de texto con lista de opciones. A diferencia de un <datalist>, al
 // tocarlo muestra TODAS las opciones aunque ya tenga un valor cargado; al
 // escribir, filtra. Se puede cargar un valor que no esté en la lista.
-export default function CampoOpciones({ label, value, onChange, opciones, placeholder }) {
+export default function CampoOpciones({ label, value, onChange, opciones, placeholder, disabled }) {
   const [abierto, setAbierto] = useState(false);
   const [filtro, setFiltro] = useState(null); // null: sin escribir desde que se abrió → todas
   const [marcada, setMarcada] = useState(-1);
   const ref = useRef(null);
   const listaRef = useRef(null);
 
-  const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const norm = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const visibles = filtro === null ? opciones : opciones.filter(o => norm(o).includes(norm(filtro)));
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export default function CampoOpciones({ label, value, onChange, opciones, placeh
   }, [abierto, marcada]);
 
   function abrir() {
-    if (abierto) return;
+    if (abierto || disabled) return;
     setFiltro(null);
     setMarcada(opciones.indexOf(value));
     setAbierto(true);
@@ -66,16 +66,17 @@ export default function CampoOpciones({ label, value, onChange, opciones, placeh
           onKeyDown={tecla}
           onChange={e => { onChange(e.target.value); setFiltro(e.target.value); setMarcada(0); setAbierto(true); }}
           autoComplete="off"
-          className="w-full text-sm border border-slate-300 rounded-md pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800"
+          disabled={disabled}
+          className="w-full text-sm border border-slate-300 rounded-md pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800 disabled:bg-slate-100 disabled:text-slate-500"
         />
-        <button
+        {!disabled && <button
           type="button"
           tabIndex={-1}
           onMouseDown={e => { e.preventDefault(); abierto ? cerrar() : abrir(); }}
           className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700"
         >
           <ChevronDown size={15} className={"transition-transform " + (abierto ? "rotate-180" : "")} />
-        </button>
+        </button>}
       </div>
       {abierto && visibles.length > 0 && (
         <ul ref={listaRef} className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg py-1">

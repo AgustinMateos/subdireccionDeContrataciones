@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { EMAIL_JEFA_SUBDIRECCION, datosResolucion, soloCamposDeJefa } from "@/lib/resoluciones";
+import { CAMPOS_DE_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, datosResolucion, sinCamposDeResoluciones, soloCamposDeJefa } from "@/lib/resoluciones";
 import { INCLUDE_RESOLUCION, avisarSiEsJefa, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
 
 // Edición. Los cambios de sector actual, tipo de resolución y estado
@@ -14,7 +14,8 @@ export async function PUT(request, { params }) {
   if (!existente) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   // Si no es la jefa, la asignación y la prioridad quedan como estaban.
-  const datos = soloCamposDeJefa(datosResolucion(await request.json()), session.user.email);
+  // La jefa no cambia tipo de resolución, estado ni sector actual.
+  const datos = sinCamposDeResoluciones(soloCamposDeJefa(datosResolucion(await request.json()), session.user.email), session.user.email);
   if (!datos.exp || !datos.objeto) {
     return NextResponse.json({ error: "Completá N° de expediente y objeto" }, { status: 400 });
   }
@@ -37,6 +38,9 @@ export async function PATCH(request, { params }) {
   const session = await sesionResoluciones();
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const body = await request.json();
+  if (session.user.email === EMAIL_JEFA_SUBDIRECCION && CAMPOS_DE_RESOLUCIONES.some(k => k in body)) {
+    return NextResponse.json({ error: "Tipo de resolución, estado y sector actual los modifica Resoluciones" }, { status: 403 });
+  }
   if (("agente" in body || "prioritario" in body) && session.user.email !== EMAIL_JEFA_SUBDIRECCION) {
     return NextResponse.json({ error: "Solo la jefa de la Subdirección puede cambiar la asignación o la prioridad" }, { status: 403 });
   }
