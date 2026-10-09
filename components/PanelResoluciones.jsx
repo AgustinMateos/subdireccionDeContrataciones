@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Plus, Download, Trash2, ArrowRight } from "lucide-react";
+import { X, Plus, Download, Trash2, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx";
 import { ALERTA_ESTILO, HOY } from "@/lib/constants";
 import { fmtFecha } from "@/lib/utils";
@@ -35,6 +35,8 @@ function alertaDias(dias) {
   if (dias <= 15) return "amarillo";
   return "rojo";
 }
+
+const POR_PAGINA = 15;
 
 const ETIQUETA_CAMPO = { sectorActual: "Sector actual", tipoResolucion: "Tipo de resolución", estado: "Estado" };
 
@@ -264,7 +266,9 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
   const [f, setF] = useState(filtroVacio);
   const [solapa, setSolapa] = useState("escritorio");
   const [form, setForm] = useState(null); // null | "nuevo" | id del expediente
-  function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
+  const [pagina, setPagina] = useState(0);
+  // Cambiar un filtro o la solapa vuelve a la primera página.
+  function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); setPagina(0); }
   const hayFiltros = Object.entries(f).some(([k, v]) => v !== filtroVacio()[k]);
 
   // Carga al montar y cada vez que la campana avisa que la jefa cambió
@@ -317,6 +321,12 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
     }
     return true;
   }).sort(compararResoluciones), [deLaSolapa, f]);
+
+  // Si la lista se achica (otro filtro, un expediente que cambia de
+  // solapa), la página no queda fuera de rango.
+  const totalPaginas = Math.max(1, Math.ceil(filas.length / POR_PAGINA));
+  const paginaActual = Math.min(pagina, totalPaginas - 1);
+  const filasPagina = filas.slice(paginaActual * POR_PAGINA, (paginaActual + 1) * POR_PAGINA);
 
   const seleccionado = form && form !== "nuevo" ? lista.find(e => e.id === form) : null;
 
@@ -383,7 +393,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
         <button
           key={s.id}
           type="button"
-          onClick={() => setSolapa(s.id)}
+          onClick={() => { setSolapa(s.id); setPagina(0); }}
           className={"px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 " +
             (solapa === s.id ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}
         >
@@ -402,7 +412,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
         </div>
         <div className="flex items-center gap-3">
           {hayFiltros && (
-            <button type="button" onClick={() => setF(filtroVacio())} className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-900">
+            <button type="button" onClick={() => { setF(filtroVacio()); setPagina(0); }} className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-900">
               <X size={12} /> Limpiar filtros
             </button>
           )}
@@ -445,7 +455,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
           <tbody>
             {filas.length === 0 ? (
               <tr><td colSpan={16} className="py-10 text-center text-sm text-slate-500">No hay expedientes con esos filtros.</td></tr>
-            ) : filas.map(e => {
+            ) : filasPagina.map(e => {
               const dias = diasEnSector(e);
               return (
                 <tr key={e.id} onClick={() => setForm(e.id)} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 cursor-pointer align-top text-xs text-slate-700">
@@ -505,6 +515,29 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
           </tbody>
         </table>
       </div>
+
+      {totalPaginas > 1 && (
+        <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-t border-slate-100 text-xs text-slate-500">
+          <span>{paginaActual * POR_PAGINA + 1}–{paginaActual * POR_PAGINA + filasPagina.length} de {filas.length}</span>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => setPagina(paginaActual - 1)} disabled={paginaActual === 0} title="Página anterior"
+              className="p-1 rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white">
+              <ChevronLeft size={14} />
+            </button>
+            {Array.from({ length: totalPaginas }, (_, i) => (
+              <button key={i} type="button" onClick={() => setPagina(i)}
+                className={"min-w-[26px] px-1.5 py-1 rounded-md text-xs font-medium tabular-nums " +
+                  (i === paginaActual ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100")}>
+                {i + 1}
+              </button>
+            ))}
+            <button type="button" onClick={() => setPagina(paginaActual + 1)} disabled={paginaActual === totalPaginas - 1} title="Página siguiente"
+              className="p-1 rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white">
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {form && (
         <FormularioResolucion
