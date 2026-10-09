@@ -8,7 +8,8 @@ import { alertaFrenado, fmtFecha } from "@/lib/utils";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
 import {
   FUEROS_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, SECTORES_RESOLUCIONES,
-  SITUACIONES_RESOLUCIONES, ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, fechaISO,
+  SITUACIONES_RESOLUCIONES, ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta,
+  estaFueraDeResoluciones, fechaISO,
 } from "@/lib/resoluciones";
 import FiltroDesplegable from "./FiltroDesplegable";
 import BotonAccion from "./BotonAccion";
@@ -210,7 +211,14 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
   );
 }
 
-function exportarExcel(filas) {
+// Solapas del panel: qué expedientes muestra cada una.
+const SOLAPAS = [
+  { id: "general", etiqueta: "General", incluye: () => true },
+  { id: "fuera", etiqueta: "Fuera de Resoluciones", incluye: estaFueraDeResoluciones },
+  { id: "fracasos", etiqueta: "Fracasados y desiertas", incluye: esFracasoODesierta },
+];
+
+function exportarExcel(filas, solapa) {
   const datos = [
     ["EXP.", "FECHA INGRESO AL SECTOR", "OBJETO", "FUERO", "ORGANISMO", "TIPO DE CONTRATACION", "NUMERO", "DIAS EN SECTOR",
       "TIPO DE RESOLUCION", "ESTADO", "ULTIMO MOV", "SECTOR ACTUAL", "AGENTE", "VENC. OFERTAS", "INICIO DE SERV", "MONTOS",
@@ -225,7 +233,7 @@ function exportarExcel(filas) {
   ws["!cols"] = [14, 12, 40, 30, 30, 14, 10, 8, 18, 18, 12, 16, 8, 12, 16, 18, 50, 14, 12].map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Resoluciones");
-  XLSX.writeFile(wb, "resoluciones-" + hoyLocalISO() + ".xlsx");
+  XLSX.writeFile(wb, "resoluciones-" + (solapa === "general" ? "" : solapa + "-") + hoyLocalISO() + ".xlsx");
 }
 
 // Sistema del sector de Resoluciones: la planilla de seguimiento de
@@ -235,6 +243,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
   const esJefa = sesion.email === EMAIL_JEFA_SUBDIRECCION;
   const [expedientes, setExpedientes] = useState(null);
   const [f, setF] = useState(filtroVacio);
+  const [solapa, setSolapa] = useState("general");
   const [form, setForm] = useState(null); // null | "nuevo" | id del expediente
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); }
   const hayFiltros = Object.entries(f).some(([k, v]) => v !== filtroVacio()[k]);
@@ -272,7 +281,8 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
     };
   }, [lista]);
 
-  const filas = useMemo(() => lista.filter(e => {
+  const deLaSolapa = useMemo(() => lista.filter(SOLAPAS.find(s => s.id === solapa).incluye), [lista, solapa]);
+  const filas = useMemo(() => deLaSolapa.filter(e => {
     if (f.exp && !norm(e.exp + " " + (e.numero || "")).includes(norm(f.exp))) return false;
     if (f.objeto && !norm(e.objeto + " " + (e.observaciones || "")).includes(norm(f.objeto))) return false;
     if (f.organismo && !norm(e.organismo).includes(norm(f.organismo))) return false;
@@ -280,7 +290,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
       if (f[campo] && e[campo] !== f[campo]) return false;
     }
     return true;
-  }).sort(compararResoluciones), [lista, f]);
+  }).sort(compararResoluciones), [deLaSolapa, f]);
 
   const seleccionado = form && form !== "nuevo" ? lista.find(e => e.id === form) : null;
 
@@ -329,11 +339,28 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
   }
 
   return (
+    <div className="space-y-4">
+    <div className="flex items-center gap-1 border-b border-slate-200">
+      {SOLAPAS.map(s => (
+        <button
+          key={s.id}
+          type="button"
+          onClick={() => setSolapa(s.id)}
+          className={"px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 " +
+            (solapa === s.id ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}
+        >
+          {s.etiqueta}
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 tabular-nums">
+            {lista.filter(s.incluye).filter(e => !f.situacion || e.situacion === f.situacion).length}
+          </span>
+        </button>
+      ))}
+    </div>
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-b border-slate-100 bg-slate-50/60">
         <div>
-          <h3 className="text-sm font-semibold text-slate-900">Resoluciones</h3>
-          <span className="text-[11px] text-slate-500">{filas.length} de {lista.length} expediente{lista.length !== 1 ? "s" : ""}</span>
+          <h3 className="text-sm font-semibold text-slate-900">{SOLAPAS.find(s => s.id === solapa).etiqueta}</h3>
+          <span className="text-[11px] text-slate-500">{filas.length} de {deLaSolapa.length} expediente{deLaSolapa.length !== 1 ? "s" : ""}</span>
         </div>
         <div className="flex items-center gap-3">
           {hayFiltros && (
@@ -341,7 +368,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
               <X size={12} /> Limpiar filtros
             </button>
           )}
-          <button type="button" onClick={() => exportarExcel(filas)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50">
+          <button type="button" onClick={() => exportarExcel(filas, solapa)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50">
             <Download size={14} /> Exportar a Excel
           </button>
           <button type="button" onClick={() => setForm("nuevo")} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800">
@@ -462,6 +489,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
           onEliminar={eliminar}
         />
       )}
+    </div>
     </div>
   );
 }
