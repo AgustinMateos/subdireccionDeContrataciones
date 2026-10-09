@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Star, Search } from "lucide-react";
+import { X, Search } from "lucide-react";
 import { AGENTES_RESOLUCIONES, compararResoluciones, estaFueraDeResoluciones, fechaISO, TIPOS_CONTRATACION_RESOLUCIONES } from "@/lib/resoluciones";
 import { diasRestantes, fmtFecha } from "@/lib/utils";
+import EstrellaPrioridad from "./EstrellaPrioridad";
 
 // Dos series en orden fijo de la paleta categórica (validada para
 // daltonismo como par adyacente); el número va escrito en cada tramo y hay
@@ -318,14 +319,7 @@ function TablaExpedientes({ lista, agentes, onReasignar, onPrioridad }) {
             <tr key={e.id} className="border-b border-slate-50 align-top">
               <td className="py-2 px-4 whitespace-nowrap">
                 <div className="flex items-center gap-1 font-mono font-semibold text-slate-900">
-                  <button
-                    type="button"
-                    onClick={() => onPrioridad(e)}
-                    title={e.prioritario ? "Quitar prioridad" : "Marcar como prioritario"}
-                    className={"p-0.5 rounded hover:bg-amber-50 " + (e.prioritario ? "text-amber-500" : "text-slate-300 hover:text-amber-500")}
-                  >
-                    <Star size={14} fill={e.prioritario ? "currentColor" : "none"} />
-                  </button>
+                  <EstrellaPrioridad prioritario={e.prioritario} onClick={() => onPrioridad(e)} />
                   {e.exp}
                 </div>
                 {e.prioritario && (

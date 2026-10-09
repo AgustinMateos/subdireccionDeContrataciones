@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Plus, Download, Trash2, ArrowRight, Star } from "lucide-react";
+import { X, Plus, Download, Trash2, ArrowRight } from "lucide-react";
 import * as XLSX from "xlsx";
 import { ALERTA_ESTILO, HOY } from "@/lib/constants";
 import { alertaFrenado, fmtFecha } from "@/lib/utils";
@@ -13,6 +13,7 @@ import {
 } from "@/lib/resoluciones";
 import FiltroDesplegable from "./FiltroDesplegable";
 import BotonAccion from "./BotonAccion";
+import EstrellaPrioridad from "./EstrellaPrioridad";
 import { Campo_Input } from "./CamposFormulario";
 import { CampoSugerido } from "./FormularioMesa";
 
@@ -432,16 +433,7 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
                 <tr key={e.id} onClick={() => setForm(e.id)} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 cursor-pointer align-top text-xs text-slate-700">
                   <td className="py-2.5 px-3 whitespace-nowrap">
                     <div className="flex items-center gap-1.5">
-                      {esJefa && (
-                        <button
-                          type="button"
-                          onClick={ev => { ev.stopPropagation(); cambiarRapido(e, { prioritario: !e.prioritario }); }}
-                          title={e.prioritario ? "Quitar prioridad" : "Marcar como prioritario"}
-                          className={"p-0.5 rounded hover:bg-amber-50 " + (e.prioritario ? "text-amber-500" : "text-slate-300 hover:text-amber-500")}
-                        >
-                          <Star size={14} fill={e.prioritario ? "currentColor" : "none"} />
-                        </button>
-                      )}
+                      {esJefa && <EstrellaPrioridad prioritario={e.prioritario} onClick={() => cambiarRapido(e, { prioritario: !e.prioritario })} />}
                       <span className="font-mono font-semibold text-slate-900">{e.exp}</span>
                     </div>
                     {e.prioritario && (
