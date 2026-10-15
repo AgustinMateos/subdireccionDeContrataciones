@@ -217,7 +217,7 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
             <>
               <Paso {...paso(1)} titulo="El expediente">
                 <DatoFicha label="N° de expediente" valor={f.exp} mono />
-                <DatoFicha label="Número" valor={f.numero} />
+                <DatoFicha label="Número de contratación" valor={f.numero} />
                 <DatoFicha label="Ingresó al sector" valor={fecha(f.fechaIngreso)} />
                 <Campo pregunta="¿A quién se le asigna?" ancho>
                   <ElegirDeLista opciones={AGENTES_RESOLUCIONES} valor={f.agente} onChange={v => set("agente", v)} vacio="Sin asignar" />
@@ -253,7 +253,7 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
                 <Campo pregunta="N° de expediente (obligatorio)">
                   <Entrada valor={f.exp} onChange={v => set("exp", v)} ejemplo="13-05999/25" mono />
                 </Campo>
-                <Campo pregunta="Número">
+                <Campo pregunta="Número de contratación">
                   <Entrada valor={f.numero} onChange={v => set("numero", v)} ejemplo="139/26" />
                 </Campo>
                 <Campo pregunta="¿Qué día ingresó al sector?" ancho>
@@ -271,7 +271,7 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
               </Paso>
 
               <Paso {...paso(2)} titulo="Qué se contrata">
-                <Campo pregunta="¿Qué se contrata? (objeto, obligatorio)" ancho>
+                <Campo pregunta="Objeto: ¿Qué se contrata? (obligatorio)" ancho>
                   <Entrada valor={f.objeto} onChange={v => set("objeto", v)} ejemplo="SERVICIO DE LIMPIEZA" />
                 </Campo>
                 <Campo pregunta="Fuero" ayuda="Tocá para ver la lista, o escribí una parte para buscar.">
@@ -438,7 +438,7 @@ function useProximaRenovacion(f) {
 // Lo que se ve de cada paso cuando está cerrado.
 function resumenPaso(n, f) {
   const partes = {
-    1: [f.exp, f.numero && "N° " + f.numero, f.agente && "Agente: " + f.agente],
+    1: [f.exp, f.numero && "Contratación N° " + f.numero, f.agente && "Agente: " + f.agente],
     2: [f.objeto, f.fuero, f.tipoContratacion],
     3: [f.vencOfertas && "Vencen las ofertas el " + fecha(f.vencOfertas), f.renovacionAutomatica && "se renuevan solas"],
     4: [f.tipoResolucion, f.estado, f.sectorActual && "En " + f.sectorActual],
