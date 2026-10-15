@@ -6,7 +6,7 @@ import { ALERTA_ESTILO } from "@/lib/constants";
 import { alertaDias, diasEnSector } from "@/lib/diasEnSector";
 import { diasRestantes, fmtFecha } from "@/lib/utils";
 import {
-  AGENTES_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, esCompletado, esPrioritario,
+  AGENTES_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, esFinalizado, esPrioritario,
   estaFueraDeResoluciones, fechaISO, montoNumero,
 } from "@/lib/resoluciones";
 import {
@@ -18,6 +18,7 @@ import {
   esPrioritariaOC, etapaOC,
 } from "@/lib/ordenesCompra";
 import EstrellaPrioridad from "./EstrellaPrioridad";
+import { SelectRapido } from "./PanelResoluciones";
 
 // Análisis de gestión de la jefa de la Subdirección: los mismos análisis
 // para Resoluciones y Licitaciones. Cada departamento se describe con
@@ -43,15 +44,15 @@ const DEPTOS = {
     etapa: { titulo: "Por tipo de resolución", orden: TIPOS_RESOLUCION },
     encuadre: { titulo: "Por tipo de contratación", orden: TIPOS_CONTRATACION_RESOLUCIONES },
     origen: "Por fuero",
-    terminados: "Completados",
+    terminados: "Finalizados",
     vencimiento: { etiqueta: "Vencen ofertas", columna: "Venc. ofertas", dias: 30, conVencidos: false },
     // Entradas y salidas por mes.
     series: [
       { clave: "entradas", etiqueta: "Ingresos al sector", fecha: e => e.fechaIngreso },
-      { clave: "salidas", etiqueta: "Completados", fecha: e => (esCompletado(e) ? e.fechaUltimoMov : null) },
+      { clave: "salidas", etiqueta: "Finalizados", fecha: e => (esFinalizado(e) ? e.fechaUltimoMov : null) },
     ],
     normalizar: e => ({
-      e, terminado: esCompletado(e), enDepto: !estaFueraDeResoluciones(e), dias: diasEnSector(e),
+      e, terminado: esFinalizado(e), enDepto: !estaFueraDeResoluciones(e), dias: diasEnSector(e),
       sector: texto(e.sectorActual, "Sin sector"), prioritario: esPrioritario(e),
       etapa: texto(e.tipoResolucion, "Sin tipo"), encuadre: texto(e.tipoContratacion, "Sin tipo"),
       origen: texto(e.fuero, "Sin fuero"), detalle: e.organismo || e.fuero, monto: montoNumero(e.montos),
@@ -892,11 +893,7 @@ function TablaItems({ items, cfg, agentes, acciones }) {
                 </td>
               )}
               <td className="py-2 px-4">
-                <select value={e.agente || ""} onChange={ev => acciones.reasignar(e, ev.target.value)}
-                  className="text-xs bg-white border border-slate-300 rounded-md px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-slate-800">
-                  <option value="">Sin asignar</option>
-                  {agentes.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
+                <SelectRapido valor={e.agente} opciones={agentes} vacio="Sin asignar" onChange={v => acciones.reasignar(e, v)} className="min-w-[110px]" />
               </td>
             </tr>
           );

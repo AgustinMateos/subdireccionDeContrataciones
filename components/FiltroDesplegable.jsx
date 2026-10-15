@@ -45,7 +45,9 @@ export default function FiltroDesplegable({ valor, onChange, opciones, clase = "
   function alternar() {
     if (!abierto && flotante && botonRef.current) {
       const r = botonRef.current.getBoundingClientRect();
-      setPosicion({ top: r.bottom + 4, left: r.left, minWidth: r.width });
+      // Sin lugar abajo (ej. el pie de una tabla), se abre hacia arriba.
+      const arriba = window.innerHeight - r.bottom < 270 && r.top > window.innerHeight - r.bottom;
+      setPosicion(arriba ? { bottom: window.innerHeight - r.top + 4, left: r.left, minWidth: r.width } : { top: r.bottom + 4, left: r.left, minWidth: r.width });
     }
     setAbierto(a => !a);
   }
@@ -53,7 +55,7 @@ export default function FiltroDesplegable({ valor, onChange, opciones, clase = "
   const lista = (
     <ul
       ref={listaRef}
-      style={flotante && posicion ? { position: "fixed", top: posicion.top, left: posicion.left, minWidth: posicion.minWidth } : undefined}
+      style={flotante && posicion ? { position: "fixed", ...posicion } : undefined}
       className={(flotante ? "z-50 " : "absolute z-30 mt-1 min-w-full ") + "w-max max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg py-1"}
     >
       {opciones.map(o => (

@@ -16,7 +16,7 @@ import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
 import EstrellaPrioridad from "./EstrellaPrioridad";
 import { Campo_Input } from "./CamposFormulario";
 import CampoOpciones from "./CampoOpciones";
-import { FiltroColumna, Seccion, DatoFicha } from "./PanelResoluciones";
+import { FiltroColumna, Seccion, DatoFicha, SelectRapido } from "./PanelResoluciones";
 
 const API = "/api/ordenes-compra/notificaciones";
 const norm = s => String(s || "").trim().toLowerCase();
@@ -250,11 +250,7 @@ export default function PanelNotificaciones44({ sesion, mostrarToast }) {
     }
     if (k === "agente" && esJefa) {
       return (
-        <select value={n.agente || ""} onChange={ev => cambiarRapido(n, { agente: ev.target.value })} title="Cambiar asignación"
-          className="text-xs bg-white border border-slate-300 rounded-md px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-slate-800">
-          <option value="">Sin asignar</option>
-          {agentes.map(a => <option key={a} value={a}>{a}</option>)}
-        </select>
+        <SelectRapido valor={n.agente} opciones={agentes} vacio="Sin asignar" onChange={v => cambiarRapido(n, { agente: v })} className="min-w-[110px]" />
       );
     }
     if (k === "fechaIngreso") {

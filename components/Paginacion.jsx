@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import FiltroDesplegable from "./FiltroDesplegable";
 
 export const OPCIONES_POR_PAGINA = [15, 30, 50, 100];
 
@@ -33,13 +34,11 @@ export default function Paginacion({ total, pagina, porPagina, onPagina, onPorPa
         <span className="tabular-nums">
           <span className="font-medium text-slate-700">{desde}–{hasta}</span> de {total}
         </span>
-        <label className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5">
           Filas
-          <select value={porPagina} onChange={ev => onPorPagina(Number(ev.target.value))}
-            className="rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300">
-            {OPCIONES_POR_PAGINA.map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
-        </label>
+          <FiltroDesplegable valor={String(porPagina)} onChange={v => onPorPagina(Number(v))} flotante
+            opciones={OPCIONES_POR_PAGINA.map(n => ({ valor: String(n), etiqueta: String(n) }))} />
+        </div>
       </div>
 
       {totalPaginas > 1 && (

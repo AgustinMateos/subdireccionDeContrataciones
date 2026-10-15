@@ -10,7 +10,7 @@ import { hoyLocalISO } from "@/lib/mesaEntradas";
 import { sumarDiasHabiles } from "@/lib/diasHabiles";
 import {
   FUEROS_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, SECTORES_RESOLUCIONES,
-  ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta, esCompletado, esParaAdjudicar, esPrioritario,
+  ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta, esFinalizado, ESTADOS_GENERALES, ETIQUETA_ESTADO_GENERAL, estadoGeneral, esParaAdjudicar, esPrioritario,
   estaFueraDeResoluciones, fechaISO, EVENTO_CAMBIOS_RESOLUCIONES,
 } from "@/lib/resoluciones";
 import FiltroDesplegable from "./FiltroDesplegable";
@@ -28,20 +28,25 @@ const fecha = f => (f ? fmtFecha(fechaISO(f)) : "-");
 const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-900 hover:border-slate-500 transition-colors focus:outline-none focus:border-slate-500 placeholder:text-slate-400";
 
 
-const ETIQUETA_CAMPO = { sectorActual: "Sector actual", tipoResolucion: "Tipo de resolución", estado: "Estado" };
+const ETIQUETA_CAMPO = { sectorActual: "Sector actual", tipoResolucion: "Tipo de resolución", estado: "Estado", situacion: "Estado gral." };
 
 // Desplegable para cambiar un campo desde la tabla, sin abrir el
-// expediente. Suma el valor actual si no está en la lista.
-export function SelectRapido({ valor, opciones, onChange, fuerte, className = "" }) {
+// expediente (propio, no el <select> del navegador; la lista flota sobre
+// la tabla para que no la recorte el scroll). Suma el valor actual si no
+// está en la lista. `vacio`: cómo se lee la opción vacía.
+export function SelectRapido({ valor, opciones, onChange, fuerte, className = "", vacio = "-" }) {
+  const lista = [...new Set([...opciones, ...(valor ? [valor] : [])])];
   return (
-    <select
-      value={valor || ""}
-      onChange={ev => onChange(ev.target.value)}
-      className={"min-w-[165px] text-xs bg-white border border-slate-200 rounded-md px-1.5 py-1 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800 " + (fuerte ? "font-medium text-slate-900" : "text-slate-700") + " " + className}
-    >
-      <option value="">-</option>
-      {[...new Set([...opciones, ...(valor ? [valor] : [])])].map(o => <option key={o} value={o}>{o}</option>)}
-    </select>
+    <div className={"min-w-[165px] " + className}>
+      <FiltroDesplegable
+        valor={valor || ""}
+        onChange={onChange}
+        opciones={[{ valor: "", etiqueta: vacio }, ...lista.map(o => ({ valor: o, etiqueta: o }))]}
+        clase={"bg-white border-slate-200 " + (fuerte ? "font-medium text-slate-900" : "text-slate-700")}
+        anchoCompleto
+        flotante
+      />
+    </div>
   );
 }
 
@@ -61,13 +66,13 @@ export function FiltroColumna({ valor, etiqueta, opciones, onChange }) {
 function filtroVacio() {
   return {
     exp: "", objeto: "", organismo: "", fuero: "", tipoContratacion: "", tipoResolucion: "",
-    estado: "", sectorActual: "", agente: "",
+    estado: "", situacion: "", sectorActual: "", agente: "",
   };
 }
 
 const VACIO = {
   exp: "", fechaIngreso: "", objeto: "", fuero: "", organismo: "", tipoContratacion: "", numero: "",
-  cantidadOfertas: "", cantidadRenglones: "",
+  cantidadOfertas: "", cantidadRenglones: "", situacion: "TRAMITANDO",
   tipoResolucion: "", estado: "", sectorActual: "", fechaUltimoMov: "", agente: "", vencOfertas: "",
   inicioServicio: "", montos: "", observaciones: "", prioritario: false,
   renovacionAutomatica: false, renovacionDias: "", renovacionHabiles: true,
@@ -88,7 +93,10 @@ function aFormulario(e) {
 // expediente y sus movimientos y estados (con el historial).
 export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, onGuardar, onEliminar }) {
   const [f, setF] = useState(() => aFormulario(inicial));
-  const [solapa, setSolapa] = useState("datos");
+  // Un expediente cargado abre en "Información" (todo a la vista, sin
+  // editar); uno nuevo, directo en la carga de datos.
+  const [solapa, setSolapa] = useState(inicial ? "info" : "datos");
+  const [alAbrir] = useState(() => JSON.stringify(aFormulario(inicial)));
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
@@ -123,8 +131,8 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
   async function guardar() {
     // Los campos que faltan están en la solapa de datos: se vuelve a ella.
     const falta = !f.exp.trim() || !f.objeto.trim() ? "Completá N° de expediente y objeto."
-      : f.renovacionAutomatica && !(Number(f.renovacionDias) > 0) ? "Completá los días de la renovación automática."
-        : f.renovacionAutomatica && !f.vencOfertas ? "Para la renovación automática cargá el vencimiento de ofertas."
+      : esJefa && f.renovacionAutomatica && !(Number(f.renovacionDias) > 0) ? "Completá los días de la renovación automática."
+        : esJefa && f.renovacionAutomatica && !f.vencOfertas ? (fijo ? "Para la renovación automática falta el vencimiento de ofertas: lo carga Resoluciones." : "Para la renovación automática cargá el vencimiento de ofertas.")
           : "";
     if (falta) { setError(falta); setSolapa("datos"); pasos.abrir(...(f.exp.trim() && f.objeto.trim() ? [3] : [1, 2])); return; }
     setGuardando(true);
@@ -159,7 +167,7 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
               {inicial && (
                 <div className="flex flex-wrap items-center gap-1.5 mt-2">
                   <EtiquetasPrioridad expediente={inicial} />
-                  {[inicial.sectorActual, inicial.estado, inicial.tipoResolucion].filter(Boolean).map(t => (
+                  {[ETIQUETA_ESTADO_GENERAL[estadoGeneral(inicial)], inicial.sectorActual, inicial.estado, inicial.tipoResolucion].filter(Boolean).map(t => (
                     <span key={t} className="mt-1 text-[11px] font-medium px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-700">{t}</span>
                   ))}
                   {dias != null && (
@@ -177,9 +185,10 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
           </div>
           <div className="flex items-center gap-1 mt-3">
             {[
-              { id: "datos", etiqueta: "Datos del expediente" },
-              { id: "movimientos", etiqueta: "Observaciones e historial" + (inicial ? " (" + historial.length + ")" : "") },
-            ].map(t => (
+              inicial && { id: "info", etiqueta: "Información" },
+              { id: "datos", etiqueta: "Carga de datos" },
+              { id: "movimientos", etiqueta: inicial ? "Observaciones e historial (" + historial.length + ")" : "Observaciones" },
+            ].filter(Boolean).map(t => (
               <button
                 key={t.id}
                 type="button"
@@ -213,7 +222,9 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
           )}
 
           {solapa === "datos" && <AbrirTodos pasos={pasos} total={4} />}
-          {solapa === "datos" && fijo ? (
+          {solapa === "info" ? (
+            <InfoExpediente e={inicial} historial={historial} irA={setSolapa} />
+          ) : solapa === "datos" && fijo ? (
             // La jefa ve la ficha: solo cambia agente y prioridad.
             <>
               <Paso {...paso(1)} titulo="El expediente">
@@ -244,10 +255,15 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
               <Paso {...paso(3)} titulo="Plazos">
                 <DatoFicha label="Vencen las ofertas" valor={fecha(f.vencOfertas)} />
                 <DatoFicha label="Inicio del servicio" valor={f.inicioServicio} />
-                <DatoFicha label="Las ofertas se renuevan solas" valor={textoRenovacion(f)} />
+                <Campo pregunta="Cuando vencen, ¿las ofertas se renuevan solas?" ayuda="Si se renuevan, queda anotado en el historial y Resoluciones recibe el aviso en la campana." ancho>
+                  <EditorRenovacion f={f} set={set} proxima={proxima} />
+                </Campo>
               </Paso>
-              <Paso {...paso(4)} titulo="Dónde está y cómo sigue · lo carga Resoluciones">
-                <DatoFicha label="Tipo de resolución" valor={f.tipoResolucion} />
+              <Paso {...paso(4)} titulo="Dónde está y cómo sigue">
+                <Campo pregunta="¿Cuál es el estado general?" ayuda="Finalizado: va al fondo de la lista y deja de contar días." ancho>
+                  <ElegirEstadoGeneral valor={f.situacion} onChange={v => set("situacion", v)} />
+                </Campo>
+                <DatoFicha label="Tipo de resolución (lo carga Resoluciones)" valor={f.tipoResolucion} />
                 <DatoFicha label="Estado" valor={f.estado} />
                 <DatoFicha label="Sector donde está" valor={f.sectorActual} />
                 <DatoFicha label="Último movimiento" valor={fecha(f.fechaUltimoMov)} />
@@ -322,30 +338,16 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
                 <Campo pregunta="¿Cuándo empieza el servicio?" ancho>
                   <Entrada valor={f.inicioServicio} onChange={v => set("inicioServicio", v)} ejemplo="1/12/2026 o A PARTIR DE LA OC" />
                 </Campo>
-                <Campo pregunta="Cuando vencen, ¿las ofertas se renuevan solas?" ayuda="Si se renuevan, queda anotado en el historial y avisa en la campana." ancho>
-                  <SiNo valor={!!f.renovacionAutomatica} onChange={v => set("renovacionAutomatica", v)} si="Sí, se renuevan solas" no="No" />
-                  {f.renovacionAutomatica && (
-                    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/60 p-3 space-y-3">
-                      <div>
-                        <p className="text-sm text-slate-700 mb-1.5">¿Por cuántos días?</p>
-                        <input type="number" min="1" inputMode="numeric" value={f.renovacionDias} onChange={e => set("renovacionDias", e.target.value)}
-                          placeholder="Ej.: 10" className={CLASE_ENTRADA + " max-w-[8rem]"} />
-                      </div>
-                      <div>
-                        <p className="text-sm text-slate-700 mb-1.5">¿Qué días se cuentan?</p>
-                        <div className="flex flex-wrap gap-2">
-                          <BotonOpcion elegido={!!f.renovacionHabiles} onClick={() => set("renovacionHabiles", true)}>Días hábiles</BotonOpcion>
-                          <BotonOpcion elegido={!f.renovacionHabiles} onClick={() => set("renovacionHabiles", false)}>Días corridos</BotonOpcion>
-                        </div>
-                      </div>
-                      <p className="text-sm text-slate-600">{textoRenovacion(f)}</p>
-                      {proxima && <p className="text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-2">{proxima}</p>}
-                    </div>
-                  )}
+                <Campo pregunta="Cuando vencen, ¿las ofertas se renuevan solas?" ayuda={esJefa ? "Si se renuevan, queda anotado en el historial y avisa en la campana." : ""} ancho>
+                  {esJefa ? <EditorRenovacion f={f} set={set} proxima={proxima} />
+                    : <RenovacionSoloLectura f={f} proxima={proxima} />}
                 </Campo>
               </Paso>
 
               <Paso {...paso(4)} titulo={"Dónde está y cómo sigue" + (esJefa && inicial ? " · lo carga Resoluciones" : "")}>
+                <Campo pregunta="¿Cuál es el estado general?" ayuda="Finalizado: va al fondo de la lista y deja de contar días." ancho>
+                  <ElegirEstadoGeneral valor={f.situacion} onChange={v => set("situacion", v)} />
+                </Campo>
                 <Campo pregunta="¿Qué tipo de resolución es?" ancho>
                   <ElegirDeLista opciones={TIPOS_RESOLUCION} valor={f.tipoResolucion} onChange={v => set("tipoResolucion", v)} />
                 </Campo>
@@ -407,24 +409,118 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
           )}
         </div>
 
-        {/* Guardar toma las dos solapas. */}
+        {/* Guardar toma todas las solapas. En "Información" sin cambios
+            pendientes, solo cerrar o ir a editar. */}
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50/60 flex items-center justify-end gap-2">
           {error && <p className="mr-auto text-sm font-medium text-red-700">{error}</p>}
-          <button onClick={onCerrar} disabled={guardando} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50">
-            {fijo ? "Cerrar" : "Cancelar sin guardar"}
-          </button>
-          <BotonAccion onClick={guardar} cargando={guardando}
-            className="px-5 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-50">
-            {inicial ? "Guardar cambios" : "Guardar el expediente"}
-          </BotonAccion>
+          {solapa === "info" && JSON.stringify(f) === alAbrir ? (
+            <>
+              <button onClick={onCerrar} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50">Cerrar</button>
+              <button onClick={() => setSolapa("datos")} className="px-5 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800">
+                {fijo ? "Asignar o cambiar datos" : "Cargar o cambiar datos"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={onCerrar} disabled={guardando} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50">
+                {fijo ? "Cerrar" : "Cancelar sin guardar"}
+              </button>
+              <BotonAccion onClick={guardar} cargando={guardando}
+                className="px-5 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-50">
+                {inicial ? "Guardar cambios" : "Guardar el expediente"}
+              </BotonAccion>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
+// Solapa "Información": todo el expediente a la vista, limpio y sin
+// campos para editar, como quedó guardado.
+function InfoExpediente({ e, historial, irA }) {
+  const dias = diasEnSector(e);
+  const ultimos = historial.slice(0, 4);
+  const Dato = ({ label, children, ancho }) => (
+    <div className={"min-w-0" + (ancho ? " sm:col-span-2" : "")}>
+      <dt className="text-xs font-medium text-slate-500">{label}</dt>
+      <dd className="mt-0.5 text-base text-slate-900 break-words">{children || <span className="text-slate-400">Sin cargar</span>}</dd>
+    </div>
+  );
+  const Bloque = ({ titulo, children }) => (
+    <section className="rounded-xl border border-slate-200 p-4 sm:p-5">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 mb-3">{titulo}</h3>
+      <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-4">{children}</dl>
+    </section>
+  );
+  return (
+    <>
+      <Bloque titulo="Dónde está hoy">
+        <Dato label="Estado general"><span className={"font-semibold " + (esFinalizado(e) ? "text-emerald-700" : "")}>{ETIQUETA_ESTADO_GENERAL[estadoGeneral(e)]}</span></Dato>
+        <Dato label="Sector">{e.sectorActual}</Dato>
+        <Dato label="Tipo de resolución">{e.tipoResolucion}</Dato>
+        <Dato label="Estado de la resolución">{e.estado}</Dato>
+        <Dato label="Días en el sector">
+          {dias != null && <span className={"inline-block text-sm font-medium px-2 py-0.5 rounded border " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""} (desde el {fecha(e.fechaIngreso || e.fechaUltimoMov)})</span>}
+        </Dato>
+        <Dato label="Último movimiento">{e.fechaUltimoMov && fecha(e.fechaUltimoMov)}</Dato>
+      </Bloque>
+
+      <Bloque titulo="El expediente">
+        <Dato label="N° de expediente"><span className="font-mono">{e.exp}</span></Dato>
+        <Dato label="Número de contratación">{e.numero}</Dato>
+        <Dato label="Agente asignado">{e.agente}</Dato>
+        <Dato label="Prioridad">{e.enPlanObras ? "Prioritario (Plan de Obras)" : e.prioritario ? "Prioritario" : "Normal"}</Dato>
+        <Dato label="Cantidad de ofertas">{e.cantidadOfertas != null && String(e.cantidadOfertas)}</Dato>
+        <Dato label="Cantidad de renglones">{e.cantidadRenglones != null && String(e.cantidadRenglones)}</Dato>
+        <Dato label="Ingresó al sector">{e.fechaIngreso && fecha(e.fechaIngreso)}</Dato>
+      </Bloque>
+
+      <Bloque titulo="Qué se contrata">
+        <Dato label="Objeto" ancho>{e.objeto}</Dato>
+        <Dato label="Fuero">{e.fuero}</Dato>
+        <Dato label="Organismo">{e.organismo}</Dato>
+        <Dato label="Tipo de contratación">{e.tipoContratacion}</Dato>
+        <Dato label="Montos">{e.montos}</Dato>
+      </Bloque>
+
+      <Bloque titulo="Plazos">
+        <Dato label="Vencen las ofertas">{e.vencOfertas && fecha(e.vencOfertas)}</Dato>
+        <Dato label="Inicio del servicio">{e.inicioServicio}</Dato>
+        <Dato label="Renovación automática de las ofertas" ancho>{textoRenovacion(e)}</Dato>
+      </Bloque>
+
+      <section className="rounded-xl border border-slate-200 p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Lo último</h3>
+          <button type="button" onClick={() => irA("movimientos")} className="text-sm text-slate-700 underline hover:text-slate-900">Ver observaciones e historial</button>
+        </div>
+        {e.observaciones && (
+          <div className="mb-3">
+            <p className="text-xs font-medium text-slate-500">Última observación</p>
+            <p className="mt-1 text-base text-slate-800 whitespace-pre-line bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">{e.observaciones}</p>
+          </div>
+        )}
+        {ultimos.length === 0 ? <p className="text-sm text-slate-500">Todavía no hay nada anotado.</p> : (
+          <ul className="space-y-1.5">
+            {ultimos.map(m => (
+              <li key={m.id} className="text-sm text-slate-700">
+                <span className="font-medium text-slate-900">{fecha(m.fecha)}</span> · {m.campo}:{" "}
+                {m.sectorAnterior && m.campo !== "Observaciones" && m.campo !== "Renovación de ofertas" ? <>{m.sectorAnterior} → </> : null}
+                <span className="font-medium">{m.sector}</span>
+                <span className="text-slate-400"> · {m.usuario}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </>
+  );
+}
+
 // Carga de cada agente, para que la jefa asigne: expedientes en trámite
-// (no completados) por tipo de resolución y prioritarios. Se despliega
+// (no finalizados) por tipo de resolución y prioritarios. Se despliega
 // tocando el título; tocar una fila asigna a ese agente.
 const GRUPOS_CARGA = [
   { titulo: "Para adjudicar", es: t => t === "ADJUDICAR" },
@@ -435,7 +531,7 @@ const GRUPOS_CARGA = [
 function CargaPorAgente({ expedientes, elegido, onElegir }) {
   const [abierta, setAbierta] = useState(false);
   if (!expedientes?.length) return null;
-  const enTramite = expedientes.filter(e => !esCompletado(e));
+  const enTramite = expedientes.filter(e => !esFinalizado(e));
   // S/A es "sin asignar": no es un agente al que repartirle.
   const agentes = [...new Set([...AGENTES_RESOLUCIONES, ...enTramite.map(e => e.agente).filter(Boolean)])].filter(a => a !== "S/A");
   const filas = agentes.map(a => {
@@ -477,6 +573,51 @@ function CargaPorAgente({ expedientes, elegido, onElegir }) {
         </tbody>
       </table>
       )}
+    </div>
+  );
+}
+
+// Estado general: Tramitando, Circuito o Finalizado (lo cambian
+// Resoluciones y la jefa).
+function ElegirEstadoGeneral({ valor, onChange }) {
+  return <ElegirDeLista opciones={ESTADOS_GENERALES} valor={valor || "TRAMITANDO"} onChange={v => v && onChange(v)} etiqueta={o => ETIQUETA_ESTADO_GENERAL[o] || o} />;
+}
+
+// Renovación automática de las ofertas: la activa y le pone los días solo
+// la jefa de la Subdirección.
+function EditorRenovacion({ f, set, proxima }) {
+  return (
+    <>
+      <SiNo valor={!!f.renovacionAutomatica} onChange={v => set("renovacionAutomatica", v)} si="Sí, se renuevan solas" no="No" />
+      {f.renovacionAutomatica && (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/60 p-3 space-y-3">
+          <div>
+            <p className="text-sm text-slate-700 mb-1.5">¿Por cuántos días?</p>
+            <input type="number" min="1" inputMode="numeric" value={f.renovacionDias} onChange={e => set("renovacionDias", e.target.value)}
+              placeholder="Ej.: 10" className={CLASE_ENTRADA + " max-w-[8rem]"} />
+          </div>
+          <div>
+            <p className="text-sm text-slate-700 mb-1.5">¿Qué días se cuentan?</p>
+            <div className="flex flex-wrap gap-2">
+              <BotonOpcion elegido={!!f.renovacionHabiles} onClick={() => set("renovacionHabiles", true)}>Días hábiles</BotonOpcion>
+              <BotonOpcion elegido={!f.renovacionHabiles} onClick={() => set("renovacionHabiles", false)}>Días corridos</BotonOpcion>
+            </div>
+          </div>
+          <p className="text-sm text-slate-600">{textoRenovacion(f)}</p>
+          {!f.vencOfertas && <p className="text-sm text-amber-800">Falta el vencimiento de ofertas: sin esa fecha no se puede renovar.</p>}
+          {proxima && <p className="text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-2">{proxima}</p>}
+        </div>
+      )}
+    </>
+  );
+}
+
+// Para Resoluciones: cómo quedó la renovación (la define la jefa).
+function RenovacionSoloLectura({ f, proxima }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-base text-slate-800 py-2">{textoRenovacion(f)} <span className="text-sm text-slate-500">(lo define la jefa)</span></p>
+      {proxima && <p className="text-sm font-medium text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">{proxima}</p>}
     </div>
   );
 }
@@ -547,7 +688,7 @@ function resumenPaso(n, f) {
       cuantos(f.cantidadRenglones, "renglón", "renglones"), f.agente && "Agente: " + f.agente],
     2: [f.objeto, f.fuero, f.tipoContratacion],
     3: [f.vencOfertas && "Vencen las ofertas el " + fecha(f.vencOfertas), f.renovacionAutomatica && "se renuevan solas"],
-    4: [f.tipoResolucion, f.estado, f.sectorActual && "En " + f.sectorActual],
+    4: [ETIQUETA_ESTADO_GENERAL[estadoGeneral(f)], f.tipoResolucion, f.estado, f.sectorActual && "En " + f.sectorActual],
   }[n];
   return partes.filter(Boolean).join(" · ");
 }
@@ -575,30 +716,30 @@ export function Seccion({ titulo, children }) {
 // jefa cuenta con las mismas).
 export const SOLAPAS = [
   { id: "general", etiqueta: "General", incluye: () => true },
-  { id: "escritorio", etiqueta: "Escritorio", incluye: e => !esCompletado(e) },
+  { id: "escritorio", etiqueta: "Escritorio", incluye: e => !esFinalizado(e) },
   // Los que siguen en trámite: marcados con estrella o en el Plan de Obras.
-  { id: "prioritarios", etiqueta: "Prioritarios", incluye: e => !esCompletado(e) && esPrioritario(e) },
-  { id: "adjudicar", etiqueta: "Para adjudicar", incluye: e => !esCompletado(e) && esParaAdjudicar(e) },
+  { id: "prioritarios", etiqueta: "Prioritarios", incluye: e => !esFinalizado(e) && esPrioritario(e) },
+  { id: "adjudicar", etiqueta: "Para adjudicar", incluye: e => !esFinalizado(e) && esParaAdjudicar(e) },
   { id: "fuera", etiqueta: "Fuera de Resoluciones", incluye: estaFueraDeResoluciones },
   { id: "fracasos", etiqueta: "Fracasados y desiertas", incluye: esFracasoODesierta },
-  { id: "completados", etiqueta: "Completados", incluye: esCompletado },
+  { id: "finalizados", etiqueta: "Finalizados", incluye: esFinalizado },
   // Para que la jefa de la Subdirección asigne lo pendiente.
-  { id: "sinAsignar", etiqueta: "Sin asignar", incluye: e => !esCompletado(e) && !String(e.agente || "").trim(), soloJefa: true },
+  { id: "sinAsignar", etiqueta: "Sin asignar", incluye: e => !esFinalizado(e) && !String(e.agente || "").trim(), soloJefa: true },
 ];
 
 function exportarExcel(filas, solapa) {
   const datos = [
     ["EXP.", "FECHA INGRESO AL SECTOR", "OBJETO", "FUERO", "ORGANISMO", "TIPO DE CONTRATACION", "NUMERO", "DIAS EN SECTOR",
-      "TIPO DE RESOLUCION", "ESTADO", "ULTIMO MOV", "SECTOR ACTUAL", "AGENTE", "VENC. OFERTAS", "INICIO DE SERV", "MONTOS",
+      "TIPO DE RESOLUCION", "ESTADO", "ESTADO GRAL.", "ULTIMO MOV", "SECTOR ACTUAL", "AGENTE", "VENC. OFERTAS", "INICIO DE SERV", "MONTOS",
       "OBSERVACIONES", "PRIORITARIO"],
     ...filas.map(e => [
       e.exp, fecha(e.fechaIngreso), e.objeto, e.fuero || "", e.organismo || "", e.tipoContratacion || "", e.numero || "",
-      diasEnSector(e) ?? "", e.tipoResolucion || "", e.estado || "", fecha(e.fechaUltimoMov), e.sectorActual || "", e.agente || "",
+      diasEnSector(e) ?? "", e.tipoResolucion || "", e.estado || "", ETIQUETA_ESTADO_GENERAL[estadoGeneral(e)], fecha(e.fechaUltimoMov), e.sectorActual || "", e.agente || "",
       fecha(e.vencOfertas), e.inicioServicio || "", e.montos || "", e.observaciones || "", e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
     ]),
   ];
   const ws = XLSX.utils.aoa_to_sheet(datos);
-  ws["!cols"] = [14, 12, 40, 30, 30, 14, 10, 8, 18, 18, 12, 16, 8, 12, 16, 18, 50, 12].map(wch => ({ wch }));
+  ws["!cols"] = [14, 12, 40, 30, 30, 14, 10, 8, 18, 18, 14, 12, 16, 8, 12, 16, 18, 50, 12].map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Resoluciones");
   XLSX.writeFile(wb, "resoluciones-" + (solapa === "general" ? "" : solapa + "-") + hoyLocalISO() + ".xlsx");
@@ -661,19 +802,18 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial 
 
   const solapas = SOLAPAS.filter(s => !s.soloJefa || esJefa);
   const deLaSolapa = useMemo(() => lista.filter(SOLAPAS.find(s => s.id === solapa).incluye), [lista, solapa]);
-  // En Completados no se muestran días en sector ni estado (todos están
-  // completados): el filtro de estado tampoco aplica.
-  const enCompletados = solapa === "completados";
+  // En Finalizados no se muestran días en sector (ya terminaron).
+  const enFinalizados = solapa === "finalizados";
   const filas = useMemo(() => deLaSolapa.filter(e => {
     if (f.exp && !norm(e.exp + " " + (e.numero || "")).includes(norm(f.exp))) return false;
     if (f.objeto && !norm(e.objeto + " " + (e.observaciones || "")).includes(norm(f.objeto))) return false;
     if (f.organismo && !norm(e.organismo).includes(norm(f.organismo))) return false;
     for (const campo of ["fuero", "tipoContratacion", "tipoResolucion", "estado", "sectorActual", "agente"]) {
-      if (campo === "estado" && enCompletados) continue;
       if (f[campo] && e[campo] !== f[campo]) return false;
     }
+    if (f.situacion && estadoGeneral(e) !== f.situacion) return false;
     return true;
-  }).sort(compararResoluciones), [deLaSolapa, f, enCompletados]);
+  }).sort(compararResoluciones), [deLaSolapa, f]);
 
   // Si la lista se achica (otro filtro, un expediente que cambia de
   // solapa), la página no queda fuera de rango.
@@ -783,8 +923,8 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial 
           <thead>
             <tr className="text-left border-b border-slate-100 bg-slate-50/40 text-[11px] font-medium text-slate-500 uppercase tracking-wide">
               {["Exp.", "Ingreso al sector", "Objeto", "Fuero", "Organismo", "Tipo de contratación", "Número",
-                ...(enCompletados ? [] : ["Días en sector"]), "Tipo de resolución", ...(enCompletados ? [] : ["Estado"]),
-                "Último mov.", "Sector actual", "Agente", "Venc. ofertas", "Inicio de serv."].map(t => <th key={t} className="pt-2 px-3">{t}</th>)}
+                ...(enFinalizados ? [] : ["Días en sector"]), "Tipo de resolución", "Estado",
+                "Último mov.", "Sector actual", "Agente", "Venc. ofertas", "Inicio de serv.", "Estado gral."].map(t => <th key={t} className="pt-2 px-3">{t}</th>)}
             </tr>
             <tr className="text-left border-b border-slate-100 bg-slate-50/40">
               <th className="py-2 px-3 align-top w-[130px]"><input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} /></th>
@@ -794,19 +934,20 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial 
               <th className="py-2 px-3 align-top w-[200px]"><input value={f.organismo} onChange={e => set("organismo", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} /></th>
               <th className="py-2 px-3 align-top w-[130px]"><FiltroColumna valor={f.tipoContratacion} etiqueta="Todos" opciones={opciones.tipoContratacion} onChange={v => set("tipoContratacion", v)} /></th>
               <th className="py-2 px-3" />
-              {!enCompletados && <th className="py-2 px-3" />}
+              {!enFinalizados && <th className="py-2 px-3" />}
               <th className="py-2 px-3 align-top w-[150px]"><FiltroColumna valor={f.tipoResolucion} etiqueta="Todos" opciones={opciones.tipoResolucion} onChange={v => set("tipoResolucion", v)} /></th>
-              {!enCompletados && <th className="py-2 px-3 align-top w-[160px]"><FiltroColumna valor={f.estado} etiqueta="Todos" opciones={opciones.estado} onChange={v => set("estado", v)} /></th>}
+              <th className="py-2 px-3 align-top w-[160px]"><FiltroColumna valor={f.estado} etiqueta="Todos" opciones={opciones.estado} onChange={v => set("estado", v)} /></th>
               <th className="py-2 px-3" />
               <th className="py-2 px-3 align-top w-[150px]"><FiltroColumna valor={f.sectorActual} etiqueta="Todos" opciones={opciones.sectorActual} onChange={v => set("sectorActual", v)} /></th>
               <th className="py-2 px-3 align-top w-[90px]"><FiltroColumna valor={f.agente} etiqueta="Todos" opciones={opciones.agente} onChange={v => set("agente", v)} /></th>
               <th className="py-2 px-3" />
               <th className="py-2 px-3" />
+              <th className="py-2 px-3 align-top w-[140px]"><FiltroColumna valor={f.situacion} etiqueta="Todos" opciones={ESTADOS_GENERALES} onChange={v => set("situacion", v)} /></th>
             </tr>
           </thead>
           <tbody>
             {filas.length === 0 ? (
-              <tr><td colSpan={enCompletados ? 13 : 15} className="py-10 text-center text-sm text-slate-500">No hay expedientes con esos filtros.</td></tr>
+              <tr><td colSpan={enFinalizados ? 15 : 16} className="py-10 text-center text-sm text-slate-500">No hay expedientes con esos filtros.</td></tr>
             ) : filasPagina.map(e => {
               const dias = diasEnSector(e);
               return (
@@ -824,7 +965,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial 
                   <td className="py-2.5 px-3"><span className="line-clamp-2" title={e.organismo || ""}>{e.organismo || "-"}</span></td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{e.tipoContratacion || "-"}</td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{e.numero || "-"}</td>
-                  {!enCompletados && (
+                  {!enFinalizados && (
                     <td className="py-2.5 px-3">
                       {dias != null ? (
                         <span className={"text-[11px] font-medium px-2 py-0.5 rounded border whitespace-nowrap " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""}</span>
@@ -834,11 +975,9 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial 
                   <td className="py-2.5 px-3" onClick={esJefa ? undefined : ev => ev.stopPropagation()}>
                     {esJefa ? (e.tipoResolucion || "-") : <SelectRapido valor={e.tipoResolucion} opciones={TIPOS_RESOLUCION} onChange={v => cambiarRapido(e, { tipoResolucion: v })} />}
                   </td>
-                  {!enCompletados && (
-                    <td className="py-2.5 px-3" onClick={esJefa ? undefined : ev => ev.stopPropagation()}>
-                      {esJefa ? (e.estado || "-") : <SelectRapido valor={e.estado} opciones={ESTADOS_RESOLUCION} onChange={v => cambiarRapido(e, { estado: v })} />}
-                    </td>
-                  )}
+                  <td className="py-2.5 px-3" onClick={esJefa ? undefined : ev => ev.stopPropagation()}>
+                    {esJefa ? (e.estado || "-") : <SelectRapido valor={e.estado} opciones={ESTADOS_RESOLUCION} onChange={v => cambiarRapido(e, { estado: v })} />}
+                  </td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{fecha(e.fechaUltimoMov)}</td>
                   <td className="py-2.5 px-3" onClick={esJefa ? undefined : ev => ev.stopPropagation()}>
                     {esJefa
@@ -847,15 +986,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial 
                   </td>
                   <td className="py-2.5 px-3" onClick={esJefa ? ev => ev.stopPropagation() : undefined}>
                     {esJefa ? (
-                      <select
-                        value={e.agente || ""}
-                        onChange={ev => cambiarRapido(e, { agente: ev.target.value })}
-                        title="Cambiar asignación"
-                        className="text-xs bg-white border border-slate-300 rounded-md px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-slate-800"
-                      >
-                        <option value="">Sin asignar</option>
-                        {[...new Set([...AGENTES_RESOLUCIONES, ...(e.agente ? [e.agente] : [])])].map(a => <option key={a} value={a}>{a}</option>)}
-                      </select>
+                      <SelectRapido valor={e.agente} opciones={AGENTES_RESOLUCIONES} vacio="Sin asignar" onChange={v => cambiarRapido(e, { agente: v })} className="min-w-[110px]" />
                     ) : (e.agente || "-")}
                   </td>
                   <td className="py-2.5 px-3 whitespace-nowrap">
@@ -867,6 +998,10 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial 
                     )}
                   </td>
                   <td className="py-2.5 px-3">{e.inicioServicio || "-"}</td>
+                  {/* Estado general (última columna): lo cambian Resoluciones y la jefa. */}
+                  <td className="py-2.5 px-3" onClick={ev => ev.stopPropagation()}>
+                    <SelectRapido valor={estadoGeneral(e)} opciones={ESTADOS_GENERALES} onChange={v => v && cambiarRapido(e, { situacion: v })} fuerte={esFinalizado(e)} className="min-w-[130px]" />
+                  </td>
                 </tr>
               );
             })}

@@ -897,11 +897,7 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
       filtro: <FiltroColumna valor={f.agente} etiqueta="Todos" opciones={opciones.agente} onChange={v => set("agente", v)} />,
       alTocar: esJefa ? ev => ev.stopPropagation() : undefined,
       celda: e => (esJefa ? (
-        <select value={e.agente || ""} onChange={ev => cambiarRapido(e, { agente: ev.target.value })} title="Cambiar asignación"
-          className="text-xs bg-white border border-slate-300 rounded-md px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-slate-800">
-          <option value="">Sin asignar</option>
-          {[...new Set([...AGENTES_ORDENES_COMPRA, ...(e.agente ? [e.agente] : [])])].map(a => <option key={a} value={a}>{a}</option>)}
-        </select>
+        <SelectRapido valor={e.agente} opciones={AGENTES_ORDENES_COMPRA} vacio="Sin asignar" onChange={v => cambiarRapido(e, { agente: v })} className="min-w-[110px]" />
       ) : (e.agente || "-")) },
     { titulo: "Fecha resol.", ancho: "min-w-[90px] whitespace-nowrap", celda: e => fecha(e.fechaResol) },
     { titulo: "Ingreso a OC", ancho: "min-w-[100px] whitespace-nowrap", celda: e => {

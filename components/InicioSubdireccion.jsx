@@ -5,7 +5,7 @@ import { ArrowRight, AlertTriangle, CalendarClock, Clock, RefreshCw, Search, Sta
 import { ALERTA_ESTILO } from "@/lib/constants";
 import { alertaDias, diasEnSector } from "@/lib/diasEnSector";
 import { diasRestantes, fmtFecha } from "@/lib/utils";
-import { esCompletado, estaFueraDeResoluciones, esPrioritario, fechaISO, montoNumero } from "@/lib/resoluciones";
+import { esFinalizado, estaFueraDeResoluciones, esPrioritario, fechaISO, montoNumero } from "@/lib/resoluciones";
 import { diasEnSectorLicitacion, esPrioritarioLicitacion, esTerminada, estaEnLicitaciones } from "@/lib/licitaciones";
 import { ESTADOS_OBRA } from "@/lib/planObras";
 import { FormularioResolucion, SOLAPAS as SOLAPAS_RESOLUCIONES } from "./PanelResoluciones";
@@ -85,7 +85,7 @@ export default function InicioSubdireccion({ onIr, mostrarToast }) {
   // Si Órdenes de Compra no responde, el resto del Inicio sigue igual.
   const O = ord.datos ?? (ord.error ? [] : null);
   const ordEnTramite = O?.filter(e => !esCompleta(e));
-  const resEnTramite = R?.filter(e => !esCompletado(e));
+  const resEnTramite = R?.filter(e => !esFinalizado(e));
   const licEnTramite = L?.filter(e => !esTerminada(e));
   // Lista de expedientes que se abre al tocar una cifra.
   const [modal, setModal] = useState(null);
@@ -195,7 +195,7 @@ export default function InicioSubdireccion({ onIr, mostrarToast }) {
             { etiqueta: "En trámite", items: res_("escritorio"), ir: () => onIr("expedientes", "escritorio") },
             { etiqueta: "Para adjudicar", items: res_("adjudicar"), ir: () => onIr("expedientes", "adjudicar") },
             { etiqueta: "Fuera del depto.", items: res_("fuera"), ir: () => onIr("expedientes", "fuera") },
-            { etiqueta: "Completados", items: res_("completados"), ir: () => onIr("expedientes", "completados") },
+            { etiqueta: "Finalizados", items: res_("finalizados"), ir: () => onIr("expedientes", "finalizados") },
           ]}
           carga={resEnTramite}
           onAbrir={c => setModal({ titulo: "Resoluciones · " + c.etiqueta, items: c.items, ir: c.ir })}

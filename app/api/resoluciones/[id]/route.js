@@ -3,9 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { CAMPOS_DE_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, datosResolucion, sinCamposDeResoluciones, soloCamposDeJefa } from "@/lib/resoluciones";
 import { INCLUDE_RESOLUCION, avisarSiActivaRenovacion, avisarSiEsJefa, conContadorReactivado, conPlanObras, conUltimoMovPorSector, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
 
-// Edición. Los cambios de sector actual, tipo de resolución y estado
-// quedan en el historial; la fecha del último movimiento solo cambia si se
-// edita a mano o si un completado vuelve a otro estado (reingresa: hoy).
+// Edición. Los cambios de sector actual, tipo de resolución, estado y
+// estado general quedan en el historial; el último movimiento pasa a ser
+// hoy si cambia el sector o si un finalizado vuelve a otro estado general
+// (o lo que se cargue a mano).
 export async function PUT(request, { params }) {
   const { id } = await params;
   const session = await sesionResoluciones();
@@ -36,8 +37,8 @@ export async function PUT(request, { params }) {
 
 // Cambio rápido desde la tabla: `{ sectorActual }`, `{ tipoResolucion }`
 // o `{ estado }` (cualquier usuario de Resoluciones, queda en el
-// historial); `{ agente }` o `{ prioritario }` solo la jefa de la
-// Subdirección.
+// historial); `{ situacion }` (estado general: Resoluciones y la jefa);
+// `{ agente }` o `{ prioritario }` solo la jefa de la Subdirección.
 export async function PATCH(request, { params }) {
   const { id } = await params;
   const session = await sesionResoluciones();
@@ -57,6 +58,7 @@ export async function PATCH(request, { params }) {
     if (k in body) data[k] = String(body[k] || "").trim() || null;
   }
   if ("prioritario" in body) data.prioritario = body.prioritario === true;
+  if ("situacion" in body) data.situacion = datosResolucion({ situacion: body.situacion }).situacion;
   data = conUltimoMovPorSector(existente, conContadorReactivado(existente, data));
   const cambios = registrosDeCambios(existente, data, session.user.name);
   const expediente = await prisma.expedienteResolucion.update({
