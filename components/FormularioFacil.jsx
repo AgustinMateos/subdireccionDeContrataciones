@@ -6,7 +6,8 @@
 // y se cierran. Las usan los modales de Órdenes de Compra y Resoluciones.
 
 import { useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { CalendarDays, Check, ChevronDown } from "lucide-react";
+import CalendarioFeriados, { diaLargo, motivoInhabil, useFeriados } from "./CalendarioFeriados";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
 
 export function Pregunta({ children }) {
@@ -66,15 +67,32 @@ export function SiNo({ valor, onChange, si = "Sí", no = "No" }) {
   );
 }
 
-// Un día: el calendario y, al lado, "Hoy".
+// Un día: un botón que abre el calendario (con feriados e inhábiles
+// marcados) y, al lado, "Hoy". Si el día elegido no es hábil, lo avisa.
 export function ElegirDia({ valor, onChange }) {
   const hoy = hoyLocalISO();
+  const [abierto, setAbierto] = useState(false);
+  const feriados = useFeriados(valor ? Number(valor.slice(0, 4)) : null);
+  const motivo = valor ? motivoInhabil(valor, feriados) : null;
+  function elegir(v) { onChange(v); setAbierto(false); }
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <input type="date" value={valor || ""} onChange={e => onChange(e.target.value)}
-        className="text-base border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
-      <BotonOpcion elegido={valor === hoy} onClick={() => onChange(hoy)}>Hoy</BotonOpcion>
-      {valor && <button type="button" onClick={() => onChange("")} className="text-sm text-slate-500 underline hover:text-slate-800">Borrar</button>}
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => setAbierto(!abierto)} aria-expanded={abierto}
+          className={"inline-flex items-center gap-2 text-base border rounded-lg px-3 py-2 bg-white hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-800 " +
+            (abierto ? "border-slate-900" : "border-slate-300")}>
+          <CalendarDays size={18} className="text-slate-500" />
+          {valor ? <span className="first-letter:uppercase">{diaLargo(valor)}</span> : <span className="text-slate-500">Elegir en el calendario</span>}
+        </button>
+        <BotonOpcion elegido={valor === hoy} onClick={() => elegir(hoy)}>Hoy</BotonOpcion>
+        {valor && <button type="button" onClick={() => elegir("")} className="text-sm text-slate-500 underline hover:text-slate-800">Borrar</button>}
+      </div>
+      {motivo && (
+        <p className={"mt-1.5 text-sm " + (motivo.tipo === "feriado" ? "text-red-700" : "text-amber-800")}>
+          Ojo: ese día no es hábil ({motivo.tipo === "finde" ? motivo.nombre.toLowerCase() : motivo.nombre}).
+        </p>
+      )}
+      {abierto && <CalendarioFeriados valor={valor} onElegir={elegir} />}
     </div>
   );
 }
