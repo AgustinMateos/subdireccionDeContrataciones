@@ -3,28 +3,6 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 
-// Solo para autocompletar el formulario más rápido en desarrollo/demo.
-// La autenticación real la valida el servidor contra la tabla Usuario (ver prisma/seed.js).
-const USUARIOS_DEMO = [
-  { email: "admin@pj.gob.ar", clave: "admin123", rolLabel: "Jefe de Departamento", depto: "Informática y Varios" },
-  { email: "operador@pj.gob.ar", clave: "operador123", rolLabel: "Operador", depto: "Informática y Varios" },
-  { email: "lector@pj.gob.ar", clave: "lector123", rolLabel: "Solo Lectura", depto: "Informática y Varios" },
-  { email: "soporte@pj.gob.ar", clave: "soporte123", rolLabel: "Soporte", depto: "Informática y Varios" },
-  { email: "admin.servicios@pj.gob.ar", clave: "admin123", rolLabel: "Jefe de Departamento", depto: "Servicios" },
-  { email: "operador.servicios@pj.gob.ar", clave: "operador123", rolLabel: "Operador", depto: "Servicios" },
-  { email: "lector.servicios@pj.gob.ar", clave: "lector123", rolLabel: "Solo Lectura", depto: "Servicios" },
-  { email: "soporte.servicios@pj.gob.ar", clave: "soporte123", rolLabel: "Soporte", depto: "Servicios" },
-  { email: "admin.mesa@pj.gob.ar", clave: "admin123", rolLabel: "Jefe de Departamento", depto: "Mesa de Entradas" },
-  { email: "operador.mesa@pj.gob.ar", clave: "operador123", rolLabel: "Operador", depto: "Mesa de Entradas" },
-  { email: "lector.mesa@pj.gob.ar", clave: "lector123", rolLabel: "Solo Lectura", depto: "Mesa de Entradas" },
-  { email: "soporte.mesa@pj.gob.ar", clave: "soporte123", rolLabel: "Soporte", depto: "Mesa de Entradas" },
-  { email: "control.servicios@pj.gob.ar", clave: "control123", rolLabel: "Solo Lectura", depto: "Control de Servicios" },
-  { email: "admin.resoluciones@pj.gob.ar", clave: "admin123", rolLabel: "Jefe de Departamento", depto: "Resoluciones" },
-  { email: "jefa.subdireccion@pj.gob.ar", clave: "subdireccion123", rolLabel: "Jefa de la Subdirección", depto: "Resoluciones" },
-  { email: "admin.licitaciones@pj.gob.ar", clave: "admin123", rolLabel: "Jefe de Departamento", depto: "Licitaciones" },
-  { email: "admin.ordenes@pj.gob.ar", clave: "admin123", rolLabel: "Jefe de Departamento", depto: "Órdenes de Compra" },
-];
-
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,14 +23,8 @@ export default function Login() {
     setCargando(false);
 
     if (res?.error) {
-      setError("Email o contraseña incorrectos. Probá con uno de los usuarios de prueba de abajo.");
+      setError("Email o contraseña incorrectos.");
     }
-  }
-
-  function autocompletar(u) {
-    setEmail(u.email);
-    setPassword(u.clave);
-    setError("");
   }
 
   return (
@@ -94,7 +66,7 @@ export default function Login() {
             </div>
             <div>
               <label className="block text-xs font-medium uppercase tracking-wide text-slate-600 mb-1.5">Contraseña</label>
-              <input type="text" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
                 autoComplete="off" autoCapitalize="off" spellCheck="false"
                 className="w-full rounded-md border border-slate-300 bg-white px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800" />
             </div>
@@ -104,25 +76,6 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-slate-200">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-600 mb-3">Usuarios de prueba (clic para autocompletar)</p>
-            <div className="space-y-4">
-              {[...new Set(USUARIOS_DEMO.map(u => u.depto))].map(depto => (
-                <div key={depto}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">{depto}</p>
-                  <div className="space-y-2">
-                    {USUARIOS_DEMO.filter(u => u.depto === depto).map(u => (
-                      <button key={u.email} type="button" onClick={() => autocompletar(u)}
-                        className="w-full flex items-center justify-between text-left rounded-md border border-slate-200 bg-white px-3 py-2 text-xs hover:border-slate-400 hover:bg-slate-50 transition-colors">
-                        <span className="font-mono text-slate-700">{u.email}</span>
-                        <span className="text-slate-500 uppercase tracking-wide">{u.rolLabel}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>
