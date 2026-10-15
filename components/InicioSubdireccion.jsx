@@ -248,7 +248,7 @@ export default function InicioSubdireccion({ onIr, mostrarToast }) {
       )}
 
       {expFicha && ficha.area === "Resoluciones" && (
-        <FormularioResolucion key={ficha.id} inicial={expFicha} esJefa onCerrar={() => setFicha(null)} onGuardar={guardarFicha} onEliminar={eliminarFicha} />
+        <FormularioResolucion key={ficha.id} inicial={expFicha} esJefa expedientes={R} onCerrar={() => setFicha(null)} onGuardar={guardarFicha} onEliminar={eliminarFicha} />
       )}
       {expFicha && ficha.area === OC && (
         <FormularioOrdenCompra key={ficha.id} inicial={expFicha} esJefa onCerrar={() => setFicha(null)} onGuardar={guardarFicha} onEliminar={eliminarFicha} />

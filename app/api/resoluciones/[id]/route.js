@@ -16,8 +16,9 @@ export async function PUT(request, { params }) {
   // Si no es la jefa, la asignación y la prioridad quedan como estaban.
   // La jefa no cambia tipo de resolución, estado, sector actual ni los
   // datos del expediente (solo agente y prioridad).
-  // Si cambia el sector, el último movimiento pasa a ser hoy.
-  const datos = conUltimoMovPorSector(existente, conContadorReactivado(existente,
+  // Si cambia el sector, el último movimiento pasa a ser hoy. La fecha de
+  // ingreso al sector queda como se cargó (de ahí corre el semáforo).
+  const { fechaIngreso, ...datos } = conUltimoMovPorSector(existente, conContadorReactivado(existente,
     sinCamposDeResoluciones(soloCamposDeJefa(datosResolucion(await request.json()), session.user.email), session.user.email)));
   if (("exp" in datos && !datos.exp) || ("objeto" in datos && !datos.objeto)) {
     return NextResponse.json({ error: "Completá N° de expediente y objeto" }, { status: 400 });

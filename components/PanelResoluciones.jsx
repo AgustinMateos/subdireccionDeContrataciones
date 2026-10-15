@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { X, Plus, Download, Trash2, ArrowRight } from "lucide-react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { X, Plus, Download, Trash2, ArrowRight, Check, ChevronDown } from "lucide-react";
 import * as XLSX from "xlsx";
 import { ALERTA_ESTILO } from "@/lib/constants";
 import { alertaDias, diasEnSector } from "@/lib/diasEnSector";
@@ -67,6 +67,7 @@ function filtroVacio() {
 
 const VACIO = {
   exp: "", fechaIngreso: "", objeto: "", fuero: "", organismo: "", tipoContratacion: "", numero: "",
+  cantidadOfertas: "", cantidadRenglones: "",
   tipoResolucion: "", estado: "", sectorActual: "", fechaUltimoMov: "", agente: "", vencOfertas: "",
   inicioServicio: "", montos: "", observaciones: "", prioritario: false,
   renovacionAutomatica: false, renovacionDias: "", renovacionHabiles: true,
@@ -85,7 +86,7 @@ function aFormulario(e) {
 
 // Alta / edición de un expediente, en dos solapas: los datos del
 // expediente y sus movimientos y estados (con el historial).
-export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar }) {
+export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, onGuardar, onEliminar }) {
   const [f, setF] = useState(() => aFormulario(inicial));
   const [solapa, setSolapa] = useState("datos");
   const [error, setError] = useState("");
@@ -218,9 +219,16 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
               <Paso {...paso(1)} titulo="El expediente">
                 <DatoFicha label="N° de expediente" valor={f.exp} mono />
                 <DatoFicha label="Número de contratación" valor={f.numero} />
+                <Campo pregunta="¿Cuántas ofertas hay?">
+                  <EntradaCantidad valor={f.cantidadOfertas} onChange={v => set("cantidadOfertas", v)} ejemplo="3" />
+                </Campo>
+                <Campo pregunta="¿Cuántos renglones tiene?">
+                  <EntradaCantidad valor={f.cantidadRenglones} onChange={v => set("cantidadRenglones", v)} ejemplo="12" />
+                </Campo>
                 <DatoFicha label="Ingresó al sector" valor={fecha(f.fechaIngreso)} />
                 <Campo pregunta="¿A quién se le asigna?" ancho>
                   <ElegirDeLista opciones={AGENTES_RESOLUCIONES} valor={f.agente} onChange={v => set("agente", v)} vacio="Sin asignar" />
+                  <CargaPorAgente expedientes={expedientes} elegido={f.agente} onElegir={v => set("agente", v)} />
                 </Campo>
                 <Campo pregunta="¿Es prioritario?">
                   <SiNo valor={!!f.prioritario} onChange={v => set("prioritario", v)} si="Sí, prioritario" no="No" />
@@ -256,11 +264,30 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
                 <Campo pregunta="Número de contratación">
                   <Entrada valor={f.numero} onChange={v => set("numero", v)} ejemplo="139/26" />
                 </Campo>
-                <Campo pregunta="¿Qué día ingresó al sector?" ancho>
-                  <ElegirDia valor={f.fechaIngreso} onChange={v => set("fechaIngreso", v)} />
+                {esJefa ? (
+                  <>
+                    <Campo pregunta="¿Cuántas ofertas hay?">
+                      <EntradaCantidad valor={f.cantidadOfertas} onChange={v => set("cantidadOfertas", v)} ejemplo="3" />
+                    </Campo>
+                    <Campo pregunta="¿Cuántos renglones tiene?">
+                      <EntradaCantidad valor={f.cantidadRenglones} onChange={v => set("cantidadRenglones", v)} ejemplo="12" />
+                    </Campo>
+                  </>
+                ) : (
+                  <>
+                    <Campo pregunta="Cantidad de ofertas"><SoloLaJefa valor={f.cantidadOfertas} /></Campo>
+                    <Campo pregunta="Cantidad de renglones"><SoloLaJefa valor={f.cantidadRenglones} /></Campo>
+                  </>
+                )}
+                <Campo pregunta="¿Qué día ingresó al sector?" ayuda={inicial ? "Queda como se cargó: desde este día se cuentan los días del semáforo." : "Desde este día se cuentan los días del semáforo. Después no se cambia."} ancho>
+                  {inicial ? <p className="text-base text-slate-800 py-2">{fecha(f.fechaIngreso)}</p>
+                    : <ElegirDia valor={f.fechaIngreso} onChange={v => set("fechaIngreso", v)} />}
                 </Campo>
                 <Campo pregunta="Agente asignado" ancho>
-                  {esJefa ? <ElegirDeLista opciones={AGENTES_RESOLUCIONES} valor={f.agente} onChange={v => set("agente", v)} vacio="Sin asignar" />
+                  {esJefa ? <>
+                    <ElegirDeLista opciones={AGENTES_RESOLUCIONES} valor={f.agente} onChange={v => set("agente", v)} vacio="Sin asignar" />
+                    <CargaPorAgente expedientes={expedientes} elegido={f.agente} onElegir={v => set("agente", v)} />
+                  </>
                     : <p className="text-base text-slate-800 py-2">{f.agente || "Sin asignar"} <span className="text-sm text-slate-500">(lo asigna la jefa)</span></p>}
                 </Campo>
                 {esJefa && (
@@ -328,7 +355,7 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
                 <Campo pregunta="¿En qué sector está ahora?" ayuda="Tocá para ver la lista, o escribí una parte para buscar.">
                   <CampoOpciones grande value={f.sectorActual} onChange={v => set("sectorActual", v)} opciones={SECTORES_RESOLUCIONES} placeholder="Elegí o escribí" />
                 </Campo>
-                <Campo pregunta="¿Qué día fue el último movimiento?" ayuda={inicial ? "Al cambiar el sector se pone hoy solo. Desde ese día se cuentan los días en el sector." : ""}>
+                <Campo pregunta="¿Qué día fue el último movimiento?" ayuda={inicial ? "Al cambiar el sector se pone hoy solo. No cambia los días del semáforo." : ""}>
                   {inicial ? <ElegirDia valor={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
                     : <p className="text-base text-slate-800 py-2">Hoy, {fecha(f.fechaUltimoMov)} <span className="text-sm text-slate-500">(es el día en que se crea el expediente)</span></p>}
                 </Campo>
@@ -396,6 +423,64 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
   );
 }
 
+// Carga de cada agente, para que la jefa asigne: expedientes en trámite
+// (no completados) por tipo de resolución y prioritarios. Se despliega
+// tocando el título; tocar una fila asigna a ese agente.
+const GRUPOS_CARGA = [
+  { titulo: "Para adjudicar", es: t => t === "ADJUDICAR" },
+  { titulo: "Fracasa / autoriza", es: t => t === "FRACASA / AUTORIZA" },
+  { titulo: "Fracasar, desierta, sin efecto o revocar", es: t => ["FRACASAR", "DESIERTA", "SIN EFECTO", "REVOCAR"].includes(t) },
+];
+
+function CargaPorAgente({ expedientes, elegido, onElegir }) {
+  const [abierta, setAbierta] = useState(false);
+  if (!expedientes?.length) return null;
+  const enTramite = expedientes.filter(e => !esCompletado(e));
+  // S/A es "sin asignar": no es un agente al que repartirle.
+  const agentes = [...new Set([...AGENTES_RESOLUCIONES, ...enTramite.map(e => e.agente).filter(Boolean)])].filter(a => a !== "S/A");
+  const filas = agentes.map(a => {
+    const suyos = enTramite.filter(e => e.agente === a);
+    const tipo = e => String(e.tipoResolucion || "").trim().toUpperCase();
+    return { agente: a, total: suyos.length, grupos: GRUPOS_CARGA.map(g => suyos.filter(e => g.es(tipo(e))).length), prioritarios: suyos.filter(esPrioritario).length };
+  });
+  const celda = (n, fuerte) => <td className={"px-2 py-1.5 text-center tabular-nums " + (n ? (fuerte ? "font-semibold text-slate-900" : "text-slate-800") : "text-slate-300")}>{n || "–"}</td>;
+  return (
+    <div className="mt-3 rounded-lg border border-slate-200 overflow-x-auto">
+      <button type="button" onClick={() => setAbierta(!abierta)} aria-expanded={abierta}
+        className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg">
+        <span>Cuánto tiene cada uno (en trámite){abierta && <span className="font-normal text-slate-500"> · tocá una fila para asignar</span>}</span>
+        <span className="shrink-0 inline-flex items-center gap-1 text-slate-600">
+          {abierta ? "Ocultar" : "Ver"}
+          <ChevronDown size={18} className={"transition-transform " + (abierta ? "rotate-180" : "")} />
+        </span>
+      </button>
+      {abierta && (
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-xs text-slate-500 border-b border-slate-200">
+            <th className="px-3 py-1.5 text-left font-medium">Agente</th>
+            <th className="px-2 py-1.5 font-medium">Total</th>
+            {GRUPOS_CARGA.map(g => <th key={g.titulo} className="px-2 py-1.5 font-medium">{g.titulo}</th>)}
+            <th className="px-2 py-1.5 font-medium">Prioritarios</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map(r => (
+            <tr key={r.agente} onClick={() => onElegir(r.agente)}
+              className={"cursor-pointer border-b border-slate-100 last:border-0 " + (r.agente === elegido ? "bg-slate-900/5 font-medium" : "hover:bg-slate-50")}>
+              <td className="px-3 py-1.5 font-mono whitespace-nowrap">{r.agente === elegido && <Check size={13} className="inline -mt-0.5 mr-1" />}{r.agente}</td>
+              {celda(r.total, true)}
+              {r.grupos.map((n, i) => <Fragment key={i}>{celda(n)}</Fragment>)}
+              <td className={"px-2 py-1.5 text-center tabular-nums " + (r.prioritarios ? "font-semibold text-amber-700" : "text-slate-300")}>{r.prioritarios || "–"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      )}
+    </div>
+  );
+}
+
 // Renovación automática de las ofertas, en palabras.
 function textoRenovacion(f) {
   if (!f.renovacionAutomatica) return "No";
@@ -435,10 +520,31 @@ function useProximaRenovacion(f) {
     (f.renovacionHabiles ? " (se cuentan feriados y días inhábiles judiciales)." : ".");
 }
 
+// "3 ofertas", "1 renglón"; sin dato, nada.
+function cuantos(n, uno, varios) {
+  if (n === "" || n == null) return "";
+  return n + " " + (Number(n) === 1 ? uno : varios);
+}
+
+// Dato que carga solo la jefa de la Subdirección, para quien no es ella.
+function SoloLaJefa({ valor }) {
+  const hay = valor !== "" && valor != null;
+  return <p className="text-base text-slate-800 py-2">{hay ? valor : "Sin cargar"} <span className="text-sm text-slate-500">(lo carga la jefa)</span></p>;
+}
+
+// Cantidad: solo números enteros (teclado numérico en el celular).
+function EntradaCantidad({ valor, onChange, ejemplo }) {
+  return (
+    <input type="number" min="0" step="1" inputMode="numeric" value={valor ?? ""} placeholder={"Ej.: " + ejemplo}
+      onChange={e => onChange(e.target.value.replace(/\D/g, ""))} className={CLASE_ENTRADA + " max-w-[10rem]"} />
+  );
+}
+
 // Lo que se ve de cada paso cuando está cerrado.
 function resumenPaso(n, f) {
   const partes = {
-    1: [f.exp, f.numero && "Contratación N° " + f.numero, f.agente && "Agente: " + f.agente],
+    1: [f.exp, f.numero && "Contratación N° " + f.numero, cuantos(f.cantidadOfertas, "oferta", "ofertas"),
+      cuantos(f.cantidadRenglones, "renglón", "renglones"), f.agente && "Agente: " + f.agente],
     2: [f.objeto, f.fuero, f.tipoContratacion],
     3: [f.vencOfertas && "Vencen las ofertas el " + fecha(f.vencOfertas), f.renovacionAutomatica && "se renuevan solas"],
     4: [f.tipoResolucion, f.estado, f.sectorActual && "En " + f.sectorActual],
@@ -776,6 +882,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial 
           key={form}
           inicial={seleccionado}
           esJefa={esJefa}
+          expedientes={lista}
           onCerrar={() => setForm(null)}
           onGuardar={guardar}
           onEliminar={eliminar}

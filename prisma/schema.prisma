@@ -362,10 +362,12 @@ model ExpedienteResolucion {
   organismo        String?
   tipoContratacion String? // L.PRIVADA | L.PUBLICA | DIRECTA | T.SIMPLIFICADO...
   numero           String? // N° de contratación, ej. "139/26"
+  cantidadOfertas   Int? // ofertas recibidas
+  cantidadRenglones Int?
   tipoResolucion   String? // FRACASAR | ADJUDICAR | AUTORIZAR...
   estado           String? // de la resolución: Confeccion de Resol | Completado...
   sectorActual     String?
-  fechaUltimoMov   DateTime? // de acá corren los días en el sector
+  fechaUltimoMov   DateTime? // se renueva al cambiar de sector (los días en el sector corren desde fechaIngreso)
   agente           String?
   vencOfertas      DateTime?
   inicioServicio   String? // texto: una fecha o "A PARTIR DE LA OC"
