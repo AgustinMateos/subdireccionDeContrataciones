@@ -6,7 +6,8 @@ import { ChevronDown, Check } from "lucide-react";
 // Campo de texto con lista de opciones. A diferencia de un <datalist>, al
 // tocarlo muestra TODAS las opciones aunque ya tenga un valor cargado; al
 // escribir, filtra. Se puede cargar un valor que no esté en la lista.
-export default function CampoOpciones({ label, value, onChange, opciones, placeholder, disabled }) {
+// `grande`: letra y renglones más grandes, para los formularios fáciles.
+export default function CampoOpciones({ label, value, onChange, opciones, placeholder, disabled, grande }) {
   const [abierto, setAbierto] = useState(false);
   const [filtro, setFiltro] = useState(null); // null: sin escribir desde que se abrió → todas
   const [marcada, setMarcada] = useState(-1);
@@ -56,7 +57,7 @@ export default function CampoOpciones({ label, value, onChange, opciones, placeh
 
   return (
     <div ref={ref} className="relative">
-      <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
+      {label && <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>}
       <div className="relative">
         <input
           value={value ?? ""}
@@ -67,7 +68,8 @@ export default function CampoOpciones({ label, value, onChange, opciones, placeh
           onChange={e => { onChange(e.target.value); setFiltro(e.target.value); setMarcada(0); setAbierto(true); }}
           autoComplete="off"
           disabled={disabled}
-          className="w-full text-sm border border-slate-300 rounded-md pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800 disabled:bg-slate-100 disabled:text-slate-500"
+          className={"w-full border border-slate-300 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-slate-800 disabled:bg-slate-100 disabled:text-slate-500 " +
+            (grande ? "text-base rounded-lg py-2.5 bg-white" : "text-sm rounded-md py-2")}
         />
         {!disabled && <button
           type="button"
@@ -75,17 +77,17 @@ export default function CampoOpciones({ label, value, onChange, opciones, placeh
           onMouseDown={e => { e.preventDefault(); abierto ? cerrar() : abrir(); }}
           className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700"
         >
-          <ChevronDown size={15} className={"transition-transform " + (abierto ? "rotate-180" : "")} />
+          <ChevronDown size={grande ? 20 : 15} className={"transition-transform " + (abierto ? "rotate-180" : "")} />
         </button>}
       </div>
       {abierto && visibles.length > 0 && (
-        <ul ref={listaRef} className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg py-1">
+        <ul ref={listaRef} className={"absolute z-50 mt-1 w-full overflow-y-auto " + (grande ? "max-h-80" : "max-h-60") + " bg-white border border-slate-200 rounded-md shadow-lg py-1"}>
           {visibles.map((o, i) => (
             <li
               key={o}
               onMouseDown={e => { e.preventDefault(); elegir(o); }}
               onMouseEnter={() => setMarcada(i)}
-              className={"flex items-center justify-between gap-2 px-3 py-1.5 text-sm cursor-pointer " +
+              className={"flex items-center justify-between gap-2 px-3 cursor-pointer " + (grande ? "py-2.5 text-base " : "py-1.5 text-sm ") +
                 (i === marcada ? "bg-slate-100 text-slate-900" : "text-slate-700")}
             >
               <span className="truncate">{o}</span>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Plus, Download, Trash2, ArrowRight, Users, Check, XCircle, CheckCircle2, ChevronDown } from "lucide-react";
+import { X, Plus, Download, Trash2, ArrowRight, Users, Check, XCircle, CheckCircle2 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { ALERTA_ESTILO } from "@/lib/constants";
 import { alertaDias } from "@/lib/diasEnSector";
@@ -14,6 +14,9 @@ import {
   CONTROLADORES_ORDENES_COMPRA, avanceOC, cbuCargado, compararOrdenesCompra, fechaYQuien, textoFechaYQuien, compararPorNumeroOC, diasEnOC, siguienteNumeroOC, diasParaVencerOC, esCompleta, esPrioritariaOC, porVencerOC,
 } from "@/lib/ordenesCompra";
 import BotonAccion from "./BotonAccion";
+import {
+  AbrirTodos, BotonOpcion, CLASE_ENTRADA, Campo, ElegirDeLista as ElegirDeListaBase, ElegirDia, Entrada, Paso, Pregunta, SiNo, usePasos,
+} from "./FormularioFacil";
 import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
 import EtiquetasPrioridad from "./EtiquetasPrioridad";
 import PanelNotificaciones44 from "./PanelNotificaciones44";
@@ -83,21 +86,6 @@ const aTextoFecha = iso => iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.
 // claras, botones grandes con los nombres, "Hoy" a un toque y una frase
 // que repite lo cargado. ----
 
-function Pregunta({ children }) {
-  return <p className="text-sm font-medium text-slate-800 mb-1.5">{children}</p>;
-}
-
-// Botón grande que queda marcado al elegirlo.
-function BotonOpcion({ elegido, onClick, children }) {
-  return (
-    <button type="button" onClick={onClick} aria-pressed={elegido}
-      className={"min-h-[40px] px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors " +
-        (elegido ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-800 hover:border-slate-500 hover:bg-slate-50")}>
-      {elegido && <Check size={14} className="inline -mt-0.5 mr-1" />}{children}
-    </button>
-  );
-}
-
 // Nombres de las listas como se leen (las opciones se guardan como en la
 // planilla, en mayúsculas).
 const ETIQUETAS = {
@@ -106,62 +94,12 @@ const ETIQUETAS = {
 };
 const etiqueta = o => ETIQUETAS[o] || (o.length > 3 ? o.charAt(0) + o.slice(1).toLowerCase() : o);
 
-const CLASE_ENTRADA = "w-full text-base border border-slate-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800";
-
-function Entrada({ valor, onChange, ejemplo, mono, autoFocus }) {
-  return (
-    <input value={valor || ""} onChange={e => onChange(e.target.value)} placeholder={ejemplo ? "Ej.: " + ejemplo : ""} autoFocus={autoFocus}
-      className={CLASE_ENTRADA + (mono ? " font-mono" : "")} />
-  );
-}
-
-// Un botón por opción; `vacio`: un botón para "nada" (guarda vacío);
-// `otro`: un botón para escribir algo que no está en la lista. Si lo
-// cargado no está en la lista, se ve escrito.
-function ElegirDeLista({ opciones, valor, onChange, otro, vacio }) {
-  const v = String(valor || "").trim();
-  const elegida = opciones.find(o => o.toUpperCase() === v.toUpperCase());
-  const [escribiendo, setEscribiendo] = useState(!!v && !elegida);
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
-        {vacio && <BotonOpcion elegido={!v && !escribiendo} onClick={() => { setEscribiendo(false); onChange(""); }}>{vacio}</BotonOpcion>}
-        {opciones.map(o => (
-          <BotonOpcion key={o} elegido={!escribiendo && elegida === o} onClick={() => { setEscribiendo(false); onChange(o); }}>{etiqueta(o)}</BotonOpcion>
-        ))}
-        {(otro || escribiendo) && (
-          <BotonOpcion elegido={escribiendo} onClick={() => { setEscribiendo(true); if (elegida) onChange(""); }}>{otro || "Otro"}</BotonOpcion>
-        )}
-      </div>
-      {escribiendo && <Entrada valor={v} onChange={onChange} ejemplo="escribilo acá" autoFocus />}
-    </div>
-  );
+function ElegirDeLista(props) {
+  return <ElegirDeListaBase etiqueta={etiqueta} {...props} />;
 }
 
 function ElegirPersona({ valor, onChange }) {
   return <ElegirDeLista opciones={CONTROLADORES_ORDENES_COMPRA} valor={valor} onChange={onChange} otro="Otra persona" />;
-}
-
-function SiNo({ valor, onChange, si = "Sí", no = "No" }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      <BotonOpcion elegido={!valor} onClick={() => onChange(false)}>{no}</BotonOpcion>
-      <BotonOpcion elegido={!!valor} onClick={() => onChange(true)}>{si}</BotonOpcion>
-    </div>
-  );
-}
-
-// Un día: el calendario y, al lado, "Hoy".
-function ElegirDia({ valor, onChange }) {
-  const hoy = hoyLocalISO();
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <input type="date" value={valor || ""} onChange={e => onChange(e.target.value)}
-        className="text-base border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
-      <BotonOpcion elegido={valor === hoy} onClick={() => onChange(hoy)}>Hoy</BotonOpcion>
-      {valor && <button type="button" onClick={() => onChange("")} className="text-sm text-slate-500 underline hover:text-slate-800">Borrar</button>}
-    </div>
-  );
 }
 
 // Un día guardado como texto "dd/mm/aaaa", como en la planilla. Si lo
@@ -280,33 +218,6 @@ function AvanceCircuito({ f }) {
   );
 }
 
-// Un paso del formulario, numerado, que se abre y se cierra tocando el
-// título. Cerrado, muestra un resumen de lo cargado.
-function Paso({ numero, titulo, resumen, abierto, onAlternar, avance, children }) {
-  return (
-    <section className={"rounded-xl border " + (abierto ? "border-slate-300 shadow-sm" : "border-slate-200")}>
-      <button type="button" onClick={onAlternar} aria-expanded={abierto}
-        className="w-full flex items-center gap-3 p-4 sm:px-5 text-left rounded-xl hover:bg-slate-50">
-        <span className="w-8 h-8 shrink-0 rounded-full bg-slate-900 text-white text-sm font-semibold flex items-center justify-center">{numero}</span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-base font-semibold text-slate-900">{titulo}</span>
-          {!abierto && <span className="block text-sm text-slate-500 truncate">{resumen || "Sin completar"}</span>}
-        </span>
-        <span className="shrink-0 inline-flex items-center gap-1 text-sm text-slate-600">
-          {abierto ? "Cerrar" : "Abrir"}
-          <ChevronDown size={20} className={"transition-transform " + (abierto ? "rotate-180" : "")} />
-        </span>
-      </button>
-      {abierto && (
-        <div className="px-4 pb-5 sm:px-5 space-y-4">
-          {avance}
-          <div className="grid md:grid-cols-2 gap-x-6 gap-y-5">{children}</div>
-        </div>
-      )}
-    </section>
-  );
-}
-
 // Lo que se ve de cada paso cuando está cerrado.
 function resumenPaso(n, f) {
   const partes = {
@@ -316,16 +227,6 @@ function resumenPaso(n, f) {
     4: [avanceOC(f).hechos + " de " + PASOS_ORDEN_COMPRA.length + " pasos hechos", f.estado && etiqueta(f.estado.toUpperCase())],
   }[n];
   return partes.filter(Boolean).join(" · ");
-}
-
-function Campo({ pregunta, ayuda, ancho, children }) {
-  return (
-    <div className={"min-w-0" + (ancho ? " md:col-span-2" : "")}>
-      <Pregunta>{pregunta}</Pregunta>
-      {children}
-      {ayuda && <p className="mt-1 text-xs text-slate-500">{ayuda}</p>}
-    </div>
-  );
 }
 
 function Tarjeta({ titulo, resumen, children }) {
@@ -430,9 +331,8 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
   const [avisoVencimientos, setAvisoVencimientos] = useState("");
   // Pasos abiertos: en una orden nueva, el primero; en una cargada, el
   // seguimiento (y la jefa, también la orden, donde asigna).
-  const [abiertos, setAbiertos] = useState(() => (!inicial ? { 1: true } : fijo ? { 3: true, 4: true } : { 4: true }));
-  const paso = n => ({ numero: n, resumen: resumenPaso(n, f), abierto: !!abiertos[n], onAlternar: () => setAbiertos(a => ({ ...a, [n]: !a[n] })) });
-  const todosAbiertos = [1, 2, 3, 4].every(n => abiertos[n]);
+  const pasos = usePasos(!inicial ? { 1: true } : fijo ? { 3: true, 4: true } : { 4: true }, n => resumenPaso(n, f));
+  const paso = pasos.paso;
 
   function set(campo, valor) {
     setF(prev => ({ ...prev, [campo]: valor }));
@@ -477,7 +377,7 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
   }
 
   async function guardar() {
-    if (!f.exp.trim() || !f.objeto.trim()) { setError("Completá N° de expediente y objeto."); setSolapa("datos"); setAbiertos(a => ({ ...a, 1: true, 2: true })); return; }
+    if (!f.exp.trim() || !f.objeto.trim()) { setError("Completá N° de expediente y objeto."); setSolapa("datos"); pasos.abrir(1, 2); return; }
     setGuardando(true);
     // Sin observación nueva, queda la última que tenía.
     // Sin ajuste, el total para la O/C es el mismo monto de la resolución.
@@ -561,14 +461,7 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
             </div>
           )}
 
-          {solapa === "datos" && (
-            <div className="flex justify-end -mb-3">
-              <button type="button" onClick={() => setAbiertos(todosAbiertos ? {} : { 1: true, 2: true, 3: true, 4: true })}
-                className="text-sm text-slate-600 underline hover:text-slate-900">
-                {todosAbiertos ? "Cerrar todos los pasos" : "Abrir todos los pasos"}
-              </button>
-            </div>
-          )}
+          {solapa === "datos" && <AbrirTodos pasos={pasos} total={4} />}
           {solapa === "datos" && fijo ? (
             // La jefa ve la ficha: solo cambia agente y prioridad.
             <>

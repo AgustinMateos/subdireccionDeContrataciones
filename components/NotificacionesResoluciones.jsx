@@ -102,14 +102,16 @@ export default function NotificacionesResoluciones() {
                     <p className="text-[11px] text-slate-500 mt-1">
                       {n.accion === "renovacion"
                         ? "Se renovó automáticamente el vencimiento de ofertas:"
-                        : n.creadoPor + (n.accion === "alta" ? " cargó este expediente" : " modificó:")}
+                        : n.accion === "renovacion-activada"
+                          ? n.creadoPor + " activó la renovación automática de las ofertas:"
+                          : n.creadoPor + (n.accion === "alta" ? " cargó este expediente" : " modificó:")}
                     </p>
                     {(n.cambios || []).length > 0 && (
                       <ul className="mt-1 space-y-0.5">
                         {n.cambios.map((c, i) => (
                           <li key={i} className="text-xs text-slate-700 flex flex-wrap items-center gap-1">
                             <span className="text-slate-500">{c.campo}:</span>
-                            {n.accion !== "alta" && <><span className="line-through text-slate-400">{c.anterior || "vacío"}</span><ArrowRight size={11} className="text-slate-400" /></>}
+                            {n.accion !== "alta" && n.accion !== "renovacion-activada" && <><span className="line-through text-slate-400">{c.anterior || "vacío"}</span><ArrowRight size={11} className="text-slate-400" /></>}
                             <span className="font-medium">{c.nuevo || "vacío"}</span>
                           </li>
                         ))}

@@ -7,6 +7,7 @@ import { ALERTA_ESTILO } from "@/lib/constants";
 import { alertaDias, diasEnSector } from "@/lib/diasEnSector";
 import { fmtFecha } from "@/lib/utils";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
+import { sumarDiasHabiles } from "@/lib/diasHabiles";
 import {
   FUEROS_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, SECTORES_RESOLUCIONES,
   ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta, esCompletado, esParaAdjudicar, esPrioritario,
@@ -17,8 +18,10 @@ import BotonAccion from "./BotonAccion";
 import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
 import EstrellaPrioridad from "./EstrellaPrioridad";
 import EtiquetasPrioridad from "./EtiquetasPrioridad";
-import { Campo_Input } from "./CamposFormulario";
 import CampoOpciones from "./CampoOpciones";
+import {
+  AbrirTodos, BotonOpcion, CLASE_ENTRADA, Campo, ElegirDeLista, ElegirDia, Entrada, Paso, Pregunta, SiNo, usePasos,
+} from "./FormularioFacil";
 
 const norm = s => String(s || "").trim().toLowerCase();
 const fecha = f => (f ? fmtFecha(fechaISO(f)) : "-");
@@ -93,6 +96,14 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
   const [versionAlAbrir] = useState(inicial?.actualizadoEn);
   const cambioMientrasEditaba = !!inicial && inicial.actualizadoEn !== versionAlAbrir;
 
+  // Al editar, la jefa solo cambia agente y prioridad de los datos.
+  const fijo = esJefa && !!inicial;
+  // Pasos abiertos: en un alta, el primero; al editar, dónde está y cómo
+  // sigue (la jefa, el expediente, donde asigna).
+  const pasos = usePasos(!inicial ? { 1: true } : fijo ? { 1: true } : { 4: true }, n => resumenPaso(n, f));
+  const paso = pasos.paso;
+  const proxima = useProximaRenovacion(f);
+
   // El último movimiento no cambia solo: se carga a mano.
   function set(campo, valor) {
     setF(prev => ({ ...prev, [campo]: valor }));
@@ -105,7 +116,7 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
       : f.renovacionAutomatica && !(Number(f.renovacionDias) > 0) ? "Completá los días de la renovación automática."
         : f.renovacionAutomatica && !f.vencOfertas ? "Para la renovación automática cargá el vencimiento de ofertas."
           : "";
-    if (falta) { setError(falta); setSolapa("datos"); return; }
+    if (falta) { setError(falta); setSolapa("datos"); pasos.abrir(...(f.exp.trim() && f.objeto.trim() ? [3] : [1, 2])); return; }
     setGuardando(true);
     // Sin observación nueva, queda la última que tenía.
     const res = await onGuardar({ ...f, observaciones: f.observaciones.trim() || inicial?.observaciones || "" });
@@ -118,9 +129,6 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
     await onEliminar();
     setGuardando(false);
   }
-
-  // Al editar, la jefa solo cambia agente y prioridad de los datos.
-  const fijo = esJefa && !!inicial;
 
   const historial = [...(inicial?.movimientos || [])].reverse();
   const dias = inicial ? diasEnSector(inicial) : null;
@@ -160,13 +168,13 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
           <div className="flex items-center gap-1 mt-3">
             {[
               { id: "datos", etiqueta: "Datos del expediente" },
-              { id: "movimientos", etiqueta: "Movimientos y estados" + (inicial ? " (" + historial.length + ")" : "") },
+              { id: "movimientos", etiqueta: "Observaciones e historial" + (inicial ? " (" + historial.length + ")" : "") },
             ].map(t => (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => setSolapa(t.id)}
-                className={"px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors " +
+                className={"px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors " +
                   (solapa === t.id ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}
               >
                 {t.etiqueta}
@@ -194,86 +202,147 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
             </div>
           )}
 
+          {solapa === "datos" && <AbrirTodos pasos={pasos} total={4} />}
           {solapa === "datos" && fijo ? (
-            <FichaDatos f={f} set={set} />
+            // La jefa ve la ficha: solo cambia agente y prioridad.
+            <>
+              <Paso {...paso(1)} titulo="El expediente">
+                <DatoFicha label="N° de expediente" valor={f.exp} mono />
+                <DatoFicha label="Número" valor={f.numero} />
+                <DatoFicha label="Ingresó al sector" valor={fecha(f.fechaIngreso)} />
+                <Campo pregunta="¿A quién se le asigna?" ancho>
+                  <ElegirDeLista opciones={AGENTES_RESOLUCIONES} valor={f.agente} onChange={v => set("agente", v)} vacio="Sin asignar" />
+                </Campo>
+                <Campo pregunta="¿Es prioritario?">
+                  <SiNo valor={!!f.prioritario} onChange={v => set("prioritario", v)} si="Sí, prioritario" no="No" />
+                </Campo>
+              </Paso>
+              <Paso {...paso(2)} titulo="Qué se contrata">
+                <DatoFicha label="Objeto" valor={f.objeto} />
+                <DatoFicha label="Fuero" valor={f.fuero} />
+                <DatoFicha label="Organismo" valor={f.organismo} />
+                <DatoFicha label="Tipo de contratación" valor={f.tipoContratacion} />
+                <DatoFicha label="Montos" valor={f.montos} />
+              </Paso>
+              <Paso {...paso(3)} titulo="Plazos">
+                <DatoFicha label="Vencen las ofertas" valor={fecha(f.vencOfertas)} />
+                <DatoFicha label="Inicio del servicio" valor={f.inicioServicio} />
+                <DatoFicha label="Las ofertas se renuevan solas" valor={textoRenovacion(f)} />
+              </Paso>
+              <Paso {...paso(4)} titulo="Dónde está y cómo sigue · lo carga Resoluciones">
+                <DatoFicha label="Tipo de resolución" valor={f.tipoResolucion} />
+                <DatoFicha label="Estado" valor={f.estado} />
+                <DatoFicha label="Sector donde está" valor={f.sectorActual} />
+                <DatoFicha label="Último movimiento" valor={fecha(f.fechaUltimoMov)} />
+              </Paso>
+            </>
           ) : solapa === "datos" ? (
             <>
-              <Seccion titulo="Identificación">
-                <Campo_Input label="Exp. *" value={f.exp} onChange={v => set("exp", v)} placeholder="13-05999/25" />
-                <Campo_Input label="Número" value={f.numero} onChange={v => set("numero", v)} placeholder="139/26" />
-                <Campo_Input label="Fecha ingreso al sector" type="date" value={f.fechaIngreso} onChange={v => set("fechaIngreso", v)} />
-                {esJefa ? (
-                  <CampoOpciones label="Agente (asignación)" value={f.agente} onChange={v => set("agente", v)} opciones={AGENTES_RESOLUCIONES} />
-                ) : (
-                  <Campo_Input label="Agente (lo asigna la jefa)" value={f.agente} onChange={() => {}} disabled />
+              <p className="text-sm text-slate-600">Completá lo que sepas; lo demás se puede cargar después. Lo único obligatorio es el <b>N° de expediente</b> y el <b>objeto</b>. Tocá cada paso para abrirlo.</p>
+
+              <Paso {...paso(1)} titulo="El expediente">
+                <Campo pregunta="N° de expediente (obligatorio)">
+                  <Entrada valor={f.exp} onChange={v => set("exp", v)} ejemplo="13-05999/25" mono />
+                </Campo>
+                <Campo pregunta="Número">
+                  <Entrada valor={f.numero} onChange={v => set("numero", v)} ejemplo="139/26" />
+                </Campo>
+                <Campo pregunta="¿Qué día ingresó al sector?" ancho>
+                  <ElegirDia valor={f.fechaIngreso} onChange={v => set("fechaIngreso", v)} />
+                </Campo>
+                <Campo pregunta="Agente asignado" ancho>
+                  {esJefa ? <ElegirDeLista opciones={AGENTES_RESOLUCIONES} valor={f.agente} onChange={v => set("agente", v)} vacio="Sin asignar" />
+                    : <p className="text-base text-slate-800 py-2">{f.agente || "Sin asignar"} <span className="text-sm text-slate-500">(lo asigna la jefa)</span></p>}
+                </Campo>
+                {esJefa && (
+                  <Campo pregunta="¿Es prioritario?">
+                    <SiNo valor={!!f.prioritario} onChange={v => set("prioritario", v)} si="Sí, prioritario" no="No" />
+                  </Campo>
                 )}
-                <div className="col-span-2 md:col-span-4">
-                  <label className={"inline-flex items-center gap-2 text-sm " + (esJefa ? "text-slate-700" : "text-slate-400")}>
-                    <input type="checkbox" checked={!!f.prioritario} disabled={!esJefa} onChange={e => set("prioritario", e.target.checked)} className="rounded border-slate-300" />
-                    Prioritario (estrella){!esJefa && " · lo marca la jefa de la Subdirección"}
-                  </label>
-                </div>
-              </Seccion>
+              </Paso>
 
-              <Seccion titulo="Contratación">
-                <div className="col-span-2 md:col-span-4"><Campo_Input label="Objeto *" value={f.objeto} onChange={v => set("objeto", v)} /></div>
-                <div className="col-span-2"><CampoOpciones label="Fuero" value={f.fuero} onChange={v => set("fuero", v)} opciones={FUEROS_RESOLUCIONES} /></div>
-                <div className="col-span-2"><Campo_Input label="Organismo" value={f.organismo} onChange={v => set("organismo", v)} /></div>
-                <CampoOpciones label="Tipo de contratación" value={f.tipoContratacion} onChange={v => set("tipoContratacion", v)} opciones={TIPOS_CONTRATACION_RESOLUCIONES} />
-                <div className="col-span-1 md:col-span-3"><Campo_Input label="Montos" value={f.montos} onChange={v => set("montos", v)} placeholder="$ 61.096.888,00" /></div>
-              </Seccion>
+              <Paso {...paso(2)} titulo="Qué se contrata">
+                <Campo pregunta="¿Qué se contrata? (objeto, obligatorio)" ancho>
+                  <Entrada valor={f.objeto} onChange={v => set("objeto", v)} ejemplo="SERVICIO DE LIMPIEZA" />
+                </Campo>
+                <Campo pregunta="Fuero" ayuda="Tocá para ver la lista, o escribí una parte para buscar.">
+                  <CampoOpciones grande value={f.fuero} onChange={v => set("fuero", v)} opciones={FUEROS_RESOLUCIONES} placeholder="Elegí o escribí" />
+                </Campo>
+                <Campo pregunta="Organismo">
+                  <Entrada valor={f.organismo} onChange={v => set("organismo", v)} ejemplo="TRIBUNAL ORAL FEDERAL N° 2" />
+                </Campo>
+                <Campo pregunta="¿Qué tipo de contratación es?" ancho>
+                  <ElegirDeLista opciones={TIPOS_CONTRATACION_RESOLUCIONES} valor={f.tipoContratacion} onChange={v => set("tipoContratacion", v)} />
+                </Campo>
+                <Campo pregunta="Montos" ancho>
+                  <Entrada valor={f.montos} onChange={v => set("montos", v)} ejemplo="$ 61.096.888,00" />
+                </Campo>
+              </Paso>
 
-              <Seccion titulo="Plazos">
-                <Campo_Input label="Venc. ofertas" type="date" value={f.vencOfertas} onChange={v => set("vencOfertas", v)} />
-                <div className="col-span-1 md:col-span-3"><Campo_Input label="Inicio de servicio" value={f.inicioServicio} onChange={v => set("inicioServicio", v)} placeholder="1/12/2026 o A PARTIR DE LA OC" /></div>
-                <div className="col-span-2 md:col-span-4 border border-slate-200 rounded-md px-3 py-2.5 space-y-2">
-                  <label className="flex items-center gap-2 text-sm text-slate-700">
-                    <input type="checkbox" checked={!!f.renovacionAutomatica} onChange={e => set("renovacionAutomatica", e.target.checked)} className="rounded border-slate-300" />
-                    Renovación automática del vencimiento de ofertas
-                  </label>
+              <Paso {...paso(3)} titulo="Plazos">
+                <Campo pregunta="¿Qué día vencen las ofertas?" ancho>
+                  <ElegirDia valor={f.vencOfertas} onChange={v => set("vencOfertas", v)} />
+                </Campo>
+                <Campo pregunta="¿Cuándo empieza el servicio?" ancho>
+                  <Entrada valor={f.inicioServicio} onChange={v => set("inicioServicio", v)} ejemplo="1/12/2026 o A PARTIR DE LA OC" />
+                </Campo>
+                <Campo pregunta="Cuando vencen, ¿las ofertas se renuevan solas?" ayuda="Si se renuevan, queda anotado en el historial y avisa en la campana." ancho>
+                  <SiNo valor={!!f.renovacionAutomatica} onChange={v => set("renovacionAutomatica", v)} si="Sí, se renuevan solas" no="No" />
                   {f.renovacionAutomatica && (
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700">
-                      <span>Al vencer, se renueva por</span>
-                      <input type="number" min="1" value={f.renovacionDias} onChange={e => set("renovacionDias", e.target.value)}
-                        className="w-20 text-sm border border-slate-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-800" />
-                      <select value={f.renovacionHabiles ? "habiles" : "corridos"} onChange={e => set("renovacionHabiles", e.target.value === "habiles")}
-                        className="text-sm border border-slate-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800">
-                        <option value="habiles">días hábiles</option>
-                        <option value="corridos">días corridos</option>
-                      </select>
-                      <span className="text-xs text-slate-500">Queda en el historial y avisa en la campana.</span>
+                    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/60 p-3 space-y-3">
+                      <div>
+                        <p className="text-sm text-slate-700 mb-1.5">¿Por cuántos días?</p>
+                        <input type="number" min="1" inputMode="numeric" value={f.renovacionDias} onChange={e => set("renovacionDias", e.target.value)}
+                          placeholder="Ej.: 10" className={CLASE_ENTRADA + " max-w-[8rem]"} />
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-700 mb-1.5">¿Qué días se cuentan?</p>
+                        <div className="flex flex-wrap gap-2">
+                          <BotonOpcion elegido={!!f.renovacionHabiles} onClick={() => set("renovacionHabiles", true)}>Días hábiles</BotonOpcion>
+                          <BotonOpcion elegido={!f.renovacionHabiles} onClick={() => set("renovacionHabiles", false)}>Días corridos</BotonOpcion>
+                        </div>
+                      </div>
+                      <p className="text-sm text-slate-600">{textoRenovacion(f)}</p>
+                      {proxima && <p className="text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-2">{proxima}</p>}
                     </div>
                   )}
-                </div>
-              </Seccion>
+                </Campo>
+              </Paso>
+
+              <Paso {...paso(4)} titulo={"Dónde está y cómo sigue" + (esJefa && inicial ? " · lo carga Resoluciones" : "")}>
+                <Campo pregunta="¿Qué tipo de resolución es?" ancho>
+                  <ElegirDeLista opciones={TIPOS_RESOLUCION} valor={f.tipoResolucion} onChange={v => set("tipoResolucion", v)} />
+                </Campo>
+                <Campo pregunta="¿En qué estado está?" ancho>
+                  <ElegirDeLista opciones={ESTADOS_RESOLUCION} valor={f.estado} onChange={v => set("estado", v)} />
+                </Campo>
+                <Campo pregunta="¿En qué sector está ahora?" ayuda="Tocá para ver la lista, o escribí una parte para buscar.">
+                  <CampoOpciones grande value={f.sectorActual} onChange={v => set("sectorActual", v)} opciones={SECTORES_RESOLUCIONES} placeholder="Elegí o escribí" />
+                </Campo>
+                <Campo pregunta="¿Qué día fue el último movimiento?" ayuda="Desde ese día se cuentan los días en el sector.">
+                  <ElegirDia valor={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
+                </Campo>
+              </Paso>
             </>
           ) : (
             <>
-              <Seccion titulo={"Estado actual" + (esJefa && inicial ? " · lo modifica Resoluciones" : "")}>
-                {/* La jefa no modifica tipo de resolución, estado ni sector actual (sí los carga en un alta). */}
-                <CampoOpciones label="Tipo de resolución" value={f.tipoResolucion} onChange={v => set("tipoResolucion", v)} opciones={TIPOS_RESOLUCION} disabled={esJefa && !!inicial} />
-                <CampoOpciones label="Estado" value={f.estado} onChange={v => set("estado", v)} opciones={ESTADOS_RESOLUCION} disabled={esJefa && !!inicial} />
-                <CampoOpciones label="Sector actual" value={f.sectorActual} onChange={v => set("sectorActual", v)} opciones={SECTORES_RESOLUCIONES} disabled={esJefa && !!inicial} />
-                <Campo_Input label="Último movimiento" type="date" value={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
-              </Seccion>
-
-              <Seccion titulo={inicial ? "Nueva observación" : "Observaciones"}>
-                <div className="col-span-2 md:col-span-4">
-                  <textarea value={f.observaciones} onChange={e => set("observaciones", e.target.value)} rows={3}
-                    placeholder={inicial ? "Agregar una observación (queda en el historial)..." : ""}
-                    className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800 resize-y" />
-                </div>
-              </Seccion>
+              <section className="space-y-2">
+                <Pregunta>{inicial ? "¿Querés dejar una observación?" : "Observaciones"}</Pregunta>
+                <textarea value={f.observaciones} onChange={e => set("observaciones", e.target.value)} rows={4}
+                  placeholder="Escribí acá. Al guardar, queda anotada con la fecha y tu nombre."
+                  className={CLASE_ENTRADA + " resize-y"} />
+              </section>
 
               {inicial && (
                 <section className="space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Historial ({historial.length})</h3>
+                  <h3 className="text-base font-semibold text-slate-900">Lo que pasó con este expediente ({historial.length})</h3>
                   {historial.length === 0 ? (
-                    <p className="text-sm text-slate-500">Sin movimientos registrados.</p>
+                    <p className="text-sm text-slate-500">Todavía no hay nada anotado.</p>
                   ) : (
                     <ol className="relative border-l border-slate-200 ml-1.5 space-y-4">
                       {historial.map(m => {
-                        const esObs = m.campo === "Observaciones";
+                        // Observaciones y renovaciones de ofertas se leen como texto.
+                        const esObs = m.campo === "Observaciones" || m.campo === "Renovación de ofertas";
                         return (
                           <li key={m.id} className="pl-5 relative">
                             <span className={"absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full ring-2 ring-white " + (esObs ? "bg-slate-400" : "bg-slate-800")} />
@@ -303,11 +372,13 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
 
         {/* Guardar toma las dos solapas. */}
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50/60 flex items-center justify-end gap-2">
-          {error && <p className="mr-auto text-xs text-red-600">{error}</p>}
-          <button onClick={onCerrar} disabled={guardando} className="px-3 py-2 rounded-md border border-slate-300 bg-white text-xs font-medium hover:bg-slate-50">Cancelar</button>
+          {error && <p className="mr-auto text-sm font-medium text-red-700">{error}</p>}
+          <button onClick={onCerrar} disabled={guardando} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50">
+            {fijo ? "Cerrar" : "Cancelar sin guardar"}
+          </button>
           <BotonAccion onClick={guardar} cargando={guardando}
-            className="px-3 py-2 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 disabled:opacity-50">
-            {inicial ? "Guardar cambios" : "Cargar expediente"}
+            className="px-5 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-50">
+            {inicial ? "Guardar cambios" : "Guardar el expediente"}
           </BotonAccion>
         </div>
       </div>
@@ -315,42 +386,54 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
   );
 }
 
-// Datos del expediente como ficha, para la jefa al editar: solo cambia
-// el agente y la prioridad.
-function FichaDatos({ f, set }) {
-  const renovacion = f.renovacionAutomatica
-    ? "Sí, por " + f.renovacionDias + " días " + (f.renovacionHabiles ? "hábiles" : "corridos")
-    : "No";
-  return (
-    <>
-      <Seccion titulo="Identificación">
-        <DatoFicha label="Exp." valor={f.exp} mono />
-        <DatoFicha label="Número" valor={f.numero} />
-        <DatoFicha label="Fecha ingreso al sector" valor={fecha(f.fechaIngreso)} />
-        <CampoOpciones label="Agente (asignación)" value={f.agente} onChange={v => set("agente", v)} opciones={AGENTES_RESOLUCIONES} />
-        <div className="col-span-2 md:col-span-4">
-          <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-            <input type="checkbox" checked={!!f.prioritario} onChange={e => set("prioritario", e.target.checked)} className="rounded border-slate-300" />
-            Prioritario (estrella)
-          </label>
-        </div>
-      </Seccion>
+// Renovación automática de las ofertas, en palabras.
+function textoRenovacion(f) {
+  if (!f.renovacionAutomatica) return "No";
+  const dias = Number(f.renovacionDias) > 0 ? f.renovacionDias + " días " + (f.renovacionHabiles ? "hábiles" : "corridos") : "los días que indiques";
+  return "Al vencer, las ofertas se renuevan solas por " + dias + ".";
+}
 
-      <Seccion titulo="Contratación">
-        <div className="col-span-2 md:col-span-4"><DatoFicha label="Objeto" valor={f.objeto} /></div>
-        <div className="col-span-2"><DatoFicha label="Fuero" valor={f.fuero} /></div>
-        <div className="col-span-2"><DatoFicha label="Organismo" valor={f.organismo} /></div>
-        <DatoFicha label="Tipo de contratación" valor={f.tipoContratacion} />
-        <div className="col-span-1 md:col-span-3"><DatoFicha label="Montos" valor={f.montos} /></div>
-      </Seccion>
+// Con renovación automática y vencimiento cargado: hasta qué día se
+// renovarían las ofertas, contando hábiles con los feriados nacionales y
+// los inhábiles judiciales (como la renovación que hace el servidor).
+function useProximaRenovacion(f) {
+  const [feriados, setFeriados] = useState(null);
+  const anio = Number(String(f.vencOfertas || "").slice(0, 4));
+  const dias = Number(f.renovacionDias);
+  const necesita = f.renovacionAutomatica && dias > 0 && anio > 0;
+  useEffect(() => {
+    if (!necesita || !f.renovacionHabiles) return;
+    let activo = true;
+    fetch("/api/feriados?anios=" + anio + "," + (anio + 1))
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (activo) setFeriados(d?.feriados ? { anio, lista: new Set(d.feriados) } : { anio, error: true }); })
+      .catch(() => activo && setFeriados({ anio, error: true }));
+    return () => { activo = false; };
+  }, [necesita, f.renovacionHabiles, anio]);
+  if (!necesita) return "";
+  let hasta;
+  if (f.renovacionHabiles) {
+    if (!feriados || feriados.anio !== anio) return "Calculando hasta cuándo se renovarían...";
+    if (feriados.error) return "";
+    hasta = sumarDiasHabiles(f.vencOfertas, dias, feriados.lista);
+  } else {
+    const d = new Date(f.vencOfertas + "T00:00:00.000Z");
+    d.setUTCDate(d.getUTCDate() + dias);
+    hasta = d.toISOString().slice(0, 10);
+  }
+  return "Si no se completa antes, el " + fecha(f.vencOfertas) + " las ofertas se renuevan solas hasta el " + fecha(hasta) +
+    (f.renovacionHabiles ? " (se cuentan feriados y días inhábiles judiciales)." : ".");
+}
 
-      <Seccion titulo="Plazos">
-        <DatoFicha label="Venc. ofertas" valor={fecha(f.vencOfertas)} />
-        <div className="col-span-1 md:col-span-3"><DatoFicha label="Inicio de servicio" valor={f.inicioServicio} /></div>
-        <div className="col-span-2 md:col-span-4"><DatoFicha label="Renovación automática del vencimiento de ofertas" valor={renovacion} /></div>
-      </Seccion>
-    </>
-  );
+// Lo que se ve de cada paso cuando está cerrado.
+function resumenPaso(n, f) {
+  const partes = {
+    1: [f.exp, f.numero && "N° " + f.numero, f.agente && "Agente: " + f.agente],
+    2: [f.objeto, f.fuero, f.tipoContratacion],
+    3: [f.vencOfertas && "Vencen las ofertas el " + fecha(f.vencOfertas), f.renovacionAutomatica && "se renuevan solas"],
+    4: [f.tipoResolucion, f.estado, f.sectorActual && "En " + f.sectorActual],
+  }[n];
+  return partes.filter(Boolean).join(" · ");
 }
 
 export function DatoFicha({ label, valor, mono }) {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { CAMPOS_DE_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, datosResolucion, sinCamposDeResoluciones, soloCamposDeJefa } from "@/lib/resoluciones";
-import { INCLUDE_RESOLUCION, avisarSiEsJefa, conContadorReactivado, conPlanObras, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { INCLUDE_RESOLUCION, avisarSiActivaRenovacion, avisarSiEsJefa, conContadorReactivado, conPlanObras, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
 
 // Edición. Los cambios de sector actual, tipo de resolución y estado
 // quedan en el historial; la fecha del último movimiento solo cambia si se
@@ -28,6 +28,7 @@ export async function PUT(request, { params }) {
     include: INCLUDE_RESOLUCION,
   });
   await avisarSiEsJefa(prisma, session, existente, datos, expediente);
+  await avisarSiActivaRenovacion(prisma, session, existente, expediente);
   return NextResponse.json({ expediente: await conPlanObras(prisma, expediente) });
 }
 
