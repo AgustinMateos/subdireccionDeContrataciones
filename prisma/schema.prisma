@@ -452,3 +452,144 @@ model ObraPlan {
 
   @@index([anio])
 }
+
+// ---------- Licitaciones ----------
+// Sistema aparte del Departamento de Licitaciones (su planilla
+// "Seguimiento y control de licitaciones"), igual que Resoluciones. Lo
+// usan el departamento "licitaciones" y la jefa de la Subdirección (ver
+// lib/licitaciones.js). Monto y plazo son texto, como en la planilla.
+model ExpedienteLicitacion {
+  id                 String    @id @default(cuid())
+  exp                String // no es único: la planilla repite N° con "Ref."
+  jurisdiccion       String?
+  organismo          String?
+  domicilio          String?
+  rubro              String?
+  objeto             String
+  monto              String?
+  plazoEjecucion     String? // en días hábiles, a veces por renglón
+  encuadre           String? // L.PRIVADA | C.DIRECTA | C.DESCENT....
+  fechaUltimoMov     DateTime? // de acá corren los días en el sector
+  sector             String?
+  estadoInterno      String?
+  estadoConvocatoria String?
+  observaciones      String?
+  agente             String? // lo asigna la jefa; en un alta, por jurisdicción
+  paseFirma          DateTime?
+  prioritario        Boolean   @default(false)
+
+  movimientos   MovimientoLicitacion[]
+  creadoEn      DateTime               @default(now())
+  actualizadoEn DateTime               @updatedAt
+
+  @@index([exp])
+}
+
+// Historial de un expediente de Licitaciones: sector, estados, agente u
+// observaciones (`campo`), con el valor anterior y el nuevo.
+model MovimientoLicitacion {
+  id           String               @id @default(cuid())
+  expedienteId String
+  expediente   ExpedienteLicitacion @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
+  fecha        DateTime
+  campo        String
+  anterior     String?
+  valor        String
+  usuario      String
+  creadoEn     DateTime             @default(now())
+
+  @@index([expedienteId])
+}
+
+// Orden de compra del Departamento de Órdenes de Compra (sistema aparte,
+// como Licitaciones). Un registro por orden: un expediente con varios
+// proveedores tiene varias. Las columnas de seguimiento (contabilidad,
+// controlada, firma...) son texto libre como en su planilla: fechas con
+// iniciales ("14/01/2026 x Meli"), "NO LLEVA", etc.
+model OrdenCompra {
+  id               String    @id @default(cuid())
+  exp              String
+  numeroOC         String?
+  ampliacionOC     String?
+  prorrogaOC       String?
+  agente           String? // lo asigna la jefa
+  organismo        String?
+  objeto           String
+  tipo             String? // PROVISION | SERVICIO
+  plazoEjecucion   String?
+  inicioServicio   String?
+  autoriza         String? // AG
+  numeroResol      String?
+  fechaResol       DateTime?
+  proveedor        String?
+  montoResolucion  String?
+  montoAjustado    String? // total con el último ajuste para la OC
+  ingresoOC        DateTime? // de acá corren los días en el departamento
+  vtoArt44         String?
+  vencimientoOC    DateTime?
+  notificacion44   String?
+  cbu              String?
+  informe          String?
+  contabilidad     String?
+  controlada       String?
+  firmaSol         String?
+  notificada       String?
+  itemPendiente    String?
+  pase             String?
+  estado           String? // COMPLETO = terminada
+  fechaPublicacion String?
+  observaciones    String?
+  prioritario      Boolean   @default(false)
+
+  movimientos   MovimientoOrdenCompra[]
+  creadoEn      DateTime                @default(now())
+  actualizadoEn DateTime                @updatedAt
+
+  @@index([exp])
+}
+
+// Historial de una orden de compra: estado, pase, pasos del circuito,
+// agente u observaciones (`campo`), con el valor anterior y el nuevo.
+model MovimientoOrdenCompra {
+  id       String      @id @default(cuid())
+  ordenId  String
+  orden    OrdenCompra @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  fecha    DateTime
+  campo    String
+  anterior String?
+  valor    String
+  usuario  String
+  creadoEn DateTime    @default(now())
+
+  @@index([ordenId])
+}
+
+// Expediente que Órdenes de Compra solo notifica por el art. 44 (no lleva
+// orden de compra: fracasos, nuevos llamados, locaciones, informes...).
+// Hoja "NOT. AÑO 2026" de su planilla. Las columnas son texto libre como
+// allá; fechaIngreso es fecha porque de ahí corren los días.
+model NotificacionArt44 {
+  id                String    @id @default(cuid())
+  exp               String
+  agente            String? // lo asigna la jefa
+  tipoContratacion  String?
+  fechaResol        String?
+  fechaIngreso      DateTime?
+  objeto            String?
+  organismo         String?
+  tipoResol         String?
+  numeroResol       String?
+  estadoActual      String?
+  art44             String? // fecha de la notificación del art. 44
+  notificacion      String?
+  partidaEspecial   String?
+  estado            String?
+  ultimoMovimiento  String?
+  pase              String?
+  observaciones     String?
+  prioritario       Boolean   @default(false)
+  creadoEn          DateTime  @default(now())
+  actualizadoEn     DateTime  @updatedAt
+
+  @@index([exp])
+}

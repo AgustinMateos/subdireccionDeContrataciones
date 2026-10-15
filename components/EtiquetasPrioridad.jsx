@@ -1,17 +1,20 @@
-import { esPrioritario } from "@/lib/resoluciones";
+import { Star, Building2 } from "lucide-react";
 
-// Carteles de un expediente de Resoluciones: "Prioritario" (lo marcó la
-// jefa o está en su Plan de Obras) y "Plan de Obras".
+// Carteles de un expediente prioritario de Resoluciones, según por qué lo
+// es: "Prioritario" con estrella (lo marcó la jefa) y/o "Plan de Obras"
+// (está en su Plan de Obras). Si es por las dos cosas, lleva los dos.
 export default function EtiquetasPrioridad({ expediente: e }) {
-  if (!esPrioritario(e)) return null;
+  if (!e.prioritario && !e.enPlanObras) return null;
   return (
     <div className="flex flex-wrap gap-1 mt-1">
-      <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800">
-        Prioritario
-      </span>
+      {e.prioritario && (
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800">
+          <Star size={10} className="fill-amber-500 text-amber-500" /> Prioritario
+        </span>
+      )}
       {e.enPlanObras && (
-        <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border border-sky-300 bg-sky-50 text-sky-800">
-          Plan de Obras
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border border-sky-300 bg-sky-50 text-sky-800">
+          <Building2 size={10} /> Plan de Obras
         </span>
       )}
     </div>

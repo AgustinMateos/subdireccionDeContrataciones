@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Plus, Download, Trash2, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, Plus, Download, Trash2, ArrowRight } from "lucide-react";
 import * as XLSX from "xlsx";
-import { ALERTA_ESTILO, HOY } from "@/lib/constants";
+import { ALERTA_ESTILO } from "@/lib/constants";
+import { alertaDias, diasEnSector } from "@/lib/diasEnSector";
 import { fmtFecha } from "@/lib/utils";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
 import {
@@ -13,6 +14,7 @@ import {
 } from "@/lib/resoluciones";
 import FiltroDesplegable from "./FiltroDesplegable";
 import BotonAccion from "./BotonAccion";
+import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
 import EstrellaPrioridad from "./EstrellaPrioridad";
 import EtiquetasPrioridad from "./EtiquetasPrioridad";
 import { Campo_Input } from "./CamposFormulario";
@@ -22,35 +24,17 @@ const norm = s => String(s || "").trim().toLowerCase();
 const fecha = f => (f ? fmtFecha(fechaISO(f)) : "-");
 const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-900 hover:border-slate-500 transition-colors focus:outline-none focus:border-slate-500 placeholder:text-slate-400";
 
-// Días desde el último movimiento (la columna "Días en sector"). Un
-// completado ya se fue del sector: no cuenta.
-function diasEnSector(e) {
-  if (esCompletado(e)) return null;
-  const f = fechaISO(e.fechaUltimoMov);
-  if (!f) return null;
-  return Math.round((HOY - new Date(f + "T00:00:00")) / 86400000);
-}
-
-// Semáforo de los días en sector: hasta 10 verde, de 11 a 15 amarillo,
-// más de 15 rojo.
-function alertaDias(dias) {
-  if (dias <= 10) return "verde";
-  if (dias <= 15) return "amarillo";
-  return "rojo";
-}
-
-const POR_PAGINA = 15;
 
 const ETIQUETA_CAMPO = { sectorActual: "Sector actual", tipoResolucion: "Tipo de resolución", estado: "Estado" };
 
 // Desplegable para cambiar un campo desde la tabla, sin abrir el
 // expediente. Suma el valor actual si no está en la lista.
-function SelectRapido({ valor, opciones, onChange, fuerte }) {
+export function SelectRapido({ valor, opciones, onChange, fuerte, className = "" }) {
   return (
     <select
       value={valor || ""}
       onChange={ev => onChange(ev.target.value)}
-      className={"min-w-[165px] text-xs bg-white border border-slate-200 rounded-md px-1.5 py-1 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800 " + (fuerte ? "font-medium text-slate-900" : "text-slate-700")}
+      className={"min-w-[165px] text-xs bg-white border border-slate-200 rounded-md px-1.5 py-1 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800 " + (fuerte ? "font-medium text-slate-900" : "text-slate-700") + " " + className}
     >
       <option value="">-</option>
       {[...new Set([...opciones, ...(valor ? [valor] : [])])].map(o => <option key={o} value={o}>{o}</option>)}
@@ -58,7 +42,7 @@ function SelectRapido({ valor, opciones, onChange, fuerte }) {
   );
 }
 
-function FiltroColumna({ valor, etiqueta, opciones, onChange }) {
+export function FiltroColumna({ valor, etiqueta, opciones, onChange }) {
   return (
     <FiltroDesplegable
       valor={valor}
@@ -96,9 +80,11 @@ function aFormulario(e) {
   return f;
 }
 
-// Alta / edición de un expediente, con su historial de movimientos.
-function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar }) {
+// Alta / edición de un expediente, en dos solapas: los datos del
+// expediente y sus movimientos y estados (con el historial).
+export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar }) {
   const [f, setF] = useState(() => aFormulario(inicial));
+  const [solapa, setSolapa] = useState("datos");
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
@@ -114,9 +100,12 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
   }
 
   async function guardar() {
-    if (!f.exp.trim() || !f.objeto.trim()) { setError("Completá N° de expediente y objeto."); return; }
-    if (f.renovacionAutomatica && !(Number(f.renovacionDias) > 0)) { setError("Completá los días de la renovación automática."); return; }
-    if (f.renovacionAutomatica && !f.vencOfertas) { setError("Para la renovación automática cargá el vencimiento de ofertas."); return; }
+    // Los campos que faltan están en la solapa de datos: se vuelve a ella.
+    const falta = !f.exp.trim() || !f.objeto.trim() ? "Completá N° de expediente y objeto."
+      : f.renovacionAutomatica && !(Number(f.renovacionDias) > 0) ? "Completá los días de la renovación automática."
+        : f.renovacionAutomatica && !f.vencOfertas ? "Para la renovación automática cargá el vencimiento de ofertas."
+          : "";
+    if (falta) { setError(falta); setSolapa("datos"); return; }
     setGuardando(true);
     // Sin observación nueva, queda la última que tenía.
     const res = await onGuardar({ ...f, observaciones: f.observaciones.trim() || inicial?.observaciones || "" });
@@ -130,23 +119,63 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
     setGuardando(false);
   }
 
+  // Al editar, la jefa solo cambia agente y prioridad de los datos.
+  const fijo = esJefa && !!inicial;
+
   const historial = [...(inicial?.movimientos || [])].reverse();
+  const dias = inicial ? diasEnSector(inicial) : null;
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/50" onClick={guardando ? undefined : onCerrar} />
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92vh] overflow-y-auto">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3 sticky top-0 bg-white z-10">
-          <h2 className="text-base font-semibold text-slate-900">{inicial ? "Expediente " + inicial.exp : "Nuevo expediente"}</h2>
-          <div className="flex items-center gap-1">
-            {inicial && (
-              <button onClick={() => setConfirmarEliminar(true)} title="Eliminar" className="p-1.5 rounded-md hover:bg-red-50 text-red-600"><Trash2 size={16} /></button>
-            )}
-            <button onClick={onCerrar} className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500"><X size={18} /></button>
+      {/* Alto fijo: no salta al cambiar de solapa. */}
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[min(92vh,820px)] flex flex-col overflow-hidden">
+        {/* Encabezado: a la vista en las dos solapas. */}
+        <div className="px-6 pt-4 border-b border-slate-200">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-slate-900">
+                {inicial ? <>Expediente <span className="font-mono">{inicial.exp}</span></> : "Nuevo expediente"}
+              </h2>
+              {inicial && <p className="text-xs text-slate-500 truncate" title={inicial.objeto}>{inicial.objeto}</p>}
+              {inicial && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  <EtiquetasPrioridad expediente={inicial} />
+                  {[inicial.sectorActual, inicial.estado, inicial.tipoResolucion].filter(Boolean).map(t => (
+                    <span key={t} className="mt-1 text-[11px] font-medium px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-700">{t}</span>
+                  ))}
+                  {dias != null && (
+                    <span className={"mt-1 text-[11px] font-medium px-2 py-0.5 rounded border " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""} en sector</span>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {inicial && (
+                <button onClick={() => setConfirmarEliminar(true)} title="Eliminar" className="p-1.5 rounded-md hover:bg-red-50 text-red-600"><Trash2 size={16} /></button>
+              )}
+              <button onClick={onCerrar} className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500"><X size={18} /></button>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 mt-3">
+            {[
+              { id: "datos", etiqueta: "Datos del expediente" },
+              { id: "movimientos", etiqueta: "Movimientos y estados" + (inicial ? " (" + historial.length + ")" : "") },
+            ].map(t => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setSolapa(t.id)}
+                className={"px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors " +
+                  (solapa === t.id ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}
+              >
+                {t.etiqueta}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {cambioMientrasEditaba && (
             <div className="border border-amber-300 bg-amber-50 rounded-md p-3 text-sm text-amber-900">
               Este expediente cambió mientras lo tenías abierto (lo modificó otra persona). Cerrá sin guardar y volvé a abrirlo para ver los cambios; si guardás ahora, se pisan con lo que tenés en pantalla.
@@ -165,98 +194,187 @@ function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onEliminar
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Campo_Input label="Exp. *" value={f.exp} onChange={v => set("exp", v)} placeholder="13-05999/25" />
-            <Campo_Input label="Fecha ingreso al sector" type="date" value={f.fechaIngreso} onChange={v => set("fechaIngreso", v)} />
-            {esJefa ? (
-              <CampoOpciones label="Agente (asignación)" value={f.agente} onChange={v => set("agente", v)} opciones={AGENTES_RESOLUCIONES} />
-            ) : (
-              <Campo_Input label="Agente (lo asigna la jefa)" value={f.agente} onChange={() => {}} disabled />
-            )}
-            <div className="col-span-2 md:col-span-4">
-              <Campo_Input label="Objeto *" value={f.objeto} onChange={v => set("objeto", v)} />
-            </div>
-            <div className="col-span-2"><CampoOpciones label="Fuero" value={f.fuero} onChange={v => set("fuero", v)} opciones={FUEROS_RESOLUCIONES} /></div>
-            <div className="col-span-2"><Campo_Input label="Organismo" value={f.organismo} onChange={v => set("organismo", v)} /></div>
-            <CampoOpciones label="Tipo de contratación" value={f.tipoContratacion} onChange={v => set("tipoContratacion", v)} opciones={TIPOS_CONTRATACION_RESOLUCIONES} />
-            <Campo_Input label="Número" value={f.numero} onChange={v => set("numero", v)} placeholder="139/26" />
-            {/* La jefa no modifica tipo de resolución, estado ni sector actual (sí los carga en un alta). */}
-            <CampoOpciones label="Tipo de resolución" value={f.tipoResolucion} onChange={v => set("tipoResolucion", v)} opciones={TIPOS_RESOLUCION} disabled={esJefa && !!inicial} />
-            <CampoOpciones label="Estado" value={f.estado} onChange={v => set("estado", v)} opciones={ESTADOS_RESOLUCION} disabled={esJefa && !!inicial} />
-            <CampoOpciones label="Sector actual" value={f.sectorActual} onChange={v => set("sectorActual", v)} opciones={SECTORES_RESOLUCIONES} disabled={esJefa && !!inicial} />
-            <Campo_Input label="Último movimiento" type="date" value={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
-            <Campo_Input label="Venc. ofertas" type="date" value={f.vencOfertas} onChange={v => set("vencOfertas", v)} />
-            <Campo_Input label="Inicio de servicio" value={f.inicioServicio} onChange={v => set("inicioServicio", v)} placeholder="1/12/2026 o A PARTIR DE LA OC" />
-            <div className="col-span-2 md:col-span-4 border border-slate-200 rounded-md px-3 py-2.5 space-y-2">
-              <label className="flex items-center gap-2 text-sm text-slate-700">
-                <input type="checkbox" checked={!!f.renovacionAutomatica} onChange={e => set("renovacionAutomatica", e.target.checked)} className="rounded border-slate-300" />
-                Renovación automática del vencimiento de ofertas
-              </label>
-              {f.renovacionAutomatica && (
-                <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700">
-                  <span>Al vencer, se renueva por</span>
-                  <input type="number" min="1" value={f.renovacionDias} onChange={e => set("renovacionDias", e.target.value)}
-                    className="w-20 text-sm border border-slate-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-800" />
-                  <select value={f.renovacionHabiles ? "habiles" : "corridos"} onChange={e => set("renovacionHabiles", e.target.value === "habiles")}
-                    className="text-sm border border-slate-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800">
-                    <option value="habiles">días hábiles</option>
-                    <option value="corridos">días corridos</option>
-                  </select>
-                  <span className="text-xs text-slate-500">Queda en el historial y avisa en la campana.</span>
+          {solapa === "datos" && fijo ? (
+            <FichaDatos f={f} set={set} />
+          ) : solapa === "datos" ? (
+            <>
+              <Seccion titulo="Identificación">
+                <Campo_Input label="Exp. *" value={f.exp} onChange={v => set("exp", v)} placeholder="13-05999/25" />
+                <Campo_Input label="Número" value={f.numero} onChange={v => set("numero", v)} placeholder="139/26" />
+                <Campo_Input label="Fecha ingreso al sector" type="date" value={f.fechaIngreso} onChange={v => set("fechaIngreso", v)} />
+                {esJefa ? (
+                  <CampoOpciones label="Agente (asignación)" value={f.agente} onChange={v => set("agente", v)} opciones={AGENTES_RESOLUCIONES} />
+                ) : (
+                  <Campo_Input label="Agente (lo asigna la jefa)" value={f.agente} onChange={() => {}} disabled />
+                )}
+                <div className="col-span-2 md:col-span-4">
+                  <label className={"inline-flex items-center gap-2 text-sm " + (esJefa ? "text-slate-700" : "text-slate-400")}>
+                    <input type="checkbox" checked={!!f.prioritario} disabled={!esJefa} onChange={e => set("prioritario", e.target.checked)} className="rounded border-slate-300" />
+                    Prioritario (estrella){!esJefa && " · lo marca la jefa de la Subdirección"}
+                  </label>
                 </div>
+              </Seccion>
+
+              <Seccion titulo="Contratación">
+                <div className="col-span-2 md:col-span-4"><Campo_Input label="Objeto *" value={f.objeto} onChange={v => set("objeto", v)} /></div>
+                <div className="col-span-2"><CampoOpciones label="Fuero" value={f.fuero} onChange={v => set("fuero", v)} opciones={FUEROS_RESOLUCIONES} /></div>
+                <div className="col-span-2"><Campo_Input label="Organismo" value={f.organismo} onChange={v => set("organismo", v)} /></div>
+                <CampoOpciones label="Tipo de contratación" value={f.tipoContratacion} onChange={v => set("tipoContratacion", v)} opciones={TIPOS_CONTRATACION_RESOLUCIONES} />
+                <div className="col-span-1 md:col-span-3"><Campo_Input label="Montos" value={f.montos} onChange={v => set("montos", v)} placeholder="$ 61.096.888,00" /></div>
+              </Seccion>
+
+              <Seccion titulo="Plazos">
+                <Campo_Input label="Venc. ofertas" type="date" value={f.vencOfertas} onChange={v => set("vencOfertas", v)} />
+                <div className="col-span-1 md:col-span-3"><Campo_Input label="Inicio de servicio" value={f.inicioServicio} onChange={v => set("inicioServicio", v)} placeholder="1/12/2026 o A PARTIR DE LA OC" /></div>
+                <div className="col-span-2 md:col-span-4 border border-slate-200 rounded-md px-3 py-2.5 space-y-2">
+                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                    <input type="checkbox" checked={!!f.renovacionAutomatica} onChange={e => set("renovacionAutomatica", e.target.checked)} className="rounded border-slate-300" />
+                    Renovación automática del vencimiento de ofertas
+                  </label>
+                  {f.renovacionAutomatica && (
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700">
+                      <span>Al vencer, se renueva por</span>
+                      <input type="number" min="1" value={f.renovacionDias} onChange={e => set("renovacionDias", e.target.value)}
+                        className="w-20 text-sm border border-slate-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+                      <select value={f.renovacionHabiles ? "habiles" : "corridos"} onChange={e => set("renovacionHabiles", e.target.value === "habiles")}
+                        className="text-sm border border-slate-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800">
+                        <option value="habiles">días hábiles</option>
+                        <option value="corridos">días corridos</option>
+                      </select>
+                      <span className="text-xs text-slate-500">Queda en el historial y avisa en la campana.</span>
+                    </div>
+                  )}
+                </div>
+              </Seccion>
+            </>
+          ) : (
+            <>
+              <Seccion titulo={"Estado actual" + (esJefa && inicial ? " · lo modifica Resoluciones" : "")}>
+                {/* La jefa no modifica tipo de resolución, estado ni sector actual (sí los carga en un alta). */}
+                <CampoOpciones label="Tipo de resolución" value={f.tipoResolucion} onChange={v => set("tipoResolucion", v)} opciones={TIPOS_RESOLUCION} disabled={esJefa && !!inicial} />
+                <CampoOpciones label="Estado" value={f.estado} onChange={v => set("estado", v)} opciones={ESTADOS_RESOLUCION} disabled={esJefa && !!inicial} />
+                <CampoOpciones label="Sector actual" value={f.sectorActual} onChange={v => set("sectorActual", v)} opciones={SECTORES_RESOLUCIONES} disabled={esJefa && !!inicial} />
+                <Campo_Input label="Último movimiento" type="date" value={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
+              </Seccion>
+
+              <Seccion titulo={inicial ? "Nueva observación" : "Observaciones"}>
+                <div className="col-span-2 md:col-span-4">
+                  <textarea value={f.observaciones} onChange={e => set("observaciones", e.target.value)} rows={3}
+                    placeholder={inicial ? "Agregar una observación (queda en el historial)..." : ""}
+                    className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800 resize-y" />
+                </div>
+              </Seccion>
+
+              {inicial && (
+                <section className="space-y-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Historial ({historial.length})</h3>
+                  {historial.length === 0 ? (
+                    <p className="text-sm text-slate-500">Sin movimientos registrados.</p>
+                  ) : (
+                    <ol className="relative border-l border-slate-200 ml-1.5 space-y-4">
+                      {historial.map(m => {
+                        const esObs = m.campo === "Observaciones";
+                        return (
+                          <li key={m.id} className="pl-5 relative">
+                            <span className={"absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full ring-2 ring-white " + (esObs ? "bg-slate-400" : "bg-slate-800")} />
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500">
+                              <span className="font-medium text-slate-700">{fecha(m.fecha)}</span>
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{m.campo}</span>
+                              <span className="ml-auto">{m.usuario}</span>
+                            </div>
+                            {esObs ? (
+                              <p className="mt-1 text-sm text-slate-800 whitespace-pre-line bg-slate-50 border border-slate-100 rounded-md px-3 py-2">{m.sector}</p>
+                            ) : (
+                              <p className="mt-1 text-sm flex flex-wrap items-center gap-1.5">
+                                {m.sectorAnterior && (<><span className="text-slate-500 line-through">{m.sectorAnterior}</span><ArrowRight size={13} className="text-slate-400" /></>)}
+                                <span className="font-medium text-slate-900">{m.sector}</span>
+                              </p>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  )}
+                </section>
               )}
-            </div>
-            <div className="col-span-2 md:col-span-4"><Campo_Input label="Montos" value={f.montos} onChange={v => set("montos", v)} placeholder="$ 61.096.888,00" /></div>
-            <div className="col-span-2 md:col-span-4">
-              <label className="block text-xs font-medium text-slate-600 mb-1">Observaciones</label>
-              <textarea value={f.observaciones} onChange={e => set("observaciones", e.target.value)} rows={3}
-                placeholder={inicial ? "Agregar una observación (queda en el historial)..." : ""}
-                className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800 resize-y" />
-            </div>
-          </div>
-
-          <label className={"flex items-center gap-2 text-sm " + (esJefa ? "text-slate-700" : "text-slate-400")}>
-            <input type="checkbox" checked={!!f.prioritario} disabled={!esJefa} onChange={e => set("prioritario", e.target.checked)} className="rounded border-slate-300" />
-            Prioritario{!esJefa && " (lo marca la jefa de la Subdirección)"}
-          </label>
-
-          {error && <p className="text-xs text-red-600">{error}</p>}
-          <div className="flex justify-end gap-2">
-            <button onClick={onCerrar} disabled={guardando} className="px-3 py-2 rounded-md border border-slate-300 text-xs font-medium hover:bg-slate-50">Cancelar</button>
-            <BotonAccion onClick={guardar} cargando={guardando}
-              className="px-3 py-2 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 disabled:opacity-50">
-              {inicial ? "Guardar cambios" : "Cargar expediente"}
-            </BotonAccion>
-          </div>
-
-          {inicial && (
-            <div className="space-y-2 border-t border-slate-100 pt-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Historial de movimientos ({historial.length})</h3>
-              {historial.length === 0 ? (
-                <p className="text-sm text-slate-500">Sin movimientos registrados.</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {historial.map(m => (
-                    <li key={m.id} className="flex flex-wrap items-center gap-2 text-sm border border-slate-200 rounded-md px-3 py-2">
-                      <span className="text-slate-500 w-20 shrink-0">{fecha(m.fecha)}</span>
-                      <span className="text-[11px] font-medium text-slate-500 w-32 shrink-0">{m.campo}</span>
-                      {m.sectorAnterior && m.campo !== "Observaciones" && (<><span className="text-slate-600">{m.sectorAnterior}</span><ArrowRight size={13} className="text-slate-400" /></>)}
-                      <span className={"font-medium text-slate-900" + (m.campo === "Observaciones" ? " whitespace-pre-line" : "")}>{m.sector}</span>
-                      <span className="ml-auto text-[11px] text-slate-400">{m.usuario}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            </>
           )}
+        </div>
+
+        {/* Guardar toma las dos solapas. */}
+        <div className="px-6 py-3 border-t border-slate-200 bg-slate-50/60 flex items-center justify-end gap-2">
+          {error && <p className="mr-auto text-xs text-red-600">{error}</p>}
+          <button onClick={onCerrar} disabled={guardando} className="px-3 py-2 rounded-md border border-slate-300 bg-white text-xs font-medium hover:bg-slate-50">Cancelar</button>
+          <BotonAccion onClick={guardar} cargando={guardando}
+            className="px-3 py-2 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 disabled:opacity-50">
+            {inicial ? "Guardar cambios" : "Cargar expediente"}
+          </BotonAccion>
         </div>
       </div>
     </div>
   );
 }
 
-// Solapas del panel: qué expedientes muestra cada una.
-const SOLAPAS = [
+// Datos del expediente como ficha, para la jefa al editar: solo cambia
+// el agente y la prioridad.
+function FichaDatos({ f, set }) {
+  const renovacion = f.renovacionAutomatica
+    ? "Sí, por " + f.renovacionDias + " días " + (f.renovacionHabiles ? "hábiles" : "corridos")
+    : "No";
+  return (
+    <>
+      <Seccion titulo="Identificación">
+        <DatoFicha label="Exp." valor={f.exp} mono />
+        <DatoFicha label="Número" valor={f.numero} />
+        <DatoFicha label="Fecha ingreso al sector" valor={fecha(f.fechaIngreso)} />
+        <CampoOpciones label="Agente (asignación)" value={f.agente} onChange={v => set("agente", v)} opciones={AGENTES_RESOLUCIONES} />
+        <div className="col-span-2 md:col-span-4">
+          <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" checked={!!f.prioritario} onChange={e => set("prioritario", e.target.checked)} className="rounded border-slate-300" />
+            Prioritario (estrella)
+          </label>
+        </div>
+      </Seccion>
+
+      <Seccion titulo="Contratación">
+        <div className="col-span-2 md:col-span-4"><DatoFicha label="Objeto" valor={f.objeto} /></div>
+        <div className="col-span-2"><DatoFicha label="Fuero" valor={f.fuero} /></div>
+        <div className="col-span-2"><DatoFicha label="Organismo" valor={f.organismo} /></div>
+        <DatoFicha label="Tipo de contratación" valor={f.tipoContratacion} />
+        <div className="col-span-1 md:col-span-3"><DatoFicha label="Montos" valor={f.montos} /></div>
+      </Seccion>
+
+      <Seccion titulo="Plazos">
+        <DatoFicha label="Venc. ofertas" valor={fecha(f.vencOfertas)} />
+        <div className="col-span-1 md:col-span-3"><DatoFicha label="Inicio de servicio" valor={f.inicioServicio} /></div>
+        <div className="col-span-2 md:col-span-4"><DatoFicha label="Renovación automática del vencimiento de ofertas" valor={renovacion} /></div>
+      </Seccion>
+    </>
+  );
+}
+
+export function DatoFicha({ label, valor, mono }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-xs font-medium text-slate-500 mb-1">{label}</p>
+      <p className={"text-sm text-slate-900 break-words " + (mono ? "font-mono" : "")}>{valor || "-"}</p>
+    </div>
+  );
+}
+
+// Un grupo de campos del formulario, con su título.
+export function Seccion({ titulo, children }) {
+  return (
+    <section className="space-y-2.5">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{titulo}</h3>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{children}</div>
+    </section>
+  );
+}
+
+// Solapas del panel: qué expedientes muestra cada una (el Inicio de la
+// jefa cuenta con las mismas).
+export const SOLAPAS = [
   { id: "general", etiqueta: "General", incluye: () => true },
   { id: "escritorio", etiqueta: "Escritorio", incluye: e => !esCompletado(e) },
   // Los que siguen en trámite: marcados con estrella o en el Plan de Obras.
@@ -289,14 +407,15 @@ function exportarExcel(filas, solapa) {
 
 // Sistema del sector de Resoluciones: la planilla de seguimiento de
 // expedientes, sin conexión con el resto de la app.
-export default function PanelResoluciones({ sesion, mostrarToast }) {
+export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial }) {
   // La jefa de la Subdirección asigna agentes y marca prioridades.
   const esJefa = sesion.email === EMAIL_JEFA_SUBDIRECCION;
   const [expedientes, setExpedientes] = useState(null);
   const [f, setF] = useState(filtroVacio);
-  const [solapa, setSolapa] = useState("general");
+  const [solapa, setSolapa] = useState(solapaInicial || "general");
   const [form, setForm] = useState(null); // null | "nuevo" | id del expediente
   const [pagina, setPagina] = useState(0);
+  const [porPagina, setPorPagina] = useState(OPCIONES_POR_PAGINA[0]);
   // Cambiar un filtro o la solapa vuelve a la primera página.
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); setPagina(0); }
   const hayFiltros = Object.entries(f).some(([k, v]) => v !== filtroVacio()[k]);
@@ -343,21 +462,25 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
 
   const solapas = SOLAPAS.filter(s => !s.soloJefa || esJefa);
   const deLaSolapa = useMemo(() => lista.filter(SOLAPAS.find(s => s.id === solapa).incluye), [lista, solapa]);
+  // En Completados no se muestran días en sector ni estado (todos están
+  // completados): el filtro de estado tampoco aplica.
+  const enCompletados = solapa === "completados";
   const filas = useMemo(() => deLaSolapa.filter(e => {
     if (f.exp && !norm(e.exp + " " + (e.numero || "")).includes(norm(f.exp))) return false;
     if (f.objeto && !norm(e.objeto + " " + (e.observaciones || "")).includes(norm(f.objeto))) return false;
     if (f.organismo && !norm(e.organismo).includes(norm(f.organismo))) return false;
     for (const campo of ["fuero", "tipoContratacion", "tipoResolucion", "estado", "sectorActual", "agente"]) {
+      if (campo === "estado" && enCompletados) continue;
       if (f[campo] && e[campo] !== f[campo]) return false;
     }
     return true;
-  }).sort(compararResoluciones), [deLaSolapa, f]);
+  }).sort(compararResoluciones), [deLaSolapa, f, enCompletados]);
 
   // Si la lista se achica (otro filtro, un expediente que cambia de
   // solapa), la página no queda fuera de rango.
-  const totalPaginas = Math.max(1, Math.ceil(filas.length / POR_PAGINA));
+  const totalPaginas = Math.max(1, Math.ceil(filas.length / porPagina));
   const paginaActual = Math.min(pagina, totalPaginas - 1);
-  const filasPagina = filas.slice(paginaActual * POR_PAGINA, (paginaActual + 1) * POR_PAGINA);
+  const filasPagina = filas.slice(paginaActual * porPagina, (paginaActual + 1) * porPagina);
 
   const seleccionado = form && form !== "nuevo" ? lista.find(e => e.id === form) : null;
 
@@ -457,12 +580,12 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[1680px]">
+        <table className="w-full text-sm min-w-[1560px]">
           <thead>
             <tr className="text-left border-b border-slate-100 bg-slate-50/40 text-[11px] font-medium text-slate-500 uppercase tracking-wide">
-              {["Exp.", "Ingreso al sector", "Objeto", "Fuero", "Organismo", "Tipo de contratación", "Número", "Días en sector",
-                "Tipo de resolución", "Estado", "Último mov.", "Sector actual", "Agente", "Venc. ofertas", "Inicio de serv.",
-                "Montos"].map(t => <th key={t} className="pt-2 px-3">{t}</th>)}
+              {["Exp.", "Ingreso al sector", "Objeto", "Fuero", "Organismo", "Tipo de contratación", "Número",
+                ...(enCompletados ? [] : ["Días en sector"]), "Tipo de resolución", ...(enCompletados ? [] : ["Estado"]),
+                "Último mov.", "Sector actual", "Agente", "Venc. ofertas", "Inicio de serv."].map(t => <th key={t} className="pt-2 px-3">{t}</th>)}
             </tr>
             <tr className="text-left border-b border-slate-100 bg-slate-50/40">
               <th className="py-2 px-3 align-top w-[130px]"><input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} /></th>
@@ -472,20 +595,19 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
               <th className="py-2 px-3 align-top w-[200px]"><input value={f.organismo} onChange={e => set("organismo", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} /></th>
               <th className="py-2 px-3 align-top w-[130px]"><FiltroColumna valor={f.tipoContratacion} etiqueta="Todos" opciones={opciones.tipoContratacion} onChange={v => set("tipoContratacion", v)} /></th>
               <th className="py-2 px-3" />
-              <th className="py-2 px-3" />
+              {!enCompletados && <th className="py-2 px-3" />}
               <th className="py-2 px-3 align-top w-[150px]"><FiltroColumna valor={f.tipoResolucion} etiqueta="Todos" opciones={opciones.tipoResolucion} onChange={v => set("tipoResolucion", v)} /></th>
-              <th className="py-2 px-3 align-top w-[160px]"><FiltroColumna valor={f.estado} etiqueta="Todos" opciones={opciones.estado} onChange={v => set("estado", v)} /></th>
+              {!enCompletados && <th className="py-2 px-3 align-top w-[160px]"><FiltroColumna valor={f.estado} etiqueta="Todos" opciones={opciones.estado} onChange={v => set("estado", v)} /></th>}
               <th className="py-2 px-3" />
               <th className="py-2 px-3 align-top w-[150px]"><FiltroColumna valor={f.sectorActual} etiqueta="Todos" opciones={opciones.sectorActual} onChange={v => set("sectorActual", v)} /></th>
               <th className="py-2 px-3 align-top w-[90px]"><FiltroColumna valor={f.agente} etiqueta="Todos" opciones={opciones.agente} onChange={v => set("agente", v)} /></th>
-              <th className="py-2 px-3" />
               <th className="py-2 px-3" />
               <th className="py-2 px-3" />
             </tr>
           </thead>
           <tbody>
             {filas.length === 0 ? (
-              <tr><td colSpan={16} className="py-10 text-center text-sm text-slate-500">No hay expedientes con esos filtros.</td></tr>
+              <tr><td colSpan={enCompletados ? 13 : 15} className="py-10 text-center text-sm text-slate-500">No hay expedientes con esos filtros.</td></tr>
             ) : filasPagina.map(e => {
               const dias = diasEnSector(e);
               return (
@@ -503,19 +625,23 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
                   <td className="py-2.5 px-3"><span className="line-clamp-2" title={e.organismo || ""}>{e.organismo || "-"}</span></td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{e.tipoContratacion || "-"}</td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{e.numero || "-"}</td>
-                  <td className="py-2.5 px-3">
-                    {dias != null ? (
-                      <span className={"text-[11px] font-medium px-2 py-0.5 rounded border whitespace-nowrap " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""}</span>
-                    ) : "-"}
-                  </td>
-                  <td className="py-2.5 px-3" onClick={ev => ev.stopPropagation()}>
+                  {!enCompletados && (
+                    <td className="py-2.5 px-3">
+                      {dias != null ? (
+                        <span className={"text-[11px] font-medium px-2 py-0.5 rounded border whitespace-nowrap " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""}</span>
+                      ) : "-"}
+                    </td>
+                  )}
+                  <td className="py-2.5 px-3" onClick={esJefa ? undefined : ev => ev.stopPropagation()}>
                     {esJefa ? (e.tipoResolucion || "-") : <SelectRapido valor={e.tipoResolucion} opciones={TIPOS_RESOLUCION} onChange={v => cambiarRapido(e, { tipoResolucion: v })} />}
                   </td>
-                  <td className="py-2.5 px-3" onClick={ev => ev.stopPropagation()}>
-                    {esJefa ? (e.estado || "-") : <SelectRapido valor={e.estado} opciones={ESTADOS_RESOLUCION} onChange={v => cambiarRapido(e, { estado: v })} />}
-                  </td>
+                  {!enCompletados && (
+                    <td className="py-2.5 px-3" onClick={esJefa ? undefined : ev => ev.stopPropagation()}>
+                      {esJefa ? (e.estado || "-") : <SelectRapido valor={e.estado} opciones={ESTADOS_RESOLUCION} onChange={v => cambiarRapido(e, { estado: v })} />}
+                    </td>
+                  )}
                   <td className="py-2.5 px-3 whitespace-nowrap">{fecha(e.fechaUltimoMov)}</td>
-                  <td className="py-2.5 px-3" onClick={ev => ev.stopPropagation()}>
+                  <td className="py-2.5 px-3" onClick={esJefa ? undefined : ev => ev.stopPropagation()}>
                     {esJefa
                       ? <span className="font-medium text-slate-900">{e.sectorActual || "-"}</span>
                       : <SelectRapido valor={e.sectorActual} opciones={SECTORES_RESOLUCIONES} onChange={v => cambiarRapido(e, { sectorActual: v })} fuerte />}
@@ -542,7 +668,6 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
                     )}
                   </td>
                   <td className="py-2.5 px-3">{e.inicioServicio || "-"}</td>
-                  <td className="py-2.5 px-3 whitespace-nowrap">{e.montos || "-"}</td>
                 </tr>
               );
             })}
@@ -550,28 +675,8 @@ export default function PanelResoluciones({ sesion, mostrarToast }) {
         </table>
       </div>
 
-      {totalPaginas > 1 && (
-        <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-t border-slate-100 text-xs text-slate-500">
-          <span>{paginaActual * POR_PAGINA + 1}–{paginaActual * POR_PAGINA + filasPagina.length} de {filas.length}</span>
-          <div className="flex items-center gap-1">
-            <button type="button" onClick={() => setPagina(paginaActual - 1)} disabled={paginaActual === 0} title="Página anterior"
-              className="p-1 rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white">
-              <ChevronLeft size={14} />
-            </button>
-            {Array.from({ length: totalPaginas }, (_, i) => (
-              <button key={i} type="button" onClick={() => setPagina(i)}
-                className={"min-w-[26px] px-1.5 py-1 rounded-md text-xs font-medium tabular-nums " +
-                  (i === paginaActual ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100")}>
-                {i + 1}
-              </button>
-            ))}
-            <button type="button" onClick={() => setPagina(paginaActual + 1)} disabled={paginaActual === totalPaginas - 1} title="Página siguiente"
-              className="p-1 rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white">
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
-      )}
+      <Paginacion total={filas.length} pagina={paginaActual} porPagina={porPagina}
+        onPagina={setPagina} onPorPagina={n => { setPorPagina(n); setPagina(0); }} />
 
       {form && (
         <FormularioResolucion

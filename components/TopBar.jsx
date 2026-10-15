@@ -1,20 +1,76 @@
 "use client";
 
 import { useState } from "react";
-import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, Phone, Globe, ExternalLink, User, Contact, FileDown, BarChart3, Building2, CalendarClock, Table2 } from "lucide-react";
+import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, Phone, Globe, ExternalLink, User, Contact, FileDown, BarChart3, Building2, CalendarClock, Table2, Gavel, LayoutDashboard, FileCheck, Wrench, ShoppingCart } from "lucide-react";
 import { descargarArchivoBase64 } from "@/lib/utils";
 import { FORMULARIO_FALTAS_BASE64, EMAIL_CONTROL_SERVICIOS } from "@/lib/constants";
 import { SLUG_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION } from "@/lib/resoluciones";
+import { SLUG_LICITACIONES } from "@/lib/licitaciones";
+import { SLUG_ORDENES_COMPRA } from "@/lib/ordenesCompra";
 import NotificacionesResoluciones from "./NotificacionesResoluciones";
-// Secciones del navbar de Resoluciones. "expedientes" es su panel.
+// Secciones del navbar de Resoluciones y Licitaciones. "expedientes" es
+// su panel. La jefa de la Subdirección tiene el suyo (NavJefa).
 const SECCIONES_RESOLUCIONES = [
   { vista: "expedientes", etiqueta: "Panel" },
   { vista: "valorModular", etiqueta: "Valor Modular", Icono: Landmark },
   { vista: "listadoTelefonos", etiqueta: "Listado de Teléfonos", Icono: Phone },
   { vista: "cuadroCronologico", etiqueta: "Cuadro cronológico", Icono: Table2 },
-  { vista: "graficosResoluciones", etiqueta: "Gráficos", Icono: BarChart3, soloJefa: true },
-  { vista: "planObras", etiqueta: "Plan de Obras 2026", Icono: Building2, soloJefa: true },
 ];
+
+// Navbar de la jefa de la Subdirección: sus áreas de trabajo, y las
+// herramientas de consulta agrupadas en un menú.
+const AREAS_JEFA = [
+  { vista: "inicio", etiqueta: "Inicio", Icono: LayoutDashboard },
+  { vista: "expedientes", etiqueta: "Resoluciones", Icono: FileCheck },
+  { vista: "licitaciones", etiqueta: "Licitaciones", Icono: Gavel },
+  { vista: "ordenesCompra", etiqueta: "Órdenes de Compra", Icono: ShoppingCart },
+  { vista: "planObras", etiqueta: "Plan de Obras 2026", Icono: Building2 },
+  { vista: "graficosResoluciones", etiqueta: "Análisis", Icono: BarChart3 },
+];
+const HERRAMIENTAS_JEFA = [
+  { vista: "valorModular", etiqueta: "Valor Modular", Icono: Landmark },
+  { vista: "listadoTelefonos", etiqueta: "Listado de Teléfonos", Icono: Phone },
+  { vista: "cuadroCronologico", etiqueta: "Cuadro cronológico", Icono: Table2 },
+];
+
+function NavJefa({ vista, setVista }) {
+  const [abierto, setAbierto] = useState(false);
+  const herramientaActiva = HERRAMIENTAS_JEFA.find(h => h.vista === vista);
+  const pestana = activa =>
+    "h-full px-3 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap " +
+    (activa ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800");
+  return (
+    <div className="px-4 sm:px-6 lg:px-8 flex items-center gap-1 h-11 border-t border-slate-100">
+      <div className="flex items-center gap-1 h-full overflow-x-auto">
+        {AREAS_JEFA.map(({ vista: v, etiqueta, Icono }) => (
+          <button key={v} onClick={() => setVista(v)} className={pestana(vista === v)}>
+            <Icono size={13} /> {etiqueta}
+          </button>
+        ))}
+      </div>
+      <div className="relative h-full ml-auto pl-2 border-l border-slate-100">
+        <button onClick={() => setAbierto(a => !a)} className={pestana(!!herramientaActiva)}>
+          <Wrench size={13} /> {herramientaActiva ? herramientaActiva.etiqueta : "Herramientas"}
+          <ChevronDown size={13} className={"transition-transform " + (abierto ? "rotate-180" : "")} />
+        </button>
+        {abierto && (
+          <>
+            <div className="fixed inset-0 z-20" onClick={() => setAbierto(false)} />
+            <div className="absolute right-0 top-full mt-0.5 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-30 py-1.5">
+              {HERRAMIENTAS_JEFA.map(({ vista: v, etiqueta, Icono }) => (
+                <button key={v} onClick={() => { setVista(v); setAbierto(false); }}
+                  className={"w-full flex items-center gap-2.5 text-left px-3 py-2 text-xs hover:bg-slate-50 " +
+                    (vista === v ? "text-slate-900 font-medium bg-slate-50" : "text-slate-600")}>
+                  <Icono size={14} className="text-slate-400" /> {etiqueta}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista, setVista, mostrarToast }) {
   const [variosAbierto, setVariosAbierto] = useState(false);
@@ -28,12 +84,18 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
   // buscador ni secciones. Resoluciones (un sistema aparte) tampoco tiene
   // buscador y tiene sus propias secciones (ver SECCIONES_RESOLUCIONES).
   const esResoluciones = sesion.departamentoSlug === SLUG_RESOLUCIONES;
-  const soloSuPanel = sesion.email === EMAIL_CONTROL_SERVICIOS || esResoluciones;
+  // Licitaciones y Órdenes de Compra son otros sistemas aparte, con las
+  // mismas secciones.
+  const conSecciones = esResoluciones || [SLUG_LICITACIONES, SLUG_ORDENES_COMPRA].includes(sesion.departamentoSlug);
+  const soloSuPanel = sesion.email === EMAIL_CONTROL_SERVICIOS || conSecciones;
   const vistasVarios = ["cotizadorTaquigrafico", "cotizadorPolicia", "cotizadorAvisos"];
   const variosActivo = vistasVarios.includes(vista);
   const vistasInformes = esInformaticaYVarios ? ["informePoliciaAdicional", "informeOrganismos"] : ["informeServicios"];
   const informesActivo = vistasInformes.includes(vista);
-  const inicialesDepto = (sesion.departamentoNombre || "Informática y Varios")
+  // La jefa supervisa toda la Subdirección, no solo Resoluciones.
+  const esJefa = sesion.email === EMAIL_JEFA_SUBDIRECCION;
+  const nombreArea = esJefa ? "Subdirección de Contrataciones" : sesion.departamentoNombre || "Informática y Varios";
+  const inicialesDepto = (esJefa ? "Subdirección Contrataciones" : sesion.departamentoNombre || "Informática y Varios")
     .split(/\s+/).filter(p => !["y", "de"].includes(p.toLowerCase())).map(p => p[0]).join("").slice(0, 2).toUpperCase();
 
   function accederLegajo() {
@@ -53,8 +115,8 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="w-8 h-8 bg-slate-900 text-white rounded flex items-center justify-center font-semibold text-xs">{inicialesDepto}</div>
           <div className="hidden sm:block leading-tight">
-            <div className="text-sm font-semibold text-slate-900">{sesion.departamentoNombre || "Informática y Varios"}</div>
-            <div className="text-[11px] text-slate-500">Autogestión de expedientes</div>
+            <div className="text-sm font-semibold text-slate-900">{nombreArea}</div>
+            <div className="text-[11px] text-slate-500">{esJefa ? "Jefatura · Panel de control" : "Autogestión de expedientes"}</div>
           </div>
         </div>
 
@@ -117,9 +179,11 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
         </div>
       </div>
 
-      {esResoluciones && (
+      {esJefa && <NavJefa vista={vista} setVista={setVista} />}
+
+      {conSecciones && !esJefa && (
         <div className="px-4 sm:px-6 lg:px-8 flex items-center gap-1 h-11 border-t border-slate-100 overflow-x-auto">
-          {SECCIONES_RESOLUCIONES.filter(s => !s.soloJefa || sesion.email === EMAIL_JEFA_SUBDIRECCION).map(({ vista: v, etiqueta, Icono }) => (
+          {SECCIONES_RESOLUCIONES.map(({ vista: v, etiqueta, Icono }) => (
             <button
               key={v}
               onClick={() => setVista(v)}

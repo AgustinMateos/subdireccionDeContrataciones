@@ -73,10 +73,15 @@ import ModalEliminarTarjeta from "./ModalEliminarTarjeta";
 import MesaDeEntradas from "./MesaDeEntradas";
 import PanelControlServicios from "./PanelControlServicios";
 import PanelResoluciones from "./PanelResoluciones";
+import PanelLicitaciones from "./PanelLicitaciones";
+import PanelOrdenesCompra from "./PanelOrdenesCompra";
 import CuadroCronologico from "./CuadroCronologico";
-import GraficosResoluciones from "./GraficosResoluciones";
+import GraficosSubdireccion from "./GraficosSubdireccion";
 import PlanObras from "./PlanObras";
+import InicioSubdireccion from "./InicioSubdireccion";
 import { SLUG_RESOLUCIONES, USUARIOS_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION } from "@/lib/resoluciones";
+import { SLUG_LICITACIONES } from "@/lib/licitaciones";
+import { SLUG_ORDENES_COMPRA } from "@/lib/ordenesCompra";
 import ModalPendientesMesa from "./ModalPendientesMesa";
 import ModalCambiarEstadoConvocatoria from "./ModalCambiarEstadoConvocatoria";
 import PaginaExpediente from "./PaginaExpediente";
@@ -108,8 +113,8 @@ const VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS = [
 
 const VISTAS_EXCLUIDAS_MESA_DE_ENTRADAS = ["aperturas", "informeServicios", "expedienteDetalle"];
 
-// Resoluciones solo tiene su panel ("expedientes"), Valor Modular,
-// Teléfonos y el cuadro cronológico.
+// Resoluciones y Licitaciones solo tienen su panel ("expedientes"), Valor
+// Modular, Teléfonos y el cuadro cronológico.
 const VISTAS_RESOLUCIONES = ["expedientes", "valorModular", "listadoTelefonos", "cuadroCronologico"];
 
 export default function App() {
@@ -126,6 +131,22 @@ export default function App() {
       }
     : null;
   const [vista, setVista] = useState("expedientes"); // 'expedientes' | 'valorModular'
+  // Solapa en la que abre el panel cuando se llega desde el Inicio de la
+  // jefa; `n` lo vuelve a montar aunque se pida la misma.
+  const [solapaPedida, setSolapaPedida] = useState(null);
+  const esJefaSubdireccion = sesion?.email === EMAIL_JEFA_SUBDIRECCION;
+  // La jefa entra a su Inicio, no a la planilla de Resoluciones.
+  const [inicioListo, setInicioListo] = useState(false);
+  useEffect(() => {
+    if (!esJefaSubdireccion || inicioListo) return;
+    setInicioListo(true);
+    setVista("inicio");
+  }, [esJefaSubdireccion, inicioListo]);
+  function irA(v, solapa) {
+    setSolapaPedida(solapa ? { vista: v, solapa, n: Date.now() } : null);
+    setVista(v);
+  }
+  const solapaDe = v => (solapaPedida?.vista === v ? solapaPedida : null);
   const [moduloValor, setModuloValor] = useState(200000);
   const [expedientes, setExpedientes] = useState([]);
   const [secciones, setSecciones] = useState([]);
@@ -772,9 +793,13 @@ export default function App() {
   const esControlServicios = sesion.email === EMAIL_CONTROL_SERVICIOS;
   // Resoluciones es un sistema aparte: su planilla, Valor Modular,
   // Teléfonos y el cuadro cronológico (solo lectura salvo la planilla).
+  // Licitaciones es otro sistema aparte, con las mismas secciones.
+  const esLicitaciones = sesion.departamentoSlug === SLUG_LICITACIONES;
+  const esOrdenesCompra = sesion.departamentoSlug === SLUG_ORDENES_COMPRA;
   const esResoluciones = sesion.departamentoSlug === SLUG_RESOLUCIONES;
-  // Gráficos y el Plan de Obras son solo de la jefa de la Subdirección.
-  const vistaResoluciones = VISTAS_RESOLUCIONES.includes(vista) || (["graficosResoluciones", "planObras"].includes(vista) && sesion.email === EMAIL_JEFA_SUBDIRECCION)
+  // Gráficos, el Plan de Obras y el panel de Licitaciones (además del
+  // suyo) son solo de la jefa de la Subdirección.
+  const vistaResoluciones = VISTAS_RESOLUCIONES.includes(vista) || (["inicio", "graficosResoluciones", "planObras", "licitaciones", "ordenesCompra"].includes(vista) && sesion.email === EMAIL_JEFA_SUBDIRECCION)
     ? vista
     : "expedientes";
   // Defensivo: si se llega a una vista exclusiva de Informática y Varios sin pasar
@@ -793,22 +818,28 @@ export default function App() {
         </div>
       )}
 
-      <TopBar sesion={sesion} onLogout={() => signOut()} busqueda={busqueda} setBusqueda={setBusqueda} vista={vista} setVista={setVista} mostrarToast={mostrarToast} />
+      <TopBar sesion={sesion} onLogout={() => signOut()} busqueda={busqueda} setBusqueda={setBusqueda} vista={vista} setVista={v => irA(v)} mostrarToast={mostrarToast} />
 
       <main className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {esResoluciones ? (
-          vistaResoluciones === "valorModular" ? (
+        {esResoluciones || esLicitaciones || esOrdenesCompra ? (
+          vistaResoluciones === "inicio" ? (
+            <InicioSubdireccion onIr={irA} mostrarToast={mostrarToast} />
+          ) : vistaResoluciones === "valorModular" ? (
             <ValorModular moduloValor={moduloValor} setModuloValor={guardarValorModular} sesion={sesion} />
           ) : vistaResoluciones === "listadoTelefonos" ? (
             <ListadoTelefonos sesion={sesion} mostrarToast={mostrarToast} seccionesIniciales={secciones} />
           ) : vistaResoluciones === "graficosResoluciones" ? (
-            <GraficosResoluciones mostrarToast={mostrarToast} />
+            <GraficosSubdireccion mostrarToast={mostrarToast} />
           ) : vistaResoluciones === "planObras" ? (
             <PlanObras mostrarToast={mostrarToast} />
           ) : vistaResoluciones === "cuadroCronologico" ? (
             <CuadroCronologico />
+          ) : vistaResoluciones === "ordenesCompra" || esOrdenesCompra ? (
+            <PanelOrdenesCompra key={solapaDe("ordenesCompra")?.n} solapaInicial={solapaDe("ordenesCompra")?.solapa} sesion={sesion} mostrarToast={mostrarToast} />
+          ) : vistaResoluciones === "licitaciones" || esLicitaciones ? (
+            <PanelLicitaciones key={solapaDe("licitaciones")?.n} solapaInicial={solapaDe("licitaciones")?.solapa} sesion={sesion} mostrarToast={mostrarToast} />
           ) : (
-            <PanelResoluciones sesion={sesion} mostrarToast={mostrarToast} />
+            <PanelResoluciones key={solapaDe("expedientes")?.n} solapaInicial={solapaDe("expedientes")?.solapa} sesion={sesion} mostrarToast={mostrarToast} />
           )
         ) : esControlServicios ? (
           <PanelControlServicios mostrarToast={mostrarToast} />

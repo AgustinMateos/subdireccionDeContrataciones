@@ -14,10 +14,11 @@ export async function PUT(request, { params }) {
   if (!existente) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   // Si no es la jefa, la asignación y la prioridad quedan como estaban.
-  // La jefa no cambia tipo de resolución, estado ni sector actual.
+  // La jefa no cambia tipo de resolución, estado, sector actual ni los
+  // datos del expediente (solo agente y prioridad).
   const datos = conContadorReactivado(existente,
     sinCamposDeResoluciones(soloCamposDeJefa(datosResolucion(await request.json()), session.user.email), session.user.email));
-  if (!datos.exp || !datos.objeto) {
+  if (("exp" in datos && !datos.exp) || ("objeto" in datos && !datos.objeto)) {
     return NextResponse.json({ error: "Completá N° de expediente y objeto" }, { status: 400 });
   }
   const cambios = registrosDeCambios(existente, datos, session.user.name);

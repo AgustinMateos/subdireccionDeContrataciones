@@ -17,6 +17,8 @@ async function main() {
     { nombre: "Mesa de Entradas", slug: "mesa-de-entradas" },
     { nombre: "Control de Servicios", slug: "control-servicios" },
     { nombre: "Resoluciones", slug: "resoluciones" },
+    { nombre: "Licitaciones", slug: "licitaciones" },
+    { nombre: "Órdenes de Compra", slug: "ordenes-compra" },
   ];
   const deptoPorSlug = {};
   for (const d of departamentos) {
@@ -48,6 +50,10 @@ async function main() {
     // Resoluciones (sistema aparte): solo el jefe y la jefa de la Subdirección.
     { nombre: "Jefe de Departamento de Resoluciones", email: "admin.resoluciones@pj.gob.ar", clave: "admin123", rol: "admin", departamentoSlug: "resoluciones" },
     { nombre: "Jefa de la Subdirección", email: "jefa.subdireccion@pj.gob.ar", clave: "subdireccion123", rol: "admin", departamentoSlug: "resoluciones" },
+    // Licitaciones (sistema aparte, como Resoluciones; la jefa también lo ve).
+    { nombre: "Jefe de Departamento de Licitaciones", email: "admin.licitaciones@pj.gob.ar", clave: "admin123", rol: "admin", departamentoSlug: "licitaciones" },
+    // Órdenes de Compra (sistema aparte, como Licitaciones; la jefa también lo ve).
+    { nombre: "Jefe de Departamento de Órdenes de Compra", email: "admin.ordenes@pj.gob.ar", clave: "admin123", rol: "admin", departamentoSlug: "ordenes-compra" },
   ];
   for (const u of usuarios) {
     await prisma.usuario.upsert({
