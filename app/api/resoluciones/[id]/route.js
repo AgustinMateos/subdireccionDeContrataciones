@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { CAMPOS_DE_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, datosResolucion, sinCamposDeResoluciones, soloCamposDeJefa } from "@/lib/resoluciones";
-import { INCLUDE_RESOLUCION, avisarSiActivaRenovacion, avisarSiEsJefa, conContadorReactivado, conPlanObras, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { INCLUDE_RESOLUCION, avisarSiActivaRenovacion, avisarSiEsJefa, conContadorReactivado, conPlanObras, conUltimoMovPorSector, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
 
 // Edición. Los cambios de sector actual, tipo de resolución y estado
 // quedan en el historial; la fecha del último movimiento solo cambia si se
@@ -16,8 +16,9 @@ export async function PUT(request, { params }) {
   // Si no es la jefa, la asignación y la prioridad quedan como estaban.
   // La jefa no cambia tipo de resolución, estado, sector actual ni los
   // datos del expediente (solo agente y prioridad).
-  const datos = conContadorReactivado(existente,
-    sinCamposDeResoluciones(soloCamposDeJefa(datosResolucion(await request.json()), session.user.email), session.user.email));
+  // Si cambia el sector, el último movimiento pasa a ser hoy.
+  const datos = conUltimoMovPorSector(existente, conContadorReactivado(existente,
+    sinCamposDeResoluciones(soloCamposDeJefa(datosResolucion(await request.json()), session.user.email), session.user.email)));
   if (("exp" in datos && !datos.exp) || ("objeto" in datos && !datos.objeto)) {
     return NextResponse.json({ error: "Completá N° de expediente y objeto" }, { status: 400 });
   }
@@ -55,7 +56,7 @@ export async function PATCH(request, { params }) {
     if (k in body) data[k] = String(body[k] || "").trim() || null;
   }
   if ("prioritario" in body) data.prioritario = body.prioritario === true;
-  data = conContadorReactivado(existente, data);
+  data = conUltimoMovPorSector(existente, conContadorReactivado(existente, data));
   const cambios = registrosDeCambios(existente, data, session.user.name);
   const expediente = await prisma.expedienteResolucion.update({
     where: { id },

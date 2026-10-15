@@ -73,7 +73,7 @@ const VACIO = {
 };
 
 function aFormulario(e) {
-  if (!e) return { ...VACIO, fechaIngreso: hoyLocalISO() };
+  if (!e) return { ...VACIO, fechaIngreso: hoyLocalISO(), fechaUltimoMov: hoyLocalISO() };
   const f = {};
   for (const k of Object.keys(VACIO)) f[k] = e[k] ?? "";
   for (const k of ["fechaIngreso", "fechaUltimoMov", "vencOfertas"]) f[k] = fechaISO(e[k]);
@@ -104,9 +104,18 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
   const paso = pasos.paso;
   const proxima = useProximaRenovacion(f);
 
-  // El último movimiento no cambia solo: se carga a mano.
+  // Al cambiar el sector, el último movimiento pasa a ser hoy (se puede
+  // corregir a mano); si vuelve al sector que tenía, vuelve su fecha.
+  const sectorAlAbrir = inicial?.sectorActual || "";
+  const fechaAlAbrir = inicial ? fechaISO(inicial.fechaUltimoMov) : "";
   function set(campo, valor) {
-    setF(prev => ({ ...prev, [campo]: valor }));
+    setF(prev => {
+      const n = { ...prev, [campo]: valor };
+      if (inicial && campo === "sectorActual" && valor && valor !== prev.sectorActual) {
+        n.fechaUltimoMov = valor === sectorAlAbrir ? fechaAlAbrir : hoyLocalISO();
+      }
+      return n;
+    });
     setError("");
   }
 
@@ -319,8 +328,9 @@ export function FormularioResolucion({ inicial, esJefa, onCerrar, onGuardar, onE
                 <Campo pregunta="¿En qué sector está ahora?" ayuda="Tocá para ver la lista, o escribí una parte para buscar.">
                   <CampoOpciones grande value={f.sectorActual} onChange={v => set("sectorActual", v)} opciones={SECTORES_RESOLUCIONES} placeholder="Elegí o escribí" />
                 </Campo>
-                <Campo pregunta="¿Qué día fue el último movimiento?" ayuda="Desde ese día se cuentan los días en el sector.">
-                  <ElegirDia valor={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
+                <Campo pregunta="¿Qué día fue el último movimiento?" ayuda={inicial ? "Al cambiar el sector se pone hoy solo. Desde ese día se cuentan los días en el sector." : ""}>
+                  {inicial ? <ElegirDia valor={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
+                    : <p className="text-base text-slate-800 py-2">Hoy, {fecha(f.fechaUltimoMov)} <span className="text-sm text-slate-500">(es el día en que se crea el expediente)</span></p>}
                 </Campo>
               </Paso>
             </>
