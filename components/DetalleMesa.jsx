@@ -122,7 +122,7 @@ export default function DetalleMesa({ exp, sectores, puedeEditar, puedeEliminar,
             <div className="border border-slate-300 rounded-md p-4 space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nuevo movimiento</h3>
               <div className="grid grid-cols-4 gap-3">
-                <Campo_Input label="Fecha de ingreso" type="date" value={mov.fecha} onChange={v => setM("fecha", v)} />
+                <Campo_Input label="Fecha de ingreso" type="date" max="9999-12-31" value={mov.fecha} onChange={v => setM("fecha", v)} />
                 <CampoSugerido label="Viene del sector" id="mov-viene" value={mov.vieneDe} onChange={v => setM("vieneDe", v)} opciones={sectores} />
                 <CampoSugerido label="Sector" id="mov-sector" value={mov.sector} onChange={v => setM("sector", v)} opciones={sectores} />
                 <CampoSugerido label="Subsector" id="mov-subsector" value={mov.subsector} onChange={v => setM("subsector", v)} opciones={sectores} />

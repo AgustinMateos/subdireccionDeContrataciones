@@ -11,6 +11,7 @@ import SelectorMesesProrroga from "./SelectorMesesProrroga";
 import BotonAccion from "./BotonAccion";
 import { direccionesDe } from "@/lib/organismosFueros";
 import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
+import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 function formVacio(esServicios) {
   return {
     exp: "", nombreCorto: "", nroContratacion: "", nroResolucion: "",
@@ -78,7 +79,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
   }
 
   const coincidenciaAntecedente = f.antecedenteExp && expedientes
-    ? expedientes.find(e => e.exp.trim().toLowerCase() === f.antecedenteExp.trim().toLowerCase())
+    ? expedientes.find(e => mismoExp(e.exp, f.antecedenteExp))
     : null;
   const fechaMinima = coincidenciaAntecedente ? fechaMinimaRenovacion(coincidenciaAntecedente, expedientes) : null;
   const esVinculoAVigente = coincidenciaAntecedente?.rol === "vigente" || coincidenciaAntecedente?.rol === "parche";
@@ -141,7 +142,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Campo_Input label="N° de expediente" value={f.exp} onChange={v => set("exp", v)} placeholder="13-00000/26" />
+            <Campo_Input label="N° de expediente" value={f.exp} onChange={v => set("exp", v)} placeholder="13-00000/2026" />
             {!esServicios && (
               <Campo_Input label="Nombre corto" value={f.nombreCorto} onChange={v => set("nombreCorto", v)} placeholder="Ej: Limpieza edificio central" />
             )}
@@ -223,7 +224,7 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
                 <input
                   value={f.antecedenteExp || ""}
                   onChange={e => handleAntecedenteExpChange(e.target.value)}
-                  placeholder="Ej: 13-05877/25"
+                  placeholder="Ej: 13-05877/2025"
                   className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
                 />
                 <p className="text-[11px] text-slate-500 mt-1.5">
@@ -315,10 +316,10 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
             <Campo_Input label="Presupuesto oficial (ARS)" type="number" value={esVinculoAVigente ? "" : f.presupuestoOficial} onChange={v => set("presupuestoOficial", v)} disabled={esVinculoAVigente} />
             <Campo_Input label="Monto adjudicado (ARS)" type="number" value={esVinculoAVigente ? "" : f.montoARS} onChange={v => set("montoARS", v)} disabled={esVinculoAVigente} />
             <Campo_Input label="Monto adjudicado (USD)" type="number" value={esVinculoAVigente ? "" : f.montoUSD} onChange={v => set("montoUSD", v)} disabled={esVinculoAVigente} />
-            <Campo_Input label="Fecha de inicio" type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
-            <Campo_Input label="Fecha de vencimiento" type="date" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
-            <Campo_Input label="Fecha de publicación" type="date" value={f.fechaPublicacion} onChange={v => set("fechaPublicacion", v)} />
-            <Campo_Input label="Fecha y hora de apertura" type="datetime-local" value={f.fechaApertura} onChange={v => set("fechaApertura", v)} />
+            <Campo_Input label="Fecha de inicio" type="date" max="9999-12-31" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
+            <Campo_Input label="Fecha de vencimiento" type="date" max="9999-12-31" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
+            <Campo_Input label="Fecha de publicación" type="date" max="9999-12-31" value={f.fechaPublicacion} onChange={v => set("fechaPublicacion", v)} />
+            <Campo_Input label="Fecha y hora de apertura" type="datetime-local" max="9999-12-31T23:59" value={f.fechaApertura} onChange={v => set("fechaApertura", v)} />
             <Campo_Select label="Estado general" value={f.estadoGeneral} onChange={v => set("estadoGeneral", v)}
               opciones={puedeEstarEnTramiteDeRenovacion
                 ? ["Vigente", "En trámite de renovación", "Finalizado", "Archivado"]

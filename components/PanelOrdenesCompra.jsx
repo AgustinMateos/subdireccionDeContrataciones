@@ -21,6 +21,7 @@ import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
 import EtiquetasPrioridad from "./EtiquetasPrioridad";
 import PanelNotificaciones44 from "./PanelNotificaciones44";
 import { SelectRapido, FiltroColumna, DatoFicha } from "./PanelResoluciones";
+import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 
 const norm = s => String(s || "").trim().toLowerCase();
 const fecha = f => (f ? fmtFecha(fechaISO(f)) : "-");
@@ -513,7 +514,7 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
 
               <Paso {...paso(1)} titulo="La resolución">
                 <Campo pregunta="N° de expediente (obligatorio)">
-                  <Entrada valor={f.exp} onChange={v => set("exp", v)} ejemplo="13-05999/25" mono />
+                  <Entrada valor={f.exp} onChange={v => set("exp", v)} ejemplo="13-05999/2025" mono />
                 </Campo>
                 <Campo pregunta="N° de resolución">
                   <Entrada valor={f.numeroResol} onChange={v => set("numeroResol", v)} ejemplo="4369/25" />
@@ -810,7 +811,7 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
   const deSolapa = SOLAPAS.find(s => s.id === solapa);
   const deLaSolapa = useMemo(() => lista.filter(deSolapa.incluye), [lista, deSolapa]);
   const filas = useMemo(() => deLaSolapa.filter(e => {
-    if (f.exp && !norm(e.exp + " " + (e.numeroOC || "")).includes(norm(f.exp))) return false;
+    if (f.exp && !norm(e.exp + " " + (e.numeroOC || "")).includes(norm(expParaBuscar(f.exp)))) return false;
     if (f.texto && !norm([e.objeto, e.organismo, e.proveedor, e.observaciones].join(" ")).includes(norm(f.texto))) return false;
     if (f.tipo && e.tipo !== f.tipo) return false;
     if (f.agente && e.agente !== f.agente) return false;

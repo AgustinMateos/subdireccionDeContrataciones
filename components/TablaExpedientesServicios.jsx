@@ -5,6 +5,7 @@ import { X, Plus, FilePlus2, ChevronDown } from "lucide-react";
 import { ALERTA_ESTILO, ALERTA_LABEL, ZONAS, TIPOS_SERVICIOS, SECTORES, ESTADOS_CONVOCATORIA } from "@/lib/constants";
 import FiltroDesplegable from "./FiltroDesplegable";
 import { diasRestantes, alerta, alertaFrenado, diasFrenado, fmtFecha } from "@/lib/utils";
+import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 
 const norm = s => String(s || "").trim().toLowerCase();
 
@@ -67,7 +68,7 @@ export default function TablaExpedientesServicios({ expedientes, onVer, puedeEdi
 
   const filas = useMemo(() => {
     return base.filter(e => {
-      if (f.exp && !norm(e.exp + " " + (e.nombreCorto || "")).includes(norm(f.exp))) return false;
+      if (f.exp && !norm(e.exp + " " + (e.nombreCorto || "")).includes(norm(expParaBuscar(f.exp)))) return false;
       if (f.fuero && !norm((e.fuero || []).join(" ")).includes(norm(f.fuero))) return false;
       if (f.domicilio && !norm((e.domiciliosRenglones || []).join(" ")).includes(norm(f.domicilio))) return false;
       if (f.zona !== "Todas" && e.zona !== f.zona) return false;

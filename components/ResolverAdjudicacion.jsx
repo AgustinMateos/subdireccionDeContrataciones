@@ -321,7 +321,7 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">N° de expediente</label>
-                            <input value={g.exp} onChange={e => actualizarGrupo(g.id, "exp", e.target.value)} placeholder="13-00000/26"
+                            <input value={g.exp} onChange={e => actualizarGrupo(g.id, "exp", e.target.value)} placeholder="13-00000/2026"
                               className="w-full text-sm border border-slate-300 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-800" />
                           </div>
                           <div>
@@ -338,12 +338,12 @@ export default function ResolverAdjudicacion({ exp, onCerrar, onResolverTotal, o
                           </div>
                           <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">Fecha de inicio</label>
-                            <input type="date" value={g.fechaInicio} onChange={e => actualizarGrupo(g.id, "fechaInicio", e.target.value)}
+                            <input type="date" max="9999-12-31" value={g.fechaInicio} onChange={e => actualizarGrupo(g.id, "fechaInicio", e.target.value)}
                               className="w-full text-sm border border-slate-300 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-800" />
                           </div>
                           <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">Fecha de vencimiento</label>
-                            <input type="date" value={g.fechaVencimiento} onChange={e => actualizarGrupo(g.id, "fechaVencimiento", e.target.value)}
+                            <input type="date" max="9999-12-31" value={g.fechaVencimiento} onChange={e => actualizarGrupo(g.id, "fechaVencimiento", e.target.value)}
                               className="w-full text-sm border border-slate-300 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-800" />
                           </div>
                         </div>

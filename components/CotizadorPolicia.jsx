@@ -6,6 +6,7 @@ import { CheckCircle2, Download, Shield, CalendarDays, FileText } from "lucide-r
 import { FUERZAS_SEGURIDAD, PERIODICIDADES_POLICIA, FERIADOS_2026 } from "@/lib/constants";
 import { calcularDiasServicio, diasServicioPorMes, fmtMoneda, fmtFecha } from "@/lib/utils";
 import { armarPase } from "@/lib/paseContaduria";
+import { mismoExp, normalizarExp } from "@/lib/numeroExpediente";
 export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarYVincular }) {
   const [fuerza, setFuerza] = useState("PFA");
   const [periodicidad, setPeriodicidad] = useState("lv_habiles");
@@ -60,7 +61,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
   const periodicidadSeleccionada = PERIODICIDADES_POLICIA.find(p => p.key === periodicidad);
 
   const pase = armarPase({
-    exp: expNro.trim(), fuerza: fuerzaSeleccionada.nombre, destino: objeto.trim(), inicio: fechaInicio, fin: fechaFin,
+    exp: normalizarExp(expNro.trim()), fuerza: fuerzaSeleccionada.nombre, destino: objeto.trim(), inicio: fechaInicio, fin: fechaFin,
     monto: costoTotal, ejercicio: ejercicio.trim() || fechaInicio.slice(0, 4), fojasPresupuesto: fojasPresupuesto.trim(),
     fojasCuadro: fojasCuadro.trim(), agente: agente.trim(), anio: new Date().getFullYear(),
   });
@@ -71,6 +72,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
     if (!expNro.trim()) { mostrarToast("Indicá el N° de expediente para el pase"); return; }
     if (costoTotal <= 0) { mostrarToast("Cargá el valor del módulo: el pase necesita el monto"); return; }
     if (!objeto.trim()) { mostrarToast("Completá el destino del servicio (objeto)"); return; }
+    if (ejercicio.trim() && !/^\d{4}$/.test(ejercicio.trim())) { mostrarToast("El ejercicio va con el año completo, 4 dígitos (ej.: 2026)"); return; }
     if (!agente.trim()) { mostrarToast("Indicá el agente: va abajo de DEPARTAMENTO DE INFORMATICA Y VARIOS"); return; }
     const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const tramo = x => (typeof x === "string" ? esc(x) : "<b>" + esc(x.negrita) + "</b>");
@@ -112,7 +114,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
 
   function handleExpNroChange(valor) {
     setExpNro(valor);
-    const match = expedientes?.find(e => e.exp.trim().toLowerCase() === valor.trim().toLowerCase());
+    const match = expedientes?.find(e => mismoExp(e.exp, valor));
     if (match) setObjeto(match.objeto || "");
   }
 
@@ -259,7 +261,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
         <div className="grid sm:grid-cols-4 gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Fecha de inicio</label>
-            <input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)}
+            <input type="date" max="9999-12-31" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)}
               className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
           </div>
           <div>
@@ -270,7 +272,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
                 usar 31/12
               </button>
             </label>
-            <input type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)}
+            <input type="date" max="9999-12-31" value={fechaFin} onChange={e => setFechaFin(e.target.value)}
               className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
           </div>
           <div>
@@ -288,7 +290,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
         <div className="grid sm:grid-cols-3 gap-4">
           <div className="sm:col-span-1">
             <label className="block text-xs font-medium text-slate-600 mb-1">N° de expediente (opcional)</label>
-            <input value={expNro} onChange={e => handleExpNroChange(e.target.value)} list="lista-exp-policia" placeholder="13-00000/26"
+            <input value={expNro} onChange={e => handleExpNroChange(e.target.value)} list="lista-exp-policia" placeholder="13-00000/2026"
               className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
             <datalist id="lista-exp-policia">
               {expedientes?.map(e => <option key={e.id} value={e.exp} />)}
@@ -455,7 +457,8 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
         <div className="grid sm:grid-cols-4 gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Ejercicio financiero</label>
-            <input value={ejercicio} onChange={e => setEjercicio(e.target.value)} placeholder={fechaInicio.slice(0, 4)}
+            <input value={ejercicio} onChange={e => setEjercicio(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder={fechaInicio.slice(0, 4)}
+              inputMode="numeric" maxLength={4}
               className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
           </div>
           <div>

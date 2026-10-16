@@ -85,12 +85,12 @@ export default function ModalCambiarSector({ exp, onCerrar, onConfirmar }) {
             <div className="grid grid-cols-2 gap-2 bg-blue-50 border border-blue-100 rounded-md p-2.5">
               <div>
                 <label className="block text-[11px] font-medium text-slate-500 mb-1">Fecha de publicación</label>
-                <input type="date" value={fechaPublicacion} onChange={e => setFechaPublicacion(e.target.value)}
+                <input type="date" max="9999-12-31" value={fechaPublicacion} onChange={e => setFechaPublicacion(e.target.value)}
                   className="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-700" />
               </div>
               <div>
                 <label className="block text-[11px] font-medium text-slate-500 mb-1">Fecha y hora de apertura</label>
-                <input type="datetime-local" value={fechaApertura} onChange={e => setFechaApertura(e.target.value)}
+                <input type="datetime-local" max="9999-12-31T23:59" value={fechaApertura} onChange={e => setFechaApertura(e.target.value)}
                   className="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-700" />
               </div>
               <div>

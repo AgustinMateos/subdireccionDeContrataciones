@@ -55,7 +55,7 @@ function Fila({ p, puedeConfirmar, onConfirmar }) {
         {p.texto && <div className="text-[11px] text-slate-600 mt-0.5 line-clamp-2" title={p.texto}>{p.texto}</div>}
       </td>
       <td className="py-2.5 px-3 text-xs text-slate-700">{p.expediente.estadoConvocatoria || "-"}</td>
-      <td className="py-2.5 px-2 w-[140px]"><input type="date" value={mov.fecha} onChange={e => set("fecha", e.target.value)} disabled={!puedeConfirmar} className={CLASE_INPUT} /></td>
+      <td className="py-2.5 px-2 w-[140px]"><input type="date" max="9999-12-31" value={mov.fecha} onChange={e => set("fecha", e.target.value)} disabled={!puedeConfirmar} className={CLASE_INPUT} /></td>
       <td className="py-2.5 px-2 w-[150px]"><input list={ID_SECTORES} value={mov.vieneDe} onChange={e => set("vieneDe", e.target.value)} disabled={!puedeConfirmar} className={CLASE_INPUT} /></td>
       <td className="py-2.5 px-2 w-[150px]"><input list={ID_SECTORES} value={mov.sector} onChange={e => set("sector", e.target.value)} disabled={!puedeConfirmar} className={CLASE_INPUT} /></td>
       <td className="py-2.5 px-2 w-[130px]"><input list={ID_SECTORES} value={mov.subsector} onChange={e => set("subsector", e.target.value)} disabled={!puedeConfirmar} className={CLASE_INPUT} /></td>

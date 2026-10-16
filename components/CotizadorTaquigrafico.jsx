@@ -4,6 +4,7 @@ import { useState } from "react";
 import * as XLSX from "xlsx";
 import { Plus, CheckCircle2, Mic, Download, Trash2 } from "lucide-react";
 import { fmtMoneda } from "@/lib/utils";
+import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 export default function CotizadorTaquigrafico({ sesion, mostrarToast, expedientes, onVincular }) {
   const [expNro, setExpNro] = useState("13-10293/26");
   const [objeto, setObjeto] = useState(
@@ -22,7 +23,7 @@ export default function CotizadorTaquigrafico({ sesion, mostrarToast, expediente
 
   function handleExpNroChange(valor) {
     setExpNro(valor);
-    const match = expedientes?.find(e => e.exp.trim().toLowerCase() === valor.trim().toLowerCase());
+    const match = expedientes?.find(e => mismoExp(e.exp, valor));
     if (match) setObjeto(match.objeto || "");
   }
 
@@ -164,7 +165,7 @@ export default function CotizadorTaquigrafico({ sesion, mostrarToast, expediente
         <div className="grid sm:grid-cols-4 gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">N° de expediente</label>
-            <input value={expNro} onChange={e => handleExpNroChange(e.target.value)} list="lista-exp-taquigrafico" placeholder="13-00000/26"
+            <input value={expNro} onChange={e => handleExpNroChange(e.target.value)} list="lista-exp-taquigrafico" placeholder="13-00000/2026"
               className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
             <datalist id="lista-exp-taquigrafico">
               {expedientes?.map(e => <option key={e.id} value={e.exp} />)}

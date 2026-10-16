@@ -17,6 +17,7 @@ import EstrellaPrioridad from "./EstrellaPrioridad";
 import { Campo_Input } from "./CamposFormulario";
 import CampoOpciones from "./CampoOpciones";
 import { FiltroColumna, Seccion, DatoFicha, SelectRapido } from "./PanelResoluciones";
+import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 
 const API = "/api/ordenes-compra/notificaciones";
 const norm = s => String(s || "").trim().toLowerCase();
@@ -180,7 +181,7 @@ export default function PanelNotificaciones44({ sesion, mostrarToast }) {
   const agentes = useMemo(() => [...new Set([...AGENTES_ORDENES_COMPRA, ...todos.map(n => n.agente).filter(Boolean)])].sort(), [todos]);
   const deLaSolapa = useMemo(() => todos.filter(SOLAPAS.find(s => s.id === solapa).incluye), [todos, solapa]);
   const filas = useMemo(() => deLaSolapa.filter(n => {
-    if (f.exp && !norm(n.exp).includes(norm(f.exp))) return false;
+    if (f.exp && !norm(n.exp).includes(norm(expParaBuscar(f.exp)))) return false;
     if (f.texto && !norm([n.objeto, n.organismo, n.estado, n.tipoContratacion, n.pase].join(" ")).includes(norm(f.texto))) return false;
     if (f.agente && n.agente !== f.agente) return false;
     return true;

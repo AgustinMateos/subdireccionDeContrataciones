@@ -44,7 +44,7 @@ export default function CambiarFechaCorteLegitimoAbono({ exp, renovacionEnTramit
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Nueva fecha de corte</label>
             <input
-              type="date"
+              type="date" max="9999-12-31"
               value={fechaVencimiento}
               onChange={e => { setFechaVencimiento(e.target.value); setError(""); }}
               className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800"

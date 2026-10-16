@@ -481,7 +481,7 @@ export default function PlanillaCotizacion({ mostrarToast }) {
                         type="text"
                         value={expediente}
                         onChange={e => setExpediente(e.target.value)}
-                        placeholder="13-00000/26"
+                        placeholder="13-00000/2026"
                         disabled={expedienteOpcional}
                         className="border-0 border-b border-slate-400 focus:outline-none focus:border-black bg-transparent font-bold w-40 disabled:opacity-40"
                       />
@@ -555,7 +555,7 @@ export default function PlanillaCotizacion({ mostrarToast }) {
 
                   <div className="flex items-center gap-2 mb-2 text-xs flex-wrap">
                     <label className="font-medium text-slate-600">Fecha de presentación / apertura:</label>
-                    <input type="date" value={fechaApertura} onChange={e => setFechaApertura(e.target.value)}
+                    <input type="date" max="9999-12-31" value={fechaApertura} onChange={e => setFechaApertura(e.target.value)}
                       disabled={fechaAperturaOpcional}
                       className="border border-slate-300 rounded px-2 py-1 disabled:opacity-40" />
                     <select value={horaApertura} onChange={e => setHoraApertura(e.target.value)}

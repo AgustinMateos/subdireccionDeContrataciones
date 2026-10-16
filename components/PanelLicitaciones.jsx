@@ -20,6 +20,7 @@ import EtiquetasPrioridad from "./EtiquetasPrioridad";
 import { Campo_Input } from "./CamposFormulario";
 import CampoOpciones from "./CampoOpciones";
 import { SelectRapido, FiltroColumna, Seccion, DatoFicha } from "./PanelResoluciones";
+import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 
 const norm = s => String(s || "").trim().toLowerCase();
 const fecha = f => (f ? fmtFecha(fechaISO(f)) : "-");
@@ -191,7 +192,7 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
           ) : solapa === "datos" ? (
             <>
               <Seccion titulo="Identificación">
-                <Campo_Input label="Exp. *" value={f.exp} onChange={v => set("exp", v)} placeholder="13-05999/25" />
+                <Campo_Input label="Exp. *" value={f.exp} onChange={v => set("exp", v)} placeholder="13-05999/2025" />
                 <div className="col-span-1 md:col-span-2">
                   <CampoOpciones label="Jurisdicción" value={f.jurisdiccion} onChange={v => set("jurisdiccion", v)} opciones={JURISDICCIONES_LICITACIONES} />
                 </div>
@@ -222,7 +223,7 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                 <CampoOpciones label="Encuadre" value={f.encuadre} onChange={v => set("encuadre", v)} opciones={ENCUADRES_LICITACIONES} />
                 <div className="col-span-2"><Campo_Input label="Monto" value={f.monto} onChange={v => set("monto", v)} placeholder="$ 61.096.888,00" /></div>
                 <div className="col-span-2 md:col-span-3"><Campo_Input label="Plazo de ejecución (DH)" value={f.plazoEjecucion} onChange={v => set("plazoEjecucion", v)} placeholder="30 o Reng 1 y 2: 20 DH" /></div>
-                <Campo_Input label="Pase a la firma" type="date" value={f.paseFirma} onChange={v => set("paseFirma", v)} />
+                <Campo_Input label="Pase a la firma" type="date" max="9999-12-31" value={f.paseFirma} onChange={v => set("paseFirma", v)} />
               </Seccion>
             </>
           ) : (
@@ -231,7 +232,7 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                 <CampoOpciones label="Sector" value={f.sector} onChange={v => set("sector", v)} opciones={SECTORES_LICITACIONES} disabled={fijo} />
                 <CampoOpciones label="Estado interno" value={f.estadoInterno} onChange={v => set("estadoInterno", v)} opciones={ESTADOS_INTERNOS_LICITACIONES} disabled={fijo} />
                 <CampoOpciones label="Estado convocatoria" value={f.estadoConvocatoria} onChange={v => set("estadoConvocatoria", v)} opciones={ESTADOS_CONVOCATORIA_LICITACIONES} disabled={fijo} />
-                <Campo_Input label="Último movimiento" type="date" value={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
+                <Campo_Input label="Último movimiento" type="date" max="9999-12-31" value={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
               </Seccion>
 
               <Seccion titulo={inicial ? "Nueva observación" : "Observaciones"}>
@@ -423,7 +424,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
   // En Concluidos y archivados no se cuentan días en el sector.
   const enTerminados = solapa === "terminados";
   const filas = useMemo(() => deLaSolapa.filter(e => {
-    if (f.exp && !norm(e.exp).includes(norm(f.exp))) return false;
+    if (f.exp && !norm(e.exp).includes(norm(expParaBuscar(f.exp)))) return false;
     if (f.objeto && !norm(e.objeto + " " + (e.organismo || "") + " " + (e.observaciones || "")).includes(norm(f.objeto))) return false;
     for (const campo of ["jurisdiccion", "rubro", "encuadre", "sector", "estadoInterno", "estadoConvocatoria", "agente"]) {
       if (f[campo] && e[campo] !== f[campo]) return false;

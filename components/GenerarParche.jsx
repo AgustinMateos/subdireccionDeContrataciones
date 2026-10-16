@@ -73,7 +73,7 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
             {!esLegitimoAbono && (
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">N° de expediente</label>
-                <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="13-00000/26"
+                <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="13-00000/2026"
                   className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
               </div>
             )}
@@ -126,12 +126,12 @@ export default function GenerarParche({ exp, onCerrar, onConfirmar }) {
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Fecha de inicio</label>
-              <input type="date" value={f.fechaInicio} onChange={e => set("fechaInicio", e.target.value)}
+              <input type="date" max="9999-12-31" value={f.fechaInicio} onChange={e => set("fechaInicio", e.target.value)}
                 className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Fecha de vencimiento</label>
-              <input type="date" value={f.fechaVencimiento} onChange={e => set("fechaVencimiento", e.target.value)}
+              <input type="date" max="9999-12-31" value={f.fechaVencimiento} onChange={e => set("fechaVencimiento", e.target.value)}
                 className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
             </div>
             <div className="col-span-2">

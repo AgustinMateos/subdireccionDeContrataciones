@@ -4,6 +4,7 @@ import { useState } from "react";
 import * as XLSX from "xlsx";
 import { Plus, X, CheckCircle2, Download, Trash2, Newspaper } from "lucide-react";
 import { fmtMoneda } from "@/lib/utils";
+import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 export default function CotizadorAvisos({ mostrarToast, expedientes, onVincular }) {
   const [expNro, setExpNro] = useState("");
   const [objeto, setObjeto] = useState("");
@@ -31,7 +32,7 @@ export default function CotizadorAvisos({ mostrarToast, expedientes, onVincular 
 
   function handleExpNroChange(valor) {
     setExpNro(valor);
-    const match = expedientes?.find(e => e.exp.trim().toLowerCase() === valor.trim().toLowerCase());
+    const match = expedientes?.find(e => mismoExp(e.exp, valor));
     if (match) setObjeto(match.objeto || "");
   }
 
@@ -223,7 +224,7 @@ export default function CotizadorAvisos({ mostrarToast, expedientes, onVincular 
         <div className="grid sm:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">N° de expediente (opcional)</label>
-            <input value={expNro} onChange={e => handleExpNroChange(e.target.value)} list="lista-exp-avisos" placeholder="13-00000/26"
+            <input value={expNro} onChange={e => handleExpNroChange(e.target.value)} list="lista-exp-avisos" placeholder="13-00000/2026"
               className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
             <datalist id="lista-exp-avisos">
               {expedientes?.map(e => <option key={e.id} value={e.exp} />)}

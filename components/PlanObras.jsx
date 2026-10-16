@@ -111,17 +111,17 @@ function FormularioObra({ inicial, camaras, onCerrar, onGuardar, onEliminar }) {
           )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Campo_Input label="Expediente" value={f.expediente} onChange={v => set("expediente", v)} placeholder="14-02011/26" />
+            <Campo_Input label="Expediente" value={f.expediente} onChange={v => set("expediente", v)} placeholder="14-02011/2026" />
             <div className="col-span-1 md:col-span-3"><CampoOpciones label="Cámara *" value={f.camara} onChange={v => set("camara", v)} opciones={camaras} /></div>
             <div className="col-span-2 md:col-span-4"><Campo_Input label="Destino" value={f.destino} onChange={v => set("destino", v)} /></div>
             <div className="col-span-2 md:col-span-4"><AreaTexto label="Objeto *" value={f.objeto} onChange={v => set("objeto", v)} /></div>
             <Campo_Input label="Monto" value={f.monto} onChange={v => set("monto", v)} placeholder="$ 110.832.640,00" />
             <CampoOpciones label="Encuadre" value={f.encuadre} onChange={v => set("encuadre", v)} opciones={ENCUADRES_OBRA} />
             <div className="col-span-2"><CampoOpciones label="Estado" value={f.estado} onChange={v => set("estado", v)} opciones={ESTADOS_OBRA} /></div>
-            <Campo_Input label="Fecha último movimiento" type="date" value={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
+            <Campo_Input label="Fecha último movimiento" type="date" max="9999-12-31" value={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
             <CampoOpciones label="Dependencia actual" value={f.dependenciaActual} onChange={v => set("dependenciaActual", v)} opciones={DEPENDENCIAS_OBRA} />
             <Campo_Input label="Orden de compra" value={f.ordenCompra} onChange={v => set("ordenCompra", v)} />
-            <Campo_Input label="Fecha notificación OC" type="date" value={f.fechaNotificacionOC} onChange={v => set("fechaNotificacionOC", v)} />
+            <Campo_Input label="Fecha notificación OC" type="date" max="9999-12-31" value={f.fechaNotificacionOC} onChange={v => set("fechaNotificacionOC", v)} />
             <div className="col-span-2"><AreaTexto label="Plazo de ejecución" value={f.plazoEjecucion} onChange={v => set("plazoEjecucion", v)} /></div>
             <div className="col-span-2"><AreaTexto label="Observaciones" value={f.observaciones} onChange={v => set("observaciones", v)} /></div>
           </div>

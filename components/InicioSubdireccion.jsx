@@ -12,6 +12,7 @@ import { FormularioResolucion, SOLAPAS as SOLAPAS_RESOLUCIONES } from "./PanelRe
 import { FormularioLicitacion, SOLAPAS as SOLAPAS_LICITACIONES } from "./PanelLicitaciones";
 import { FormularioOrdenCompra, SOLAPAS as SOLAPAS_ORDENES } from "./PanelOrdenesCompra";
 import { DIAS_AVISO_VENCIMIENTO_OC, avanceOC, diasEnOC, esCompleta, esPrioritariaOC } from "@/lib/ordenesCompra";
+import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 
 const DIAS_DEMORA = 15; // más de esto, rojo en el semáforo de días en sector
 const DIAS_POR_VENCER = 30;
@@ -161,7 +162,7 @@ export default function InicioSubdireccion({ onIr, mostrarToast }) {
   const hoy = new Date().toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   return (
-    <div className="space-y-6 max-w-[1400px]">
+    <div className="space-y-6 ">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-slate-900">Resumen de la Subdirección</h1>
@@ -498,7 +499,7 @@ function ModalExpedientes({ titulo, detalle, items, vencimientos, onCerrar, onIr
   const variasAreas = new Set(items.map(i => i.area)).size > 1;
   const norm = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const filas = items
-    .filter(({ e, sector }) => !q || norm([e.exp, e.objeto, e.agente, sector, e.organismo, e.jurisdiccion, e.fuero].join(" ")).includes(norm(q)))
+    .filter(({ e, sector }) => !q || norm([e.exp, e.objeto, e.agente, sector, e.organismo, e.jurisdiccion, e.fuero].join(" ")).includes(norm(expParaBuscar(q))))
     .sort(vencimientos
       ? (a, b) => String(a.vence || "9999").localeCompare(String(b.vence || "9999"))
       : (a, b) => (b.dias ?? -1) - (a.dias ?? -1));

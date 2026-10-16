@@ -22,6 +22,7 @@ import CampoOpciones from "./CampoOpciones";
 import {
   AbrirTodos, BotonOpcion, CLASE_ENTRADA, Campo, ElegirDeLista, ElegirDia, Entrada, Paso, Pregunta, SiNo, usePasos,
 } from "./FormularioFacil";
+import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 
 const norm = s => String(s || "").trim().toLowerCase();
 const fecha = f => (f ? fmtFecha(fechaISO(f)) : "-");
@@ -275,7 +276,7 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
 
               <Paso {...paso(1)} titulo="El expediente">
                 <Campo pregunta="N° de expediente (obligatorio)">
-                  <Entrada valor={f.exp} onChange={v => set("exp", v)} ejemplo="13-05999/25" mono />
+                  <Entrada valor={f.exp} onChange={v => set("exp", v)} ejemplo="13-05999/2025" mono />
                 </Campo>
                 <Campo pregunta="Número de contratación">
                   <Entrada valor={f.numero} onChange={v => set("numero", v)} ejemplo="139/26" />
@@ -805,7 +806,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial 
   // En Finalizados no se muestran días en sector (ya terminaron).
   const enFinalizados = solapa === "finalizados";
   const filas = useMemo(() => deLaSolapa.filter(e => {
-    if (f.exp && !norm(e.exp + " " + (e.numero || "")).includes(norm(f.exp))) return false;
+    if (f.exp && !norm(e.exp + " " + (e.numero || "")).includes(norm(expParaBuscar(f.exp)))) return false;
     if (f.objeto && !norm(e.objeto + " " + (e.observaciones || "")).includes(norm(f.objeto))) return false;
     if (f.organismo && !norm(e.organismo).includes(norm(f.organismo))) return false;
     for (const campo of ["fuero", "tipoContratacion", "tipoResolucion", "estado", "sectorActual", "agente"]) {

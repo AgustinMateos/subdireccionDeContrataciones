@@ -6,6 +6,7 @@ import { ALERTA_ESTILO, ESTADOS_CONVOCATORIA } from "@/lib/constants";
 import FiltroDesplegable from "./FiltroDesplegable";
 import GraficosControlServicios from "./GraficosControlServicios";
 import { alerta, alertaFrenado, diasFrenado, diasRestantes, fechaUltimoMovimiento, fmtFecha, soloFechaLocal } from "@/lib/utils";
+import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 
 const norm = s => String(s || "").trim().toLowerCase();
 
@@ -104,7 +105,7 @@ export default function PanelControlServicios({ mostrarToast }) {
     if (f.organismo && !norm(organismosDe(e).join(" ")).includes(norm(f.organismo))) return false;
     if (f.domicilio && !norm(domiciliosDe(e).join(" ")).includes(norm(f.domicilio))) return false;
     if (f.objeto && !norm(e.objeto).includes(norm(f.objeto))) return false;
-    if (f.exp && !norm(e.exp + " " + (e.nombreCorto || "")).includes(norm(f.exp))) return false;
+    if (f.exp && !norm(e.exp + " " + (e.nombreCorto || "")).includes(norm(expParaBuscar(f.exp)))) return false;
     if (f.contratacion !== "Todos" && e.contratacion !== f.contratacion) return false;
     if (f.mesInicio !== "Todos" && (f.mesInicio === "sinFecha" ? e.fechaInicio : e.fechaInicio.slice(0, 7) !== f.mesInicio)) return false;
     if (f.sector !== "Todos" && (e.sector || "Sin definir") !== f.sector) return false;

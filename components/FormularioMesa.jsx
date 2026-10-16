@@ -100,7 +100,7 @@ export default function FormularioMesa({ inicial, onCerrar, onGuardar }) {
         <div className="p-6 space-y-4">
           <Campo_Input label="Objeto (carátula)" value={f.objeto} onChange={v => set("objeto", v)} />
           <div className="grid grid-cols-3 gap-4">
-            <Campo_Input label="N° de expediente" value={f.exp} onChange={v => set("exp", v)} placeholder="13-00000/26" />
+            <Campo_Input label="N° de expediente" value={f.exp} onChange={v => set("exp", v)} placeholder="13-00000/2026" />
             <Campo_Input label="Agente" value={f.agente} onChange={v => set("agente", v)} placeholder="CB" />
             <Campo_Select label="Sector que tramita" value={f.sectorTramita} onChange={cambiarSectorTramita}
               opciones={opcionesSector} labels={{ "": "— Seleccionar —" }} />
@@ -113,9 +113,9 @@ export default function FormularioMesa({ inicial, onCerrar, onGuardar }) {
             )}
             <Campo_Select label="Zona" value={f.zona} onChange={v => set("zona", v)} opciones={["", ...ZONAS]} labels={{ "": "— Sin definir —" }} />
 
-            <Campo_Input label="Ingreso a la Subdirección" type="date" value={f.ingresoSubdireccion} onChange={v => set("ingresoSubdireccion", v)} />
-            <Campo_Input label="Fecha de inicio (período)" type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
-            <Campo_Input label="Fecha de vencimiento (período)" type="date" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
+            <Campo_Input label="Ingreso a la Subdirección" type="date" max="9999-12-31" value={f.ingresoSubdireccion} onChange={v => set("ingresoSubdireccion", v)} />
+            <Campo_Input label="Fecha de inicio (período)" type="date" max="9999-12-31" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
+            <Campo_Input label="Fecha de vencimiento (período)" type="date" max="9999-12-31" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
 
             <div className="col-span-3">
               <CampoFuero id="mesa-lista-fueros" fueros={f.fuero} onChange={v => set("fuero", v)} />

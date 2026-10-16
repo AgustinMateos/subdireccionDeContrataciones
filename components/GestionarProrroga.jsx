@@ -166,7 +166,7 @@ function FormOrganismo({ exp, mesesDisponibles, maxMeses, onVolver, onCerrar, on
           Fecha de notificación de recepción de la resolución del organismo para esta tanda (opcional)
         </label>
         <input
-          type="date"
+          type="date" max="9999-12-31"
           value={fechaNotificacionProrroga}
           onChange={e => setFechaNotificacionProrroga(e.target.value)}
           className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800"
@@ -258,7 +258,7 @@ function FormDepartamento({ exp, parcheExistente, mesesDisponibles, maxMeses, on
         ) : (
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">N° de expediente</label>
-            <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="13-00000/26"
+            <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="13-00000/2026"
               className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
           </div>
         )}

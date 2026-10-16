@@ -10,6 +10,7 @@ import CampoDomiciliosRenglones from "./CampoDomiciliosRenglones";
 import BotonAccion from "./BotonAccion";
 import { fechaMinimaRenovacion, fmtFecha } from "@/lib/utils";
 import { direccionesDe } from "@/lib/organismosFueros";
+import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 
 function formVacio(esServicios, departamentoSlug) {
   return {
@@ -74,7 +75,7 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, des
 
 
   const coincidenciaAntecedente = f.antecedenteExp && expedientes
-    ? expedientes.find(e => e.exp.trim().toLowerCase() === f.antecedenteExp.trim().toLowerCase())
+    ? expedientes.find(e => mismoExp(e.exp, f.antecedenteExp))
     : null;
   const fechaMinima = coincidenciaAntecedente ? fechaMinimaRenovacion(coincidenciaAntecedente, expedientes) : null;
 
@@ -139,7 +140,7 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, des
             <Campo_Input label="Objeto" value={f.objeto} onChange={v => set("objeto", v)} />
           </div>
           <div className="grid grid-cols-3 gap-4">
-            <Campo_Input label="N° de expediente" value={esLegitimoAbono ? coincidenciaAntecedente.exp : f.exp} onChange={v => set("exp", v)} placeholder="13-00000/26" disabled={esLegitimoAbono} />
+            <Campo_Input label="N° de expediente" value={esLegitimoAbono ? coincidenciaAntecedente.exp : f.exp} onChange={v => set("exp", v)} placeholder="13-00000/2026" disabled={esLegitimoAbono} />
             <Campo_Select label="Tipo" value={f.tipo} onChange={v => set("tipo", v)}
               opciones={esServicios ? TIPOS_SERVICIOS : ["Servicios", "Provisiones", "Servicios Temporales"]} />
             <Campo_Input label="Agente" value={f.agente} onChange={v => set("agente", v)} placeholder="CB" />
@@ -184,8 +185,8 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, des
                 la grilla, según los campos de arriba, la de inicio caía en el
                 hueco libre y la de vencimiento pasaba a la fila siguiente. */}
             <div className="col-span-3 grid grid-cols-3 gap-4">
-              <Campo_Input label="Fecha de inicio" type="date" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
-              <Campo_Input label="Fecha de vencimiento" type="date" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
+              <Campo_Input label="Fecha de inicio" type="date" max="9999-12-31" value={f.fechaInicio} onChange={v => set("fechaInicio", v)} />
+              <Campo_Input label="Fecha de vencimiento" type="date" max="9999-12-31" value={f.fechaVencimiento} onChange={v => set("fechaVencimiento", v)} />
             </div>
 
             <div className="col-span-3 bg-slate-50 border border-slate-200 rounded-md p-3">
@@ -195,7 +196,7 @@ export default function CaratularExpediente({ departamentoSlug, expedientes, des
               <input
                 value={f.antecedenteExp || ""}
                 onChange={e => handleAntecedenteExpChange(e.target.value)}
-                placeholder="Ej: 13-05877/25"
+                placeholder="Ej: 13-05877/2025"
                 className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800"
               />
               <p className="text-[11px] text-slate-500 mt-1.5">

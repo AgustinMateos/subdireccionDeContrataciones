@@ -43,7 +43,7 @@ function resolverCadena(antecedenteExp, expedientes) {
 
   if (antecedenteExp && antecedenteExp.trim()) {
     match = expedientes.find(
-      e => e.exp.trim().toLowerCase() === antecedenteExp.trim().toLowerCase()
+      e => mismoExp(e.exp, antecedenteExp)
     );
     if (match) {
       cadenaId = match.cadenaId;
@@ -105,6 +105,7 @@ import InformePoliciaAdicional from "./InformePoliciaAdicional";
 import InformeOrganismos from "./InformeOrganismos";
 import InformeServicios from "./InformeServicios";
 import Aperturas from "./Aperturas";
+import { mismoExp } from "@/lib/numeroExpediente";
 
 const VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS = [
   "cotizadorTaquigrafico", "cotizadorPolicia", "cotizadorAvisos",
@@ -473,8 +474,7 @@ export default function App() {
   // Vincula el resultado de un cotizador (taquigráfico, policía adicional, avisos)
   // al expediente correspondiente, agregándolo como observación con el monto aprobado.
   function vincularCotizacionAExpediente(expNumero, texto) {
-    const numeroBuscado = (expNumero || "").trim().toLowerCase();
-    const match = expedientes.find(e => e.exp.trim().toLowerCase() === numeroBuscado);
+    const match = expedientes.find(e => mismoExp(e.exp, expNumero));
     if (!match) {
       mostrarToast("No se encontró el expediente " + expNumero + " para vincular");
       return false;
@@ -497,8 +497,7 @@ export default function App() {
   // como policía adicional, guarda el snapshot de la cotización y tilda el paso
   // del cotizador en el circuito de legalidad.
   async function vincularCotizacionPolicia(datos) {
-    const numeroBuscado = (datos.expNro || "").trim().toLowerCase();
-    const match = expedientes.find(e => e.exp.trim().toLowerCase() === numeroBuscado);
+    const match = expedientes.find(e => mismoExp(e.exp, datos.expNro));
     if (!match) {
       mostrarToast("No se encontró el expediente " + datos.expNro + " para vincular");
       return false;

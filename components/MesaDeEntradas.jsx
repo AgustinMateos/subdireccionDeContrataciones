@@ -9,6 +9,7 @@ import FiltroDesplegable from "./FiltroDesplegable";
 import FormularioMesa from "./FormularioMesa";
 import DetalleMesa from "./DetalleMesa";
 import TablaMovimientosPendientes from "./TablaMovimientosPendientes";
+import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 
 const norm = s => String(s || "").trim().toLowerCase();
 const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-900 hover:border-slate-500 transition-colors focus:outline-none focus:border-slate-500 placeholder:text-slate-400";
@@ -103,7 +104,7 @@ export default function MesaDeEntradas({ sesion, busqueda, mostrarToast }) {
         const texto = [e.exp, e.objeto, e.agente, ...(e.fuero || []), ...(e.organismos || []), ...(e.domiciliosRenglones || []), ult?.sector, ult?.observacion].map(norm).join(" ");
         if (!texto.includes(q)) return false;
       }
-      if (f.exp && !norm(e.exp).includes(norm(f.exp))) return false;
+      if (f.exp && !norm(e.exp).includes(norm(expParaBuscar(f.exp)))) return false;
       if (f.fuero && !norm((e.fuero || []).join(" ")).includes(norm(f.fuero))) return false;
       if (f.caratula && !norm(e.objeto).includes(norm(f.caratula))) return false;
       if (f.sectorTramita && e.sectorTramita !== f.sectorTramita) return false;

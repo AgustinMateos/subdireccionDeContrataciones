@@ -65,12 +65,12 @@ export default function RelanzarConvocatoria({ exp, onCerrar, onConfirmar }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Nueva fecha de publicación</label>
-              <input type="date" value={f.fechaPublicacion} onChange={e => set("fechaPublicacion", e.target.value)}
+              <input type="date" max="9999-12-31" value={f.fechaPublicacion} onChange={e => set("fechaPublicacion", e.target.value)}
                 className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Nueva fecha y hora de apertura</label>
-              <input type="datetime-local" value={f.fechaApertura} onChange={e => set("fechaApertura", e.target.value)}
+              <input type="datetime-local" max="9999-12-31T23:59" value={f.fechaApertura} onChange={e => set("fechaApertura", e.target.value)}
                 className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
             </div>
           </div>

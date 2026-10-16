@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { ENCUADRE_INTERADMINISTRATIVO, ENCUADRE_POR_TIPO_PARCHE, ESTADOS_CONVOCATORIA_FALLIDOS, MOTIVOS_ADJUDICACION_PARCIAL, MODALIDADES_FRACASADA, PRORROGA_MESES_OPCIONES, llevaAdecuaciones, llevaOrdenDeCompra } from "@/lib/constants";
 import { parseFechaHora, hoyArgentina } from "@/lib/utils";
 import { SECTOR_TRAMITA_POR_DEPARTAMENTO } from "@/lib/mesaEntradas";
+import { mismoExp, normalizarExp } from "@/lib/numeroExpediente";
 
 const INCLUDE_EXPEDIENTE = {
   observaciones: { orderBy: { fecha: "asc" } },
@@ -188,7 +189,7 @@ export async function GET(request) {
   if (nombreCorto) where.nombreCorto = { contains: nombreCorto, mode: "insensitive" };
   if (q) {
     where.OR = [
-      { exp: { contains: q, mode: "insensitive" } },
+      { exp: { contains: normalizarExp(q), mode: "insensitive" } },
       { nombreCorto: { contains: q, mode: "insensitive" } },
       { objeto: { contains: q, mode: "insensitive" } },
       { adjudicatario: { contains: q, mode: "insensitive" } },
@@ -359,8 +360,8 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    const expPedido = body.exp.trim();
-    const origenARenombrar = origenes.find((o) => o.exp.trim().toLowerCase() === expPedido.toLowerCase());
+    const expPedido = normalizarExp(body.exp.trim());
+    const origenARenombrar = origenes.find((o) => mismoExp(o.exp, expPedido));
     const base = origenes[0];
     const domiciliosUnificados = normalizarLista(
       Array.isArray(body.domiciliosRenglones) && body.domiciliosRenglones.length > 0
@@ -1050,7 +1051,7 @@ export async function POST(request) {
   // También arrastra el monto del antecedente (el caratulado no lo pide).
   let antecedenteLegitimoAbono = null;
   if (esLegitimoAbono) {
-    const base = String(body.exp || "").trim().replace(/-LA\d*$/, "");
+    const base = normalizarExp(String(body.exp || "").trim()).replace(/-LA\d*$/, "");
     if (!base) return NextResponse.json({ error: "Cargá el N° de expediente del antecedente" }, { status: 400 });
     antecedenteLegitimoAbono = await prisma.expediente.findFirst({
       where: { exp: base, departamentoId: session.user.departamentoId },
