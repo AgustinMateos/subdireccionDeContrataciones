@@ -74,14 +74,18 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
     if (!agente.trim()) { mostrarToast("Indicá el agente: va abajo de DEPARTAMENTO DE INFORMATICA Y VARIOS"); return; }
     const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const tramo = x => (typeof x === "string" ? esc(x) : "<b>" + esc(x.negrita) + "</b>");
-    const letra = "font-family:'Courier New',Courier,monospace;font-size:12pt;";
+    const letra = "font-family:'Courier New',Courier,monospace;font-size:11pt;";
     const html =
       '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
       '<head><meta charset="utf-8"><title>Pase a Contaduría ' + esc(pase.expediente) + "</title><style>" +
       "@page Section1 { size: 595.3pt 841.9pt; margin: 2.5cm 2cm 2.5cm 3cm; } div.Section1 { page: Section1; }" +
       "p { " + letra + " margin: 0; line-height: 200%; }" +
       ".membrete { font-family: Calibri, sans-serif; color: #7f7f7f; line-height: 120%; }" +
-      ".parrafo { text-align: justify; text-indent: 6.5cm; margin-bottom: 4pt; }" +
+      // Desde "Atenta…" hasta el agente: justificado, nivel de esquema
+      // "Texto independiente" (el de un párrafo normal) e interlineado de
+      // 1,5 líneas (así lo guarda Word: line-height 150%).
+      ".cuerpo { text-align: justify; line-height: 150%; }" +
+      ".parrafo { text-indent: 6.5cm; margin-bottom: 4pt; }" +
       "</style><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]--></head>" +
       "<body><div class='Section1'>" +
       "<p class='membrete' style='font-size:16pt;'>CONSEJO DE LA MAGISTRATURA</p>" +
@@ -90,9 +94,9 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
       "<p class='membrete' style='font-size:10pt;'>ADMINISTRACIÓN GENERAL</p><br/><br/>" +
       "<p style='margin-left:6.5cm;'><b>EXPEDIENTE N° " + esc(pase.expediente) + "</b></p><br/>" +
       "<p style='margin-left:6.5cm;'>" + esc(pase.lugarYFecha) + "</p><br/>" +
-      pase.parrafos.map(partes => "<p class='parrafo'>" + partes.map(tramo).join("") + "</p>").join("") +
-      "<p><b>" + esc(pase.firma) + "</b></p>" +
-      (pase.agente ? "<p><b>" + esc(pase.agente) + "</b></p>" : "") +
+      pase.parrafos.map(partes => "<p class='cuerpo parrafo'>" + partes.map(tramo).join("") + "</p>").join("") +
+      "<p class='cuerpo'><b>" + esc(pase.firma) + "</b></p>" +
+      (pase.agente ? "<p class='cuerpo'><b>" + esc(pase.agente) + "</b></p>" : "") +
       "</div></body></html>";
     const blob = new Blob(["\ufeff", html], { type: "application/msword" });
     const url = URL.createObjectURL(blob);
