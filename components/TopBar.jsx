@@ -134,8 +134,9 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
         {(vista !== "expedientes" || soloSuPanel) && <div className="flex-1" />}
 
         <div className="ml-auto flex items-center gap-3 shrink-0">
-          {/* Avisos de lo que hace la jefa de la Subdirección (no los recibe ella). */}
-          {esResoluciones && sesion.email !== EMAIL_JEFA_SUBDIRECCION && <NotificacionesResoluciones />}
+          {/* Campana de Resoluciones: Resoluciones recibe lo que hace la jefa
+              de la Subdirección; la jefa, los expedientes nuevos para asignar. */}
+          {esResoluciones && <NotificacionesResoluciones paraJefa={sesion.email === EMAIL_JEFA_SUBDIRECCION} />}
           {/* Nombre y cargo: abren el menú del usuario (ahí está Cerrar
               sesión). En pantallas angostas, un ícono en su lugar. */}
           <div className="relative">

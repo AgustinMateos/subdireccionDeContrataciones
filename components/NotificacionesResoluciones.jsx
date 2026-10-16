@@ -14,10 +14,12 @@ function cuando(iso) {
   return fmtFechaHora(d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" + pad(d.getHours()) + ":" + pad(d.getMinutes()));
 }
 
-// Campana de avisos de Resoluciones: lo que la jefa de la Subdirección
-// cargó, modificó, reasignó o marcó como prioritario, y las renovaciones
-// automáticas del vencimiento de ofertas.
-export default function NotificacionesResoluciones() {
+// Campana de avisos de Resoluciones. Para Resoluciones: lo que la jefa de
+// la Subdirección cargó, modificó, reasignó o marcó como prioritario, y
+// las renovaciones automáticas del vencimiento de ofertas. Para la jefa
+// (`paraJefa`): los expedientes que cargó Resoluciones y hay que asignar
+// (el aviso se marca leído solo al asignarlo).
+export default function NotificacionesResoluciones({ paraJefa = false }) {
   const [datos, setDatos] = useState({ notificaciones: [], noLeidas: 0 });
   const [abierto, setAbierto] = useState(false);
   // Aviso más reciente ya visto (undefined hasta la primera carga).
@@ -57,7 +59,7 @@ export default function NotificacionesResoluciones() {
     <div className="relative">
       <button
         onClick={() => { setAbierto(v => !v); if (!abierto) cargar(); }}
-        title="Avisos de la jefa de la Subdirección y renovaciones automáticas"
+        title={paraJefa ? "Expedientes nuevos de Resoluciones para asignar" : "Avisos de la jefa de la Subdirección y renovaciones automáticas"}
         className="relative p-2 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-600"
       >
         <Bell size={16} />
@@ -73,7 +75,7 @@ export default function NotificacionesResoluciones() {
           <div className="fixed inset-0 z-20" onClick={() => setAbierto(false)} />
           <div className="absolute right-0 top-full mt-2 w-[420px] max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-30">
             <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
-              <span className="text-sm font-semibold text-slate-900">Avisos de la Subdirección</span>
+              <span className="text-sm font-semibold text-slate-900">{paraJefa ? "Para asignar" : "Avisos de la Subdirección"}</span>
               {datos.noLeidas > 0 && (
                 <button onClick={() => marcar({ todas: true })} className="text-[11px] font-medium text-slate-500 hover:text-slate-900">
                   Marcar todos como leídos
@@ -81,7 +83,7 @@ export default function NotificacionesResoluciones() {
               )}
             </div>
             {datos.notificaciones.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-slate-500">No hay avisos.</p>
+              <p className="px-4 py-6 text-sm text-slate-500">{paraJefa ? "No hay expedientes nuevos para asignar." : "No hay avisos."}</p>
             ) : (
               <ul>
                 {datos.notificaciones.map(n => (
@@ -100,7 +102,9 @@ export default function NotificacionesResoluciones() {
                     </div>
                     {n.objeto && <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{n.objeto}</p>}
                     <p className="text-[11px] text-slate-500 mt-1">
-                      {n.accion === "renovacion"
+                      {n.accion === "para-asignar"
+                        ? n.creadoPor + " cargó este expediente: falta asignarlo."
+                        : n.accion === "renovacion"
                         ? "Se renovó automáticamente el vencimiento de ofertas:"
                         : n.accion === "renovacion-activada"
                           ? n.creadoPor + " activó la renovación automática de las ofertas:"
@@ -111,7 +115,7 @@ export default function NotificacionesResoluciones() {
                         {n.cambios.map((c, i) => (
                           <li key={i} className="text-xs text-slate-700 flex flex-wrap items-center gap-1">
                             <span className="text-slate-500">{c.campo}:</span>
-                            {n.accion !== "alta" && n.accion !== "renovacion-activada" && <><span className="line-through text-slate-400">{c.anterior || "vacío"}</span><ArrowRight size={11} className="text-slate-400" /></>}
+                            {!["alta", "renovacion-activada", "para-asignar"].includes(n.accion) && <><span className="line-through text-slate-400">{c.anterior || "vacío"}</span><ArrowRight size={11} className="text-slate-400" /></>}
                             <span className="font-medium">{c.nuevo || "vacío"}</span>
                           </li>
                         ))}

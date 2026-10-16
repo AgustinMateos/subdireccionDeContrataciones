@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { compararResoluciones, datosResolucion, soloCamposDeJefa } from "@/lib/resoluciones";
-import { INCLUDE_RESOLUCION, aplicarRenovaciones, avisarSiActivaRenovacion, avisarSiEsJefa, conPlanObras, hoy, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { INCLUDE_RESOLUCION, aplicarRenovaciones, avisarJefaParaAsignar, avisarSiActivaRenovacion, avisarSiEsJefa, conPlanObras, hoy, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
 
 // Expedientes del sector de Resoluciones (sistema aparte). Antes se
 // aplican las renovaciones automáticas de vencimiento de ofertas.
@@ -29,5 +29,6 @@ export async function POST(request) {
   });
   await avisarSiEsJefa(prisma, session, null, datos, expediente);
   await avisarSiActivaRenovacion(prisma, session, null, expediente);
+  await avisarJefaParaAsignar(prisma, session, expediente);
   return NextResponse.json({ expediente: await conPlanObras(prisma, expediente) });
 }
