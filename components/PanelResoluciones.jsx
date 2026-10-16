@@ -748,13 +748,14 @@ function exportarExcel(filas, solapa) {
 
 // Sistema del sector de Resoluciones: la planilla de seguimiento de
 // expedientes, sin conexión con el resto de la app.
-export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial }) {
+export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial, abrirId }) {
   // La jefa de la Subdirección asigna agentes y marca prioridades.
   const esJefa = sesion.email === EMAIL_JEFA_SUBDIRECCION;
   const [expedientes, setExpedientes] = useState(null);
   const [f, setF] = useState(filtroVacio);
   const [solapa, setSolapa] = useState(solapaInicial || "general");
-  const [form, setForm] = useState(null); // null | "nuevo" | id del expediente
+  // null | "nuevo" | id del expediente (`abrirId`: llega desde un aviso)
+  const [form, setForm] = useState(abrirId || null);
   const [pagina, setPagina] = useState(0);
   const [porPagina, setPorPagina] = useState(OPCIONES_POR_PAGINA[0]);
   // Cambiar un filtro o la solapa vuelve a la primera página.
@@ -1013,7 +1014,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial 
       <Paginacion total={filas.length} pagina={paginaActual} porPagina={porPagina}
         onPagina={setPagina} onPorPagina={n => { setPorPagina(n); setPagina(0); }} />
 
-      {form && (
+      {form && (form === "nuevo" || seleccionado) && (
         <FormularioResolucion
           key={form}
           inicial={seleccionado}

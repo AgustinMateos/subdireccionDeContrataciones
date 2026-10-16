@@ -79,7 +79,7 @@ import CuadroCronologico from "./CuadroCronologico";
 import GraficosSubdireccion from "./GraficosSubdireccion";
 import PlanObras from "./PlanObras";
 import InicioSubdireccion from "./InicioSubdireccion";
-import { SLUG_RESOLUCIONES, USUARIOS_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION } from "@/lib/resoluciones";
+import { SLUG_RESOLUCIONES, USUARIOS_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, EVENTO_ABRIR_RESOLUCION } from "@/lib/resoluciones";
 import { SLUG_LICITACIONES } from "@/lib/licitaciones";
 import { SLUG_ORDENES_COMPRA } from "@/lib/ordenesCompra";
 import ModalPendientesMesa from "./ModalPendientesMesa";
@@ -148,6 +148,16 @@ export default function App() {
     setVista(v);
   }
   const solapaDe = v => (solapaPedida?.vista === v ? solapaPedida : null);
+  // Un aviso de la campana pide abrir un expediente de Resoluciones: se va
+  // a su panel (solapa General, donde están todos) con la ficha abierta.
+  useEffect(() => {
+    function abrirResolucion(ev) {
+      setSolapaPedida({ vista: "expedientes", solapa: "general", abrir: ev.detail?.id, n: Date.now() });
+      setVista("expedientes");
+    }
+    window.addEventListener(EVENTO_ABRIR_RESOLUCION, abrirResolucion);
+    return () => window.removeEventListener(EVENTO_ABRIR_RESOLUCION, abrirResolucion);
+  }, []);
   const [moduloValor, setModuloValor] = useState(200000);
   const [expedientes, setExpedientes] = useState([]);
   const [secciones, setSecciones] = useState([]);
@@ -838,7 +848,8 @@ export default function App() {
           ) : vistaResoluciones === "licitaciones" || esLicitaciones ? (
             <PanelLicitaciones key={solapaDe("licitaciones")?.n} solapaInicial={solapaDe("licitaciones")?.solapa} sesion={sesion} mostrarToast={mostrarToast} />
           ) : (
-            <PanelResoluciones key={solapaDe("expedientes")?.n} solapaInicial={solapaDe("expedientes")?.solapa} sesion={sesion} mostrarToast={mostrarToast} />
+            <PanelResoluciones key={solapaDe("expedientes")?.n} solapaInicial={solapaDe("expedientes")?.solapa} abrirId={solapaDe("expedientes")?.abrir}
+              sesion={sesion} mostrarToast={mostrarToast} />
           )
         ) : esControlServicios ? (
           <PanelControlServicios mostrarToast={mostrarToast} />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { EVENTO_CAMBIOS_RESOLUCIONES } from "@/lib/resoluciones";
+import { EVENTO_ABRIR_RESOLUCION, EVENTO_CAMBIOS_RESOLUCIONES } from "@/lib/resoluciones";
 import { Bell, ArrowRight } from "lucide-react";
 import { fmtFechaHora } from "@/lib/utils";
 
@@ -48,6 +48,14 @@ export default function NotificacionesResoluciones({ paraJefa = false }) {
     return () => clearInterval(t);
   }, []);
 
+  // Tocar un aviso: queda leído y se abre el expediente (si sigue existiendo).
+  function abrir(n) {
+    if (!n.leida) marcar({ ids: [n.id] });
+    if (!n.expedienteId) return;
+    setAbierto(false);
+    window.dispatchEvent(new CustomEvent(EVENTO_ABRIR_RESOLUCION, { detail: { id: n.expedienteId } }));
+  }
+
   async function marcar(body) {
     await fetch("/api/resoluciones/notificaciones", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -89,8 +97,10 @@ export default function NotificacionesResoluciones({ paraJefa = false }) {
                 {datos.notificaciones.map(n => (
                   <li
                     key={n.id}
-                    onClick={() => !n.leida && marcar({ ids: [n.id] })}
-                    className={"px-4 py-3 border-b border-slate-50 last:border-0 " + (n.leida ? "" : "bg-blue-50/50 cursor-pointer hover:bg-blue-50")}
+                    onClick={() => abrir(n)}
+                    title={n.expedienteId ? "Ver el expediente" : ""}
+                    className={"px-4 py-3 border-b border-slate-50 last:border-0 " + (n.expedienteId ? "cursor-pointer " : "") +
+                      (n.leida ? "hover:bg-slate-50" : "bg-blue-50/50 hover:bg-blue-50")}
                   >
                     <div className="flex items-center gap-2">
                       {!n.leida && <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" title="Sin leer" />}
