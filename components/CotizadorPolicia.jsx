@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from "react";
 import * as XLSX from "xlsx";
-import { CheckCircle2, Download, Shield, CalendarDays } from "lucide-react";
+import { CheckCircle2, Download, Shield, CalendarDays, FileText } from "lucide-react";
 import { FUERZAS_SEGURIDAD, PERIODICIDADES_POLICIA, FERIADOS_2026 } from "@/lib/constants";
 import { calcularDiasServicio, diasServicioPorMes, fmtMoneda, fmtFecha } from "@/lib/utils";
+import { armarPase } from "@/lib/paseContaduria";
 export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarYVincular }) {
   const [fuerza, setFuerza] = useState("PFA");
   const [periodicidad, setPeriodicidad] = useState("lv_habiles");
@@ -18,6 +19,11 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
   const [expNro, setExpNro] = useState("");
   const [objeto, setObjeto] = useState("");
   const [feriadosTexto, setFeriadosTexto] = useState(FERIADOS_2026.join(", "));
+  // Pase a Contaduría: lo que no sale de la cotización.
+  const [ejercicio, setEjercicio] = useState("");
+  const [fojasPresupuesto, setFojasPresupuesto] = useState("");
+  const [fojasCuadro, setFojasCuadro] = useState("");
+  const [agente, setAgente] = useState("");
 
   const feriadosSet = useMemo(() => {
     return new Set(feriadosTexto.split(",").map(f => f.trim()).filter(Boolean));
@@ -52,6 +58,53 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
   const costoTotal = desgloseMensual.reduce((s, m) => s + m.monto, 0);
   const fuerzaSeleccionada = FUERZAS_SEGURIDAD.find(f => f.key === fuerza);
   const periodicidadSeleccionada = PERIODICIDADES_POLICIA.find(p => p.key === periodicidad);
+
+  const pase = armarPase({
+    exp: expNro.trim(), fuerza: fuerzaSeleccionada.nombre, destino: objeto.trim(), inicio: fechaInicio, fin: fechaFin,
+    monto: costoTotal, ejercicio: ejercicio.trim() || fechaInicio.slice(0, 4), fojasPresupuesto: fojasPresupuesto.trim(),
+    fojasCuadro: fojasCuadro.trim(), agente: agente.trim(), anio: new Date().getFullYear(),
+  });
+
+  // Pase a Contaduría en Word (.doc armado desde HTML, como la Planilla de
+  // Cotización): letra Courier, sangría y negritas como el modelo.
+  function descargarPase() {
+    if (!expNro.trim()) { mostrarToast("Indicá el N° de expediente para el pase"); return; }
+    if (costoTotal <= 0) { mostrarToast("Cargá el valor del módulo: el pase necesita el monto"); return; }
+    if (!objeto.trim()) { mostrarToast("Completá el destino del servicio (objeto)"); return; }
+    if (!agente.trim()) { mostrarToast("Indicá el agente: va abajo de DEPARTAMENTO DE INFORMATICA Y VARIOS"); return; }
+    const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const tramo = x => (typeof x === "string" ? esc(x) : "<b>" + esc(x.negrita) + "</b>");
+    const letra = "font-family:'Courier New',Courier,monospace;font-size:12pt;";
+    const html =
+      '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
+      '<head><meta charset="utf-8"><title>Pase a Contaduría ' + esc(pase.expediente) + "</title><style>" +
+      "@page Section1 { size: 595.3pt 841.9pt; margin: 2.5cm 2cm 2.5cm 3cm; } div.Section1 { page: Section1; }" +
+      "p { " + letra + " margin: 0; line-height: 200%; }" +
+      ".membrete { font-family: Calibri, sans-serif; color: #7f7f7f; line-height: 120%; }" +
+      ".parrafo { text-align: justify; text-indent: 6.5cm; margin-bottom: 4pt; }" +
+      "</style><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]--></head>" +
+      "<body><div class='Section1'>" +
+      "<p class='membrete' style='font-size:16pt;'>CONSEJO DE LA MAGISTRATURA</p>" +
+      "<p class='membrete' style='font-size:16pt;'>PODER JUDICIAL DE LA NACIÓN</p>" +
+      "<p class='membrete' style='font-size:10pt;margin-top:8pt;'>SUBDIRECCIÓN DE CONTRATACIONES</p>" +
+      "<p class='membrete' style='font-size:10pt;'>ADMINISTRACIÓN GENERAL</p><br/><br/>" +
+      "<p style='margin-left:6.5cm;'><b>EXPEDIENTE N° " + esc(pase.expediente) + "</b></p><br/>" +
+      "<p style='margin-left:6.5cm;'>" + esc(pase.lugarYFecha) + "</p><br/>" +
+      pase.parrafos.map(partes => "<p class='parrafo'>" + partes.map(tramo).join("") + "</p>").join("") +
+      "<p><b>" + esc(pase.firma) + "</b></p>" +
+      (pase.agente ? "<p><b>" + esc(pase.agente) + "</b></p>" : "") +
+      "</div></body></html>";
+    const blob = new Blob(["\ufeff", html], { type: "application/msword" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "Pase_Contaduria_" + expNro.trim().replace(/[\/\s]+/g, "-") + ".doc";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    mostrarToast("Pase a Contaduría descargado (Word)");
+  }
 
   function handleExpNroChange(valor) {
     setExpNro(valor);
@@ -376,6 +429,60 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
           </div>
         </div>
       )}
+
+      <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2"><FileText size={16} className="text-slate-500" /> Pase a Contaduría</h3>
+            <p className="text-xs text-slate-500">Se arma con la cotización: expediente, fuerza, período y monto (en números y en letras). Completá lo que falta y descargalo en Word.</p>
+          </div>
+          <button type="button" onClick={descargarPase}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-sky-700 text-white text-xs font-medium hover:bg-sky-800">
+            <Download size={14} /> Descargar pase (Word)
+          </button>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Destino del servicio (objeto) · se lee &quot;con destino …&quot;</label>
+          <textarea value={objeto} onChange={e => setObjeto(e.target.value)} rows={2}
+            placeholder="al servicio solicitado por el Dr. Pablo Javier Flores, Titular del Tribunal Oral en lo Criminal Federal N°3 de San Martín, sito en la calle Yapeyú N°1922 San Martín, Pcia. De Buenos Aires"
+            className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800 resize-y" />
+        </div>
+        <div className="grid sm:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Ejercicio financiero</label>
+            <input value={ejercicio} onChange={e => setEjercicio(e.target.value)} placeholder={fechaInicio.slice(0, 4)}
+              className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Presupuesto y convenio · fs.</label>
+            <input value={fojasPresupuesto} onChange={e => setFojasPresupuesto(e.target.value)} placeholder="8/13"
+              className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Cuadro de costos (el Excel) · fs.</label>
+            <input value={fojasCuadro} onChange={e => setFojasCuadro(e.target.value)} placeholder="14"
+              className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Agente (va abajo del Departamento)</label>
+            <input value={agente} onChange={e => setAgente(e.target.value)} placeholder="AM"
+              className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-5 font-mono text-[13px] leading-7 text-slate-800">
+          <p className="pl-[38%] font-bold">EXPEDIENTE N° {pase.expediente}</p>
+          <p className="pl-[38%] mt-3">{pase.lugarYFecha}</p>
+          {pase.parrafos.map((partes, i) => (
+            <p key={i} className="mt-3 text-justify indent-[38%]">
+              {partes.map((x, j) => (typeof x === "string" ? x : <b key={j}>{x.negrita}</b>))}
+            </p>
+          ))}
+          <p className="mt-3 font-bold">{pase.firma}</p>
+          <p className="font-bold">{pase.agente || "......"}</p>
+        </div>
+      </div>
     </div>
   );
 }
