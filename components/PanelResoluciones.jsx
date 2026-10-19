@@ -816,7 +816,9 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
   // algo (EVENTO_CAMBIOS_RESOLUCIONES); filtros y solapa se mantienen.
   useEffect(() => {
     let activo = true;
-    async function cargar(esRecarga) {
+    // esRecarga: ya había lista (si falla, queda la que estaba); conAviso:
+    // avisa que la jefa hizo cambios (cuando lo dice la campana).
+    async function cargar(esRecarga, conAviso = esRecarga) {
       try {
         const res = await fetch("/api/resoluciones");
         // Si el servidor falla sin respuesta, el cuerpo viene vacío.
@@ -824,7 +826,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
         if (!res.ok) throw new Error(data.error || "Error del servidor (" + res.status + "). Probá recargar la página.");
         if (activo) {
           setExpedientes(data.expedientes || []);
-          if (esRecarga) mostrarToast("La jefa de la Subdirección hizo cambios: planilla actualizada");
+          if (conAviso) mostrarToast("La jefa de la Subdirección hizo cambios: planilla actualizada");
         }
       } catch (err) {
         if (activo && !esRecarga) { setExpedientes([]); mostrarToast(err.message || "No se pudieron cargar los expedientes"); }
@@ -833,7 +835,33 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
     const alCambiar = () => cargar(true);
     cargar(false);
     window.addEventListener(EVENTO_CAMBIOS_RESOLUCIONES, alCambiar);
-    return () => { activo = false; window.removeEventListener(EVENTO_CAMBIOS_RESOLUCIONES, alCambiar); };
+
+    // Cambios de otros (u otra pestaña): cada 15 segundos, con la ventana a
+    // la vista, se pregunta la "versión" de la planilla (liviano) y solo si
+    // cambió se recarga la lista, sin aviso y manteniendo filtros y solapa.
+    // Al volver a la ventana se pregunta enseguida.
+    let version = null;
+    async function revisar() {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch("/api/resoluciones/version", { cache: "no-store" });
+        if (!res.ok) return;
+        const { version: actual } = await res.json();
+        if (version !== null && actual !== version && activo) await cargar(true, false);
+        version = actual;
+      } catch {
+        // Sin conexión: se reintenta en la próxima vuelta.
+      }
+    }
+    revisar();
+    const intervalo = setInterval(revisar, 15000);
+    document.addEventListener("visibilitychange", revisar);
+    return () => {
+      activo = false;
+      window.removeEventListener(EVENTO_CAMBIOS_RESOLUCIONES, alCambiar);
+      clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", revisar);
+    };
     // Solo al montar: mostrarToast del Dashboard cambia en cada render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
