@@ -798,14 +798,11 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
       tipoResolucion: de("tipoResolucion", TIPOS_RESOLUCION),
       estado: de("estado", ESTADOS_RESOLUCION),
       sectorActual: de("sectorActual", []),
-      agente: de("agente", AGENTES_RESOLUCIONES),
     };
   }, [lista]);
 
   const solapas = SOLAPAS.filter(s => !s.soloJefa || esJefa);
   const deLaSolapa = useMemo(() => lista.filter(SOLAPAS.find(s => s.id === solapa).incluye), [lista, solapa]);
-  // En Finalizados no se muestran días en sector (ya terminaron).
-  const enFinalizados = solapa === "finalizados";
   const filas = useMemo(() => deLaSolapa.filter(e => {
     if (f.exp && !norm(e.exp + " " + (e.numero || "")).includes(norm(expParaBuscar(f.exp)))) return false;
     if (f.objeto && !norm(e.objeto + " " + (e.observaciones || "")).includes(norm(f.objeto))) return false;
@@ -924,24 +921,22 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
         <table className="w-full text-sm min-w-[1560px]">
           <thead>
             <tr className="text-left border-b border-slate-100 bg-slate-50/40 text-[11px] font-medium text-slate-500 uppercase tracking-wide">
-              {["Exp.", "Ingreso al sector", "Objeto", "Fuero", "Organismo", "Tipo de contratación", "Número",
-                ...(enFinalizados ? [] : ["Días en sector"]), "Tipo de resolución", "Estado",
-                "Último mov.", "Sector actual", "Agente", "Venc. ofertas", "Inicio de serv.", "Estado gral."].map(t => <th key={t} className="pt-2 px-3">{t}</th>)}
+              {["Exp.", "Objeto", "Fuero", "Organismo", "Tipo de contratación", "Número",
+                "Días en sector", "Tipo de resolución", "Estado",
+                "Último mov.", "Sector actual", "Venc. ofertas", "Inicio de serv.", "Estado gral."].map(t => <th key={t} className="pt-2 px-3">{t}</th>)}
             </tr>
             <tr className="text-left border-b border-slate-100 bg-slate-50/40">
               <th className="py-2 px-3 align-top w-[130px]"><input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} /></th>
-              <th className="py-2 px-3" />
               <th className="py-2 px-3 align-top w-[240px]"><input value={f.objeto} onChange={e => set("objeto", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} /></th>
               <th className="py-2 px-3 align-top w-[200px]"><FiltroColumna valor={f.fuero} etiqueta="Todos" opciones={opciones.fuero} onChange={v => set("fuero", v)} /></th>
               <th className="py-2 px-3 align-top w-[200px]"><input value={f.organismo} onChange={e => set("organismo", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} /></th>
               <th className="py-2 px-3 align-top w-[130px]"><FiltroColumna valor={f.tipoContratacion} etiqueta="Todos" opciones={opciones.tipoContratacion} onChange={v => set("tipoContratacion", v)} /></th>
               <th className="py-2 px-3" />
-              {!enFinalizados && <th className="py-2 px-3" />}
+              <th className="py-2 px-3" />
               <th className="py-2 px-3 align-top w-[150px]"><FiltroColumna valor={f.tipoResolucion} etiqueta="Todos" opciones={opciones.tipoResolucion} onChange={v => set("tipoResolucion", v)} /></th>
               <th className="py-2 px-3 align-top w-[160px]"><FiltroColumna valor={f.estado} etiqueta="Todos" opciones={opciones.estado} onChange={v => set("estado", v)} /></th>
               <th className="py-2 px-3" />
               <th className="py-2 px-3 align-top w-[150px]"><FiltroColumna valor={f.sectorActual} etiqueta="Todos" opciones={opciones.sectorActual} onChange={v => set("sectorActual", v)} /></th>
-              <th className="py-2 px-3 align-top w-[90px]"><FiltroColumna valor={f.agente} etiqueta="Todos" opciones={opciones.agente} onChange={v => set("agente", v)} /></th>
               <th className="py-2 px-3" />
               <th className="py-2 px-3" />
               <th className="py-2 px-3 align-top w-[140px]"><FiltroColumna valor={f.situacion} etiqueta="Todos" opciones={ESTADOS_GENERALES} onChange={v => set("situacion", v)} /></th>
@@ -949,7 +944,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
           </thead>
           <tbody>
             {filas.length === 0 ? (
-              <tr><td colSpan={enFinalizados ? 15 : 16} className="py-10 text-center text-sm text-slate-500">No hay expedientes con esos filtros.</td></tr>
+              <tr><td colSpan={14} className="py-10 text-center text-sm text-slate-500">No hay expedientes con esos filtros.</td></tr>
             ) : filasPagina.map(e => {
               const dias = diasEnSector(e);
               return (
@@ -961,19 +956,17 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
                     </div>
                     <EtiquetasPrioridad expediente={e} />
                   </td>
-                  <td className="py-2.5 px-3 whitespace-nowrap">{fecha(e.fechaIngreso)}</td>
                   <td className="py-2.5 px-3"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td>
                   <td className="py-2.5 px-3">{e.fuero || "-"}</td>
                   <td className="py-2.5 px-3"><span className="line-clamp-2" title={e.organismo || ""}>{e.organismo || "-"}</span></td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{e.tipoContratacion || "-"}</td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{e.numero || "-"}</td>
-                  {!enFinalizados && (
-                    <td className="py-2.5 px-3">
-                      {dias != null ? (
-                        <span className={"text-[11px] font-medium px-2 py-0.5 rounded border whitespace-nowrap " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""}</span>
-                      ) : "-"}
-                    </td>
-                  )}
+                  {/* Días en el sector con el semáforo (la fecha de ingreso, en la ficha). */}
+                  <td className="py-2.5 px-3">
+                    {dias != null ? (
+                      <span className={"text-[11px] font-medium px-2 py-0.5 rounded border whitespace-nowrap " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""}</span>
+                    ) : "-"}
+                  </td>
                   <td className="py-2.5 px-3" onClick={esJefa ? undefined : ev => ev.stopPropagation()}>
                     {esJefa ? (e.tipoResolucion || "-") : <SelectRapido valor={e.tipoResolucion} opciones={TIPOS_RESOLUCION} onChange={v => cambiarRapido(e, { tipoResolucion: v })} />}
                   </td>
@@ -985,11 +978,6 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
                     {esJefa
                       ? <span className="font-medium text-slate-900">{e.sectorActual || "-"}</span>
                       : <SelectRapido valor={e.sectorActual} opciones={SECTORES_RESOLUCIONES} onChange={v => cambiarRapido(e, { sectorActual: v })} fuerte />}
-                  </td>
-                  <td className="py-2.5 px-3" onClick={esJefa ? ev => ev.stopPropagation() : undefined}>
-                    {esJefa ? (
-                      <SelectRapido valor={e.agente} opciones={AGENTES_RESOLUCIONES} vacio="Sin asignar" onChange={v => cambiarRapido(e, { agente: v })} className="min-w-[110px]" />
-                    ) : (e.agente || "-")}
                   </td>
                   <td className="py-2.5 px-3 whitespace-nowrap">
                     {fecha(e.vencOfertas)}
