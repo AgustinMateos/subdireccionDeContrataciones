@@ -741,6 +741,33 @@ export function Seccion({ titulo, children }) {
   );
 }
 
+// Filtro rápido por agente, debajo del título de cada solapa: un botón por
+// agente con cuántos expedientes tiene en la solapa ("Sin asignar" para los
+// que no tienen). Tocar uno muestra solo los suyos; tocarlo de nuevo o
+// "Todos", todos.
+const SIN_AGENTE = "__sin_agente__";
+
+function BotonesAgente({ expedientes, elegido, onElegir }) {
+  const cuantos = a => expedientes.filter(e => (a === SIN_AGENTE ? !String(e.agente || "").trim() : e.agente === a)).length;
+  const agentes = [...new Set([...AGENTES_RESOLUCIONES, ...expedientes.map(e => e.agente).filter(Boolean)])].filter(a => a !== "S/A");
+  const botones = [...agentes.map(a => ({ valor: a, etiqueta: a, n: cuantos(a) })), { valor: SIN_AGENTE, etiqueta: "Sin asignar", n: cuantos(SIN_AGENTE) }]
+    .filter(b => b.n > 0 || b.valor === elegido);
+  if (!botones.length) return null;
+  const clase = activo => "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium transition-colors " +
+    (activo ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-700 border-slate-300 hover:border-slate-500");
+  return (
+    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+      <span className="text-xs text-slate-500 mr-0.5">Por agente:</span>
+      <button type="button" onClick={() => onElegir("")} className={clase(!elegido)}>Todos <span className="tabular-nums opacity-70">{expedientes.length}</span></button>
+      {botones.map(b => (
+        <button key={b.valor} type="button" onClick={() => onElegir(b.valor)} className={clase(elegido === b.valor)}>
+          <span className={b.valor === SIN_AGENTE ? "" : "font-mono"}>{b.etiqueta}</span> <span className="tabular-nums opacity-70">{b.n}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // Orden de todas las solapas (compararResoluciones), en palabras.
 const POR_VENCIMIENTO = "por vencimiento de ofertas, el más próximo arriba (sin fecha, al final)";
 
@@ -885,9 +912,11 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
     if (f.exp && !norm(e.exp + " " + (e.numero || "")).includes(norm(expParaBuscar(f.exp)))) return false;
     if (f.objeto && !norm(e.objeto + " " + (e.observaciones || "")).includes(norm(f.objeto))) return false;
     if (f.organismo && !norm(e.organismo).includes(norm(f.organismo))) return false;
-    for (const campo of ["fuero", "tipoContratacion", "tipoResolucion", "estado", "sectorActual", "agente"]) {
+    for (const campo of ["fuero", "tipoContratacion", "tipoResolucion", "estado", "sectorActual"]) {
       if (f[campo] && e[campo] !== f[campo]) return false;
     }
+    // Botones de agente: SIN_AGENTE son los que no tienen asignado.
+    if (f.agente && (f.agente === SIN_AGENTE ? String(e.agente || "").trim() : e.agente !== f.agente)) return false;
     if (f.situacion && estadoGeneral(e) !== f.situacion) return false;
     return true;
   }).sort(compararResoluciones), [deLaSolapa, f]);
@@ -964,7 +993,11 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
         <button
           key={s.id}
           type="button"
-          onClick={() => { setSolapa(s.id); setPagina(0); }}
+          onClick={() => {
+            setSolapa(s.id); setPagina(0);
+            // Ahí no están los botones de agente: no queda un agente elegido escondido.
+            if (["general", "finalizados"].includes(s.id)) setF(prev => ({ ...prev, agente: "" }));
+          }}
           className={"px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 " +
             (solapa === s.id ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}
         >
@@ -1000,6 +1033,10 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
       {/* Debajo: qué muestra la solapa y cómo está ordenada. */}
       <p className="mt-2 text-xs text-slate-600"><span className="font-medium text-slate-700">Muestra:</span> {SOLAPAS.find(s => s.id === solapa).muestra}</p>
       <p className="text-xs text-slate-600"><span className="font-medium text-slate-700">Orden:</span> {SOLAPAS.find(s => s.id === solapa).orden}</p>
+      {/* En General y Finalizados no hace falta filtrar por agente. */}
+      {!["general", "finalizados"].includes(solapa) && (
+        <BotonesAgente expedientes={deLaSolapa} elegido={f.agente} onElegir={v => set("agente", f.agente === v ? "" : v)} />
+      )}
       </div>
 
       <div className="overflow-x-auto">
