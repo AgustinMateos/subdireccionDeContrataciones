@@ -124,18 +124,25 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
       if (inicial && campo === "sectorActual" && valor && valor !== prev.sectorActual) {
         n.fechaUltimoMov = valor === sectorAlAbrir ? fechaAlAbrir : hoyLocalISO();
       }
+      // Otro estado general: hay que volver a contestar si es un reingreso.
+      if (campo === "situacion") delete n.reingreso;
       return n;
     });
     setError("");
   }
+
+  // Estaba Finalizado y se lo vuelve a poner en trámite: se pregunta si es
+  // un reingreso (o fue un error de clic).
+  const vuelveDeFinalizado = !!inicial && esFinalizado(inicial) && !esFinalizado(f);
 
   async function guardar() {
     // Los campos que faltan están en la solapa de datos: se vuelve a ella.
     const falta = !f.exp.trim() || !f.objeto.trim() ? "Completá N° de expediente y objeto."
       : esJefa && f.renovacionAutomatica && !(Number(f.renovacionDias) > 0) ? "Completá los días de la renovación automática."
         : esJefa && f.renovacionAutomatica && !f.vencOfertas ? (fijo ? "Para la renovación automática falta el vencimiento de ofertas: lo carga Resoluciones." : "Para la renovación automática cargá el vencimiento de ofertas.")
+          : vuelveDeFinalizado && f.reingreso === undefined ? "Estaba Finalizado: indicá si es un reingreso o fue un error."
           : "";
-    if (falta) { setError(falta); setSolapa("datos"); pasos.abrir(...(f.exp.trim() && f.objeto.trim() ? [3] : [1, 2])); return; }
+    if (falta) { setError(falta); setSolapa("datos"); pasos.abrir(...(f.exp.trim() && f.objeto.trim() ? [vuelveDeFinalizado && f.reingreso === undefined ? 4 : 3] : [1, 2])); return; }
     setGuardando(true);
     // Sin observación nueva, queda la última que tenía.
     const res = await onGuardar({ ...f, observaciones: f.observaciones.trim() || inicial?.observaciones || "" });
@@ -263,6 +270,7 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
               <Paso {...paso(4)} titulo="Dónde está y cómo sigue">
                 <Campo pregunta="¿Cuál es el estado general?" ayuda="Finalizado: va al fondo de la lista y deja de contar días." ancho>
                   <ElegirEstadoGeneral valor={f.situacion} onChange={v => set("situacion", v)} />
+                  {vuelveDeFinalizado && <PreguntaReingreso valor={f.reingreso} onChange={v => setF(prev => ({ ...prev, reingreso: v }))} />}
                 </Campo>
                 <DatoFicha label="Tipo de resolución (lo carga Resoluciones)" valor={f.tipoResolucion} />
                 <DatoFicha label="Estado" valor={f.estado} />
@@ -348,6 +356,7 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
               <Paso {...paso(4)} titulo={"Dónde está y cómo sigue" + (esJefa && inicial ? " · lo carga Resoluciones" : "")}>
                 <Campo pregunta="¿Cuál es el estado general?" ayuda="Finalizado: va al fondo de la lista y deja de contar días." ancho>
                   <ElegirEstadoGeneral valor={f.situacion} onChange={v => set("situacion", v)} />
+                  {vuelveDeFinalizado && <PreguntaReingreso valor={f.reingreso} onChange={v => setF(prev => ({ ...prev, reingreso: v }))} />}
                 </Campo>
                 <Campo pregunta="¿Qué tipo de resolución es?" ancho>
                   <ElegirDeLista opciones={TIPOS_RESOLUCION} valor={f.tipoResolucion} onChange={v => set("tipoResolucion", v)} />
@@ -584,6 +593,25 @@ function ElegirEstadoGeneral({ valor, onChange }) {
   return <ElegirDeLista opciones={ESTADOS_GENERALES} valor={valor || "TRAMITANDO"} onChange={v => v && onChange(v)} etiqueta={o => ETIQUETA_ESTADO_GENERAL[o] || o} />;
 }
 
+// Un finalizado que vuelve a trámite: ¿reingresó o fue un error de clic?
+// Si reingresó, la observación pasa a ser "REINGRESO I" (II, III...).
+function PreguntaReingreso({ valor, onChange }) {
+  return (
+    <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
+      <p className="text-sm font-medium text-amber-900">Estaba Finalizado. ¿Es un reingreso?</p>
+      <div className="flex flex-wrap gap-2">
+        <BotonOpcion elegido={valor === true} onClick={() => onChange(true)}>Sí, es un reingreso</BotonOpcion>
+        <BotonOpcion elegido={valor === false} onClick={() => onChange(false)}>No, fue un error</BotonOpcion>
+      </div>
+      <p className="text-xs text-amber-900">
+        {valor === true ? "Al guardar, la observación dice \"REINGRESO\" con su número (I, II, III...) y queda en el historial."
+          : valor === false ? "Vuelve a como estaba, sin dejar constancia ni cambiar fechas."
+          : "Si reingresó, queda anotado como REINGRESO I, II, III..."}
+      </p>
+    </div>
+  );
+}
+
 // Renovación automática de las ofertas: la activa y le pone los días solo
 // la jefa de la Subdirección.
 function EditorRenovacion({ f, set, proxima }) {
@@ -713,19 +741,39 @@ export function Seccion({ titulo, children }) {
   );
 }
 
+// Orden de todas las solapas (compararResoluciones), en palabras.
+const POR_VENCIMIENTO = "por vencimiento de ofertas, el más próximo arriba (sin fecha, al final)";
+
 // Solapas del panel: qué expedientes muestra cada una (el Inicio de la
-// jefa cuenta con las mismas).
+// jefa cuenta con las mismas). `muestra` y `orden` se leen debajo del
+// título de la tabla.
 export const SOLAPAS = [
-  { id: "general", etiqueta: "General", incluye: () => true },
-  { id: "escritorio", etiqueta: "Escritorio", incluye: e => !esFinalizado(e) },
+  { id: "general", etiqueta: "General", incluye: () => true,
+    muestra: "Todos los expedientes, en trámite y finalizados.",
+    orden: "Primero los prioritarios; después " + POR_VENCIMIENTO + ". Los fracasados y desiertas van después de los demás y los finalizados, al fondo." },
+  { id: "escritorio", etiqueta: "Escritorio", incluye: e => !esFinalizado(e),
+    muestra: "Los que siguen en trámite (estado general Tramitando o Circuito).",
+    orden: "Primero los prioritarios; después " + POR_VENCIMIENTO + ". Los fracasados y desiertas, al final." },
   // Los que siguen en trámite: marcados con estrella o en el Plan de Obras.
-  { id: "prioritarios", etiqueta: "Prioritarios", incluye: e => !esFinalizado(e) && esPrioritario(e) },
-  { id: "adjudicar", etiqueta: "Para adjudicar", incluye: e => !esFinalizado(e) && esParaAdjudicar(e) },
-  { id: "fuera", etiqueta: "Fuera de Resoluciones", incluye: estaFueraDeResoluciones },
-  { id: "fracasos", etiqueta: "Fracasados y desiertas", incluye: esFracasoODesierta },
-  { id: "finalizados", etiqueta: "Finalizados", incluye: esFinalizado },
+  { id: "prioritarios", etiqueta: "Prioritarios", incluye: e => !esFinalizado(e) && esPrioritario(e),
+    muestra: "En trámite y prioritarios: marcados con estrella por la jefa o en el Plan de Obras.",
+    orden: "Ordenados " + POR_VENCIMIENTO + ". Los fracasados y desiertas, al final." },
+  { id: "adjudicar", etiqueta: "Para adjudicar", incluye: e => !esFinalizado(e) && esParaAdjudicar(e),
+    muestra: "En trámite con tipo de resolución ADJUDICAR o FRACASA / AUTORIZA.",
+    orden: "Primero los prioritarios; después " + POR_VENCIMIENTO + "." },
+  { id: "fuera", etiqueta: "Fuera de Resoluciones", incluye: estaFueraDeResoluciones,
+    muestra: "Los que hoy están en otro sector (el sector actual no es Resoluciones), en trámite o finalizados.",
+    orden: "Primero los prioritarios; después " + POR_VENCIMIENTO + ". Los fracasados y desiertas van después de los demás y los finalizados, al fondo." },
+  { id: "fracasos", etiqueta: "Fracasados y desiertas", incluye: esFracasoODesierta,
+    muestra: "Tipo de resolución FRACASAR o DESIERTA, en trámite o finalizados.",
+    orden: "Primero los prioritarios; después " + POR_VENCIMIENTO + ". Los finalizados, al fondo." },
+  { id: "finalizados", etiqueta: "Finalizados", incluye: esFinalizado,
+    muestra: "Estado general Finalizado: ya terminaron y no cuentan días en el sector.",
+    orden: "Primero los prioritarios; después " + POR_VENCIMIENTO + "." },
   // Para que la jefa de la Subdirección asigne lo pendiente.
-  { id: "sinAsignar", etiqueta: "Sin asignar", incluye: e => !esFinalizado(e) && !String(e.agente || "").trim(), soloJefa: true },
+  { id: "sinAsignar", etiqueta: "Sin asignar", incluye: e => !esFinalizado(e) && !String(e.agente || "").trim(), soloJefa: true,
+    muestra: "En trámite y sin agente: los que falta asignar.",
+    orden: "Primero los prioritarios; después " + POR_VENCIMIENTO + ". Los fracasados y desiertas, al final." },
 ];
 
 function exportarExcel(filas, solapa) {
@@ -756,6 +804,8 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
   const [solapa, setSolapa] = useState(solapaInicial || "general");
   // null | "nuevo" | id del expediente (`abrirId`: llega desde un aviso)
   const [form, setForm] = useState(abrirId || null);
+  // Pasar un finalizado a trámite desde la tabla: se pregunta si reingresó.
+  const [consultaReingreso, setConsultaReingreso] = useState(null);
   const [pagina, setPagina] = useState(0);
   const [porPagina, setPorPagina] = useState(OPCIONES_POR_PAGINA[0]);
   // Cambiar un filtro o la solapa vuelve a la primera página.
@@ -859,6 +909,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
     }
     setExpedientes(prev => prev.map(x => (x.id === data.expediente.id ? data.expediente : x)));
     const [campo, valor] = Object.entries(cambios)[0];
+    if (cambios.reingreso) { mostrarToast(e.exp + ": " + (data.expediente.observaciones || "reingreso")); return; }
     mostrarToast(campo === "prioritario"
       ? (valor ? e.exp + " marcado como prioritario" : e.exp + " ya no es prioritario")
       : campo === "agente"
@@ -897,8 +948,10 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
       ))}
     </div>
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-b border-slate-100 bg-slate-50/60">
-        <div>
+      <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60">
+      {/* Arriba, en una fila: título, cantidad y botones. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-baseline gap-2 min-w-0">
           <h3 className="text-sm font-semibold text-slate-900">{SOLAPAS.find(s => s.id === solapa).etiqueta}</h3>
           <span className="text-[11px] text-slate-500">{filas.length} de {deLaSolapa.length} expediente{deLaSolapa.length !== 1 ? "s" : ""}</span>
         </div>
@@ -915,6 +968,10 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
             <Plus size={14} /> Cargar expediente
           </button>
         </div>
+      </div>
+      {/* Debajo: qué muestra la solapa y cómo está ordenada. */}
+      <p className="mt-2 text-xs text-slate-600"><span className="font-medium text-slate-700">Muestra:</span> {SOLAPAS.find(s => s.id === solapa).muestra}</p>
+      <p className="text-xs text-slate-600"><span className="font-medium text-slate-700">Orden:</span> {SOLAPAS.find(s => s.id === solapa).orden}</p>
       </div>
 
       <div className="overflow-x-auto">
@@ -990,7 +1047,8 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
                   <td className="py-2.5 px-3">{e.inicioServicio || "-"}</td>
                   {/* Estado general (última columna): lo cambian Resoluciones y la jefa. */}
                   <td className="py-2.5 px-3" onClick={ev => ev.stopPropagation()}>
-                    <SelectRapido valor={estadoGeneral(e)} opciones={ESTADOS_GENERALES} onChange={v => v && cambiarRapido(e, { situacion: v })} fuerte={esFinalizado(e)} className="min-w-[130px]" />
+                    <SelectRapido valor={estadoGeneral(e)} opciones={ESTADOS_GENERALES} fuerte={esFinalizado(e)} className="min-w-[130px]"
+                      onChange={v => v && (esFinalizado(e) && v !== "FINALIZADO" ? setConsultaReingreso({ e, v }) : cambiarRapido(e, { situacion: v }))} />
                   </td>
                 </tr>
               );
@@ -1001,6 +1059,26 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
 
       <Paginacion total={filas.length} pagina={paginaActual} porPagina={porPagina}
         onPagina={setPagina} onPorPagina={n => { setPorPagina(n); setPagina(0); }} />
+
+      {consultaReingreso && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/50" onClick={() => setConsultaReingreso(null)} />
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-base font-semibold text-slate-900">¿Es un reingreso?</h3>
+            <p className="text-sm text-slate-700">
+              El expediente <span className="font-mono font-semibold">{consultaReingreso.e.exp}</span> estaba <b>Finalizado</b> y lo vas a pasar a <b>{ETIQUETA_ESTADO_GENERAL[consultaReingreso.v]}</b>.
+            </p>
+            <p className="text-sm text-slate-600">Si reingresó, la observación queda como REINGRESO I (II, III...). Si fue un error de clic, vuelve sin dejar constancia.</p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button type="button" onClick={() => setConsultaReingreso(null)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50">Cancelar</button>
+              <button type="button" onClick={() => { const { e, v } = consultaReingreso; setConsultaReingreso(null); cambiarRapido(e, { situacion: v, reingreso: false }); }}
+                className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50">No, fue un error</button>
+              <button type="button" onClick={() => { const { e, v } = consultaReingreso; setConsultaReingreso(null); cambiarRapido(e, { situacion: v, reingreso: true }); }}
+                className="px-4 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800">Sí, es un reingreso</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {form && (form === "nuevo" || seleccionado) && (
         <FormularioResolucion

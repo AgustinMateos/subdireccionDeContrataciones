@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { CAMPOS_DE_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, datosResolucion, sinCamposDeResoluciones, soloCamposDeJefa } from "@/lib/resoluciones";
-import { INCLUDE_RESOLUCION, avisarSiActivaRenovacion, avisarSiEsJefa, marcarAsignado, conContadorReactivado, conPlanObras, conUltimoMovPorSector, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { INCLUDE_RESOLUCION, avisarSiActivaRenovacion, avisarSiEsJefa, marcarAsignado, conPlanObras, conReingreso, conUltimoMovPorSector, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
 
 // Edición. Los cambios de sector actual, tipo de resolución, estado y
 // estado general quedan en el historial; el último movimiento pasa a ser
@@ -19,8 +19,11 @@ export async function PUT(request, { params }) {
   // datos del expediente (solo agente y prioridad).
   // Si cambia el sector, el último movimiento pasa a ser hoy. La fecha de
   // ingreso al sector queda como se cargó (de ahí corre el semáforo).
-  const { fechaIngreso, ...datos } = conUltimoMovPorSector(existente, conContadorReactivado(existente,
-    sinCamposDeResoluciones(soloCamposDeJefa(datosResolucion(await request.json()), session.user.email), session.user.email)));
+  // Un finalizado que vuelve a trámite: `reingreso` dice si reingresó o fue
+  // un error de clic (ver conReingreso).
+  const body = await request.json();
+  const { fechaIngreso, ...datos } = conUltimoMovPorSector(existente, await conReingreso(prisma, existente,
+    sinCamposDeResoluciones(soloCamposDeJefa(datosResolucion(body), session.user.email), session.user.email), body.reingreso));
   if (("exp" in datos && !datos.exp) || ("objeto" in datos && !datos.objeto)) {
     return NextResponse.json({ error: "Completá N° de expediente y objeto" }, { status: 400 });
   }
@@ -60,7 +63,7 @@ export async function PATCH(request, { params }) {
   }
   if ("prioritario" in body) data.prioritario = body.prioritario === true;
   if ("situacion" in body) data.situacion = datosResolucion({ situacion: body.situacion }).situacion;
-  data = conUltimoMovPorSector(existente, conContadorReactivado(existente, data));
+  data = conUltimoMovPorSector(existente, await conReingreso(prisma, existente, data, body.reingreso));
   const cambios = registrosDeCambios(existente, data, session.user.name);
   const expediente = await prisma.expedienteResolucion.update({
     where: { id },
