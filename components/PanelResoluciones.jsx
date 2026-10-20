@@ -530,8 +530,9 @@ function InfoExpediente({ e, historial, irA }) {
   );
 }
 
-// Carga de cada agente, para que la jefa asigne: expedientes en trámite
-// (no finalizados) por tipo de resolución y prioritarios. Se despliega
+// Carga de cada agente, para que la jefa asigne: expedientes tramitando
+// en el sector Resoluciones (no en Circuito, finalizados ni en otro
+// sector) por tipo de resolución y prioritarios. Se despliega
 // tocando el título; tocar una fila asigna a ese agente.
 const GRUPOS_CARGA = [
   { titulo: "Para adjudicar", es: t => t === "ADJUDICAR" },
@@ -542,7 +543,7 @@ const GRUPOS_CARGA = [
 function CargaPorAgente({ expedientes, elegido, onElegir }) {
   const [abierta, setAbierta] = useState(false);
   if (!expedientes?.length) return null;
-  const enTramite = expedientes.filter(e => !esFinalizado(e));
+  const enTramite = expedientes.filter(e => estadoGeneral(e) === "TRAMITANDO" && !estaFueraDeResoluciones(e));
   // S/A es "sin asignar": no es un agente al que repartirle.
   const agentes = [...new Set([...AGENTES_RESOLUCIONES, ...enTramite.map(e => e.agente).filter(Boolean)])].filter(a => a !== "S/A");
   const filas = agentes.map(a => {
@@ -555,7 +556,7 @@ function CargaPorAgente({ expedientes, elegido, onElegir }) {
     <div className="mt-3 rounded-lg border border-slate-200 overflow-x-auto">
       <button type="button" onClick={() => setAbierta(!abierta)} aria-expanded={abierta}
         className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg">
-        <span>Cuánto tiene cada uno (en trámite){abierta && <span className="font-normal text-slate-500"> · tocá una fila para asignar</span>}</span>
+        <span>Cuánto tiene cada uno (tramitando en Resoluciones){abierta && <span className="font-normal text-slate-500"> · tocá una fila para asignar</span>}</span>
         <span className="shrink-0 inline-flex items-center gap-1 text-slate-600">
           {abierta ? "Ocultar" : "Ver"}
           <ChevronDown size={18} className={"transition-transform " + (abierta ? "rotate-180" : "")} />
