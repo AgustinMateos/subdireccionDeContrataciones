@@ -109,6 +109,15 @@ export default function InicioSubdireccion({ onIr, mostrarToast }) {
     setFicha(null);
     mostrarToast("Expediente eliminado");
   }
+  // Corregir una observación (texto) o borrar un registro del historial (null) (Resoluciones).
+  async function cambiarMovimientoFicha(movId, texto) {
+    const url = API_AREA[ficha.area] + ficha.id + "/movimientos/" + movId;
+    const data = texto === null ? await enviar(url, "DELETE") : await enviar(url, "PATCH", { texto });
+    if (data.error) return data;
+    fuente[ficha.area].actualizar(ficha.id, data.expediente);
+    mostrarToast(texto === null ? "Eliminado del historial" : "Observación corregida");
+    return data;
+  }
   const abrirFicha = (area, e) => setFicha({ area, id: e.id });
   const res_ = (id, lista = R && deSolapa(R, SOLAPAS_RESOLUCIONES, id)) => lista?.map(itemResolucion);
   const lic_ = (id, lista = L && deSolapa(L, SOLAPAS_LICITACIONES, id)) => lista?.map(itemLicitacion);
@@ -249,7 +258,7 @@ export default function InicioSubdireccion({ onIr, mostrarToast }) {
       )}
 
       {expFicha && ficha.area === "Resoluciones" && (
-        <FormularioResolucion key={ficha.id} inicial={expFicha} esJefa expedientes={R} onCerrar={() => setFicha(null)} onGuardar={guardarFicha} onEliminar={eliminarFicha} />
+        <FormularioResolucion key={ficha.id} inicial={expFicha} esJefa expedientes={R} onCerrar={() => setFicha(null)} onGuardar={guardarFicha} onEliminar={eliminarFicha} onCambiarMovimiento={cambiarMovimientoFicha} />
       )}
       {expFicha && ficha.area === OC && (
         <FormularioOrdenCompra key={ficha.id} inicial={expFicha} esJefa onCerrar={() => setFicha(null)} onGuardar={guardarFicha} onEliminar={eliminarFicha} />

@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { X, Plus, Download, Trash2, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, Plus, Download, Trash2, Pencil, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx";
 import { ALERTA_ESTILO } from "@/lib/constants";
 import { alertaDias, diasEnSector } from "@/lib/diasEnSector";
@@ -93,7 +93,7 @@ function aFormulario(e) {
 
 // Alta / edición de un expediente, en dos solapas: los datos del
 // expediente y sus movimientos y estados (con el historial).
-export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, onGuardar, onEliminar }) {
+export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, onGuardar, onEliminar, onCambiarMovimiento }) {
   const [f, setF] = useState(() => aFormulario(inicial));
   // Un expediente cargado abre en "Información" (todo a la vista, sin
   // editar); uno nuevo, directo en la carga de datos.
@@ -104,7 +104,7 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
   // Versión del expediente al abrir el formulario: si la planilla se
   // recarga con una más nueva (lo cambió otra persona), se avisa.
-  const [versionAlAbrir] = useState(inicial?.actualizadoEn);
+  const [versionAlAbrir, setVersionAlAbrir] = useState(inicial?.actualizadoEn);
   const cambioMientrasEditaba = !!inicial && inicial.actualizadoEn !== versionAlAbrir;
 
   // Al editar, la jefa solo cambia agente y prioridad de los datos.
@@ -155,6 +155,14 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
     setGuardando(true);
     await onEliminar();
     setGuardando(false);
+  }
+
+  // Corregir una observación (texto) o borrar un registro del historial (null). Es un
+  // cambio propio: no se avisa que lo modificó otra persona.
+  async function cambiarMovimiento(movId, texto) {
+    const data = await onCambiarMovimiento(movId, texto);
+    if (!data.error) setVersionAlAbrir(data.expediente.actualizadoEn);
+    return data;
   }
 
   const historial = [...(inicial?.movimientos || [])].reverse();
@@ -401,14 +409,7 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
                               <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{m.campo}</span>
                               <span className="ml-auto">{m.usuario}</span>
                             </div>
-                            {esObs ? (
-                              <p className="mt-1 text-sm text-slate-800 whitespace-pre-line bg-slate-50 border border-slate-100 rounded-md px-3 py-2">{m.sector}</p>
-                            ) : (
-                              <p className="mt-1 text-sm flex flex-wrap items-center gap-1.5">
-                                {m.sectorAnterior && (<><span className="text-slate-500 line-through">{m.sectorAnterior}</span><ArrowRight size={13} className="text-slate-400" /></>)}
-                                <span className="font-medium text-slate-900">{m.sector}</span>
-                              </p>
-                            )}
+                            <RegistroEditable m={m} esObs={esObs} onCambiar={cambiarMovimiento} />
                           </li>
                         );
                       })}
@@ -527,6 +528,81 @@ function InfoExpediente({ e, historial, irA }) {
         )}
       </section>
     </>
+  );
+}
+
+// Un registro del historial con tacho para borrarlo (con confirmación);
+// las observaciones, además, con lápiz para corregirlas. `esObs`: se lee
+// como texto (observaciones y renovaciones). `onCambiar(id, texto | null)`.
+function RegistroEditable({ m, esObs, onCambiar }) {
+  // null: se lee; "editar" | "eliminar": lo que se está haciendo.
+  const [modo, setModo] = useState(null);
+  const [texto, setTexto] = useState(m.sector);
+  const [error, setError] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  async function confirmar() {
+    if (modo === "editar" && !texto.trim()) { setError("No puede quedar vacía: para sacarla, eliminala."); return; }
+    setGuardando(true);
+    const data = await onCambiar(m.id, modo === "editar" ? texto.trim() : null);
+    setGuardando(false);
+    if (data.error) { setError(data.error); return; }
+    setModo(null);
+    setError("");
+  }
+  function cancelar() { setModo(null); setTexto(m.sector); setError(""); }
+
+  if (modo === "editar") {
+    return (
+      <div className="mt-1 space-y-2">
+        <textarea value={texto} onChange={e => { setTexto(e.target.value); setError(""); }} rows={3} autoFocus className={CLASE_ENTRADA + " resize-y"} />
+        <div className="flex items-center justify-end gap-2">
+          {error && <p className="mr-auto text-xs font-medium text-red-700">{error}</p>}
+          <button type="button" onClick={cancelar} disabled={guardando} className="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-xs font-medium">Cancelar</button>
+          <BotonAccion onClick={confirmar} cargando={guardando} className="px-3 py-1.5 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800">
+            Guardar observación
+          </BotonAccion>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-1 space-y-2">
+      <div className={"flex items-start gap-2 " + (esObs ? "bg-slate-50 border border-slate-100 rounded-md px-3 py-2" : "")}>
+        {esObs ? (
+          <p className="flex-1 text-sm text-slate-800 whitespace-pre-line">{m.sector}</p>
+        ) : (
+          <p className="flex-1 text-sm flex flex-wrap items-center gap-1.5">
+            {m.sectorAnterior && (<><span className="text-slate-500 line-through">{m.sectorAnterior}</span><ArrowRight size={13} className="text-slate-400" /></>)}
+            <span className="font-medium text-slate-900">{m.sector}</span>
+          </p>
+        )}
+        {!modo && (
+          <span className="shrink-0 flex gap-1">
+            {m.campo === "Observaciones" && (
+              <button type="button" onClick={() => setModo("editar")} title="Editar observación" aria-label="Editar observación"
+                className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-white"><Pencil size={14} /></button>
+            )}
+            <button type="button" onClick={() => setModo("eliminar")} title="Eliminar del historial" aria-label="Eliminar del historial"
+              className="p-1 rounded text-slate-400 hover:text-red-700 hover:bg-white"><Trash2 size={14} /></button>
+          </span>
+        )}
+      </div>
+      {modo === "eliminar" && (
+        <div className="border border-red-200 bg-red-50 rounded-md p-2.5 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-red-800">{error || (m.campo === "Observaciones"
+            ? "¿Eliminar esta observación? No se puede deshacer."
+            : "¿Sacar este registro del historial? El expediente queda como está. No se puede deshacer.")}</p>
+          <div className="flex gap-2 shrink-0">
+            <button type="button" onClick={cancelar} disabled={guardando} className="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-xs font-medium">Cancelar</button>
+            <BotonAccion onClick={confirmar} cargando={guardando} cargandoTexto="Eliminando..."
+              className="px-3 py-1.5 rounded-md bg-red-700 text-white text-xs font-medium hover:bg-red-800">
+              Eliminar
+            </BotonAccion>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -986,6 +1062,17 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
         : e.exp + ": " + ETIQUETA_CAMPO[campo] + " → " + (valor || "sin definir"));
   }
 
+  // Corregir una observación (texto) o borrar un registro (null) del historial del
+  // expediente abierto.
+  async function cambiarMovimiento(movId, texto) {
+    const url = "/api/resoluciones/" + seleccionado.id + "/movimientos/" + movId;
+    const data = texto === null ? await enviar(url, "DELETE") : await enviar(url, "PATCH", { texto });
+    if (data.error) return data;
+    setExpedientes(prev => prev.map(e => (e.id === data.expediente.id ? data.expediente : e)));
+    mostrarToast(texto === null ? "Eliminado del historial" : "Observación corregida");
+    return data;
+  }
+
   async function eliminar() {
     const data = await enviar("/api/resoluciones/" + seleccionado.id, "DELETE");
     if (data.error) { mostrarToast(data.error); return; }
@@ -1215,6 +1302,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
           onCerrar={() => setForm(null)}
           onGuardar={guardar}
           onEliminar={eliminar}
+          onCambiarMovimiento={cambiarMovimiento}
         />
       )}
     </div>
