@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { X, Plus, Download, Trash2, ArrowRight, Check, ChevronDown } from "lucide-react";
+import { X, Plus, Download, Trash2, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx";
 import { ALERTA_ESTILO } from "@/lib/constants";
 import { alertaDias, diasEnSector } from "@/lib/diasEnSector";
@@ -24,6 +24,7 @@ import {
 } from "./FormularioFacil";
 import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 
+const CLAVE_OCULTAS = "resoluciones.columnasOcultas";
 const norm = s => String(s || "").trim().toLowerCase();
 const fecha = f => (f ? fmtFecha(fechaISO(f)) : "-");
 const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-900 hover:border-slate-500 transition-colors focus:outline-none focus:border-slate-500 placeholder:text-slate-400";
@@ -835,6 +836,16 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
   const [consultaReingreso, setConsultaReingreso] = useState(null);
   const [pagina, setPagina] = useState(0);
   const [porPagina, setPorPagina] = useState(OPCIONES_POR_PAGINA[0]);
+  // Columnas que cada uno ocultó con la flechita del encabezado (quedan
+  // guardadas en este navegador).
+  const [ocultas, setOcultas] = useState([]);
+  useEffect(() => {
+    try { setOcultas(JSON.parse(localStorage.getItem(CLAVE_OCULTAS)) || []); } catch {}
+  }, []);
+  function cambiarOcultas(nuevas) {
+    setOcultas(nuevas);
+    try { localStorage.setItem(CLAVE_OCULTAS, JSON.stringify(nuevas)); } catch {}
+  }
   // Cambiar un filtro o la solapa vuelve a la primera página.
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); setPagina(0); }
   const hayFiltros = Object.entries(f).some(([k, v]) => v !== filtroVacio()[k]);
@@ -986,6 +997,87 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
     return <div className="py-16 text-center text-sm text-slate-500">Cargando expedientes...</div>;
   }
 
+  // Columnas de la tabla: título, filtro (segunda fila del encabezado) y celda.
+  const editable = esJefa ? undefined : ev => ev.stopPropagation();
+  const columnas = [
+    { t: "Exp.", w: "w-[130px]", filtro: <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} />,
+      celda: e => (
+        <td className="py-2.5 px-3 whitespace-nowrap">
+          <div className="flex items-center gap-1.5">
+            {esJefa && <EstrellaPrioridad prioritario={e.prioritario} onClick={() => cambiarRapido(e, { prioritario: !e.prioritario })} />}
+            <span className="font-mono font-semibold text-slate-900">{e.exp}</span>
+          </div>
+          <EtiquetasPrioridad expediente={e} />
+        </td>
+      ) },
+    { t: "Objeto", w: "w-[240px]", filtro: <input value={f.objeto} onChange={e => set("objeto", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} />,
+      celda: e => <td className="py-2.5 px-3"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td> },
+    { t: "Fuero", w: "w-[200px]", filtro: <FiltroColumna valor={f.fuero} etiqueta="Todos" opciones={opciones.fuero} onChange={v => set("fuero", v)} />,
+      celda: e => <td className="py-2.5 px-3">{e.fuero || "-"}</td> },
+    { t: "Organismo", w: "w-[200px]", filtro: <input value={f.organismo} onChange={e => set("organismo", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} />,
+      celda: e => <td className="py-2.5 px-3"><span className="line-clamp-2" title={e.organismo || ""}>{e.organismo || "-"}</span></td> },
+    { t: "Tipo de contratación", w: "w-[130px]", filtro: <FiltroColumna valor={f.tipoContratacion} etiqueta="Todos" opciones={opciones.tipoContratacion} onChange={v => set("tipoContratacion", v)} />,
+      celda: e => <td className="py-2.5 px-3 whitespace-nowrap">{e.tipoContratacion || "-"}</td> },
+    { t: "Número",
+      celda: e => <td className="py-2.5 px-3 whitespace-nowrap">{e.numero || "-"}</td> },
+    // Días en el sector con el semáforo (la fecha de ingreso, en la ficha).
+    { t: "Días en sector",
+      celda: e => {
+        const dias = diasEnSector(e);
+        return (
+          <td className="py-2.5 px-3">
+            {dias != null ? (
+              <span className={"text-[11px] font-medium px-2 py-0.5 rounded border whitespace-nowrap " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""}</span>
+            ) : "-"}
+          </td>
+        );
+      } },
+    { t: "Tipo de resolución", w: "w-[150px]", filtro: <FiltroColumna valor={f.tipoResolucion} etiqueta="Todos" opciones={opciones.tipoResolucion} onChange={v => set("tipoResolucion", v)} />,
+      celda: e => (
+        <td className="py-2.5 px-3" onClick={editable}>
+          {esJefa ? (e.tipoResolucion || "-") : <SelectRapido valor={e.tipoResolucion} opciones={TIPOS_RESOLUCION} onChange={v => cambiarRapido(e, { tipoResolucion: v })} />}
+        </td>
+      ) },
+    { t: "Estado", w: "w-[160px]", filtro: <FiltroColumna valor={f.estado} etiqueta="Todos" opciones={opciones.estado} onChange={v => set("estado", v)} />,
+      celda: e => (
+        <td className="py-2.5 px-3" onClick={editable}>
+          {esJefa ? (e.estado || "-") : <SelectRapido valor={e.estado} opciones={ESTADOS_RESOLUCION} onChange={v => cambiarRapido(e, { estado: v })} />}
+        </td>
+      ) },
+    { t: "Último mov.",
+      celda: e => <td className="py-2.5 px-3 whitespace-nowrap">{fecha(e.fechaUltimoMov)}</td> },
+    { t: "Sector actual", w: "w-[150px]", filtro: <FiltroColumna valor={f.sectorActual} etiqueta="Todos" opciones={opciones.sectorActual} onChange={v => set("sectorActual", v)} />,
+      celda: e => (
+        <td className="py-2.5 px-3" onClick={editable}>
+          {esJefa
+            ? <span className="font-medium text-slate-900">{e.sectorActual || "-"}</span>
+            : <SelectRapido valor={e.sectorActual} opciones={SECTORES_RESOLUCIONES} onChange={v => cambiarRapido(e, { sectorActual: v })} fuerte />}
+        </td>
+      ) },
+    { t: "Venc. ofertas",
+      celda: e => (
+        <td className="py-2.5 px-3 whitespace-nowrap">
+          {fecha(e.vencOfertas)}
+          {e.renovacionAutomatica && e.renovacionDias > 0 && (
+            <span className="block text-[10px] text-slate-500" title="Renovación automática">
+              ↻ {e.renovacionDias} {e.renovacionHabiles ? "háb." : "corr."}
+            </span>
+          )}
+        </td>
+      ) },
+    { t: "Inicio de serv.",
+      celda: e => <td className="py-2.5 px-3">{e.inicioServicio || "-"}</td> },
+    // Estado general (última columna): lo cambian Resoluciones y la jefa.
+    { t: "Estado gral.", w: "w-[140px]", filtro: <FiltroColumna valor={f.situacion} etiqueta="Todos" opciones={ESTADOS_GENERALES} onChange={v => set("situacion", v)} />,
+      celda: e => (
+        <td className="py-2.5 px-3" onClick={ev => ev.stopPropagation()}>
+          <SelectRapido valor={estadoGeneral(e)} opciones={ESTADOS_GENERALES} fuerte={esFinalizado(e)} className="min-w-[130px]"
+            onChange={v => v && (esFinalizado(e) && v !== "FINALIZADO" ? setConsultaReingreso({ e, v }) : cambiarRapido(e, { situacion: v }))} />
+        </td>
+      ) },
+  ];
+  const visibles = columnas.filter(c => !ocultas.includes(c.t));
+
   return (
     <div className="space-y-4">
     <div className="flex items-center gap-1 border-b border-slate-200">
@@ -1037,87 +1129,55 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
       {!["general", "finalizados"].includes(solapa) && (
         <BotonesAgente expedientes={deLaSolapa} elegido={f.agente} onElegir={v => set("agente", f.agente === v ? "" : v)} />
       )}
+      {/* Las columnas ocultas, para volver a mostrarlas. */}
+      {ocultas.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+          <span className="font-medium text-slate-700">Columnas ocultas:</span>
+          {columnas.filter(c => ocultas.includes(c.t)).map(c => (
+            <button key={c.t} type="button" onClick={() => cambiarOcultas(ocultas.filter(t => t !== c.t))} title="Mostrar la columna"
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-300 bg-white text-slate-600 hover:border-slate-500 hover:text-slate-900">
+              <ChevronRight size={11} /> {c.t}
+            </button>
+          ))}
+          <button type="button" onClick={() => cambiarOcultas([])} className="font-medium text-slate-500 hover:text-slate-900 underline">Mostrar todas</button>
+        </div>
+      )}
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[1560px]">
+        {/* El ancho mínimo baja a medida que se ocultan columnas. */}
+        <table className="w-full text-sm" style={{ minWidth: visibles.length * 112 }}>
           <thead>
             <tr className="text-left border-b border-slate-100 bg-slate-50/40 text-[11px] font-medium text-slate-500 uppercase tracking-wide">
-              {["Exp.", "Objeto", "Fuero", "Organismo", "Tipo de contratación", "Número",
-                "Días en sector", "Tipo de resolución", "Estado",
-                "Último mov.", "Sector actual", "Venc. ofertas", "Inicio de serv.", "Estado gral."].map(t => <th key={t} className="pt-2 px-3">{t}</th>)}
+              {visibles.map(c => (
+                <th key={c.t} className="pt-2 px-3">
+                  <div className="flex items-center gap-1">
+                    {c.t}
+                    {/* Con una sola visible no se puede ocultar más. */}
+                    {visibles.length > 1 && (
+                      <button type="button" onClick={() => cambiarOcultas([...ocultas, c.t])} title="Ocultar la columna"
+                        className="p-0.5 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-200/70">
+                        <ChevronLeft size={12} />
+                      </button>
+                    )}
+                  </div>
+                </th>
+              ))}
             </tr>
             <tr className="text-left border-b border-slate-100 bg-slate-50/40">
-              <th className="py-2 px-3 align-top w-[130px]"><input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} /></th>
-              <th className="py-2 px-3 align-top w-[240px]"><input value={f.objeto} onChange={e => set("objeto", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} /></th>
-              <th className="py-2 px-3 align-top w-[200px]"><FiltroColumna valor={f.fuero} etiqueta="Todos" opciones={opciones.fuero} onChange={v => set("fuero", v)} /></th>
-              <th className="py-2 px-3 align-top w-[200px]"><input value={f.organismo} onChange={e => set("organismo", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} /></th>
-              <th className="py-2 px-3 align-top w-[130px]"><FiltroColumna valor={f.tipoContratacion} etiqueta="Todos" opciones={opciones.tipoContratacion} onChange={v => set("tipoContratacion", v)} /></th>
-              <th className="py-2 px-3" />
-              <th className="py-2 px-3" />
-              <th className="py-2 px-3 align-top w-[150px]"><FiltroColumna valor={f.tipoResolucion} etiqueta="Todos" opciones={opciones.tipoResolucion} onChange={v => set("tipoResolucion", v)} /></th>
-              <th className="py-2 px-3 align-top w-[160px]"><FiltroColumna valor={f.estado} etiqueta="Todos" opciones={opciones.estado} onChange={v => set("estado", v)} /></th>
-              <th className="py-2 px-3" />
-              <th className="py-2 px-3 align-top w-[150px]"><FiltroColumna valor={f.sectorActual} etiqueta="Todos" opciones={opciones.sectorActual} onChange={v => set("sectorActual", v)} /></th>
-              <th className="py-2 px-3" />
-              <th className="py-2 px-3" />
-              <th className="py-2 px-3 align-top w-[140px]"><FiltroColumna valor={f.situacion} etiqueta="Todos" opciones={ESTADOS_GENERALES} onChange={v => set("situacion", v)} /></th>
+              {visibles.map(c => c.filtro
+                ? <th key={c.t} className={"py-2 px-3 align-top " + c.w}>{c.filtro}</th>
+                : <th key={c.t} className="py-2 px-3" />)}
             </tr>
           </thead>
           <tbody>
             {filas.length === 0 ? (
-              <tr><td colSpan={14} className="py-10 text-center text-sm text-slate-500">No hay expedientes con esos filtros.</td></tr>
-            ) : filasPagina.map(e => {
-              const dias = diasEnSector(e);
-              return (
-                <tr key={e.id} onClick={() => setForm(e.id)} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 cursor-pointer align-top text-xs text-slate-700">
-                  <td className="py-2.5 px-3 whitespace-nowrap">
-                    <div className="flex items-center gap-1.5">
-                      {esJefa && <EstrellaPrioridad prioritario={e.prioritario} onClick={() => cambiarRapido(e, { prioritario: !e.prioritario })} />}
-                      <span className="font-mono font-semibold text-slate-900">{e.exp}</span>
-                    </div>
-                    <EtiquetasPrioridad expediente={e} />
-                  </td>
-                  <td className="py-2.5 px-3"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td>
-                  <td className="py-2.5 px-3">{e.fuero || "-"}</td>
-                  <td className="py-2.5 px-3"><span className="line-clamp-2" title={e.organismo || ""}>{e.organismo || "-"}</span></td>
-                  <td className="py-2.5 px-3 whitespace-nowrap">{e.tipoContratacion || "-"}</td>
-                  <td className="py-2.5 px-3 whitespace-nowrap">{e.numero || "-"}</td>
-                  {/* Días en el sector con el semáforo (la fecha de ingreso, en la ficha). */}
-                  <td className="py-2.5 px-3">
-                    {dias != null ? (
-                      <span className={"text-[11px] font-medium px-2 py-0.5 rounded border whitespace-nowrap " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""}</span>
-                    ) : "-"}
-                  </td>
-                  <td className="py-2.5 px-3" onClick={esJefa ? undefined : ev => ev.stopPropagation()}>
-                    {esJefa ? (e.tipoResolucion || "-") : <SelectRapido valor={e.tipoResolucion} opciones={TIPOS_RESOLUCION} onChange={v => cambiarRapido(e, { tipoResolucion: v })} />}
-                  </td>
-                  <td className="py-2.5 px-3" onClick={esJefa ? undefined : ev => ev.stopPropagation()}>
-                    {esJefa ? (e.estado || "-") : <SelectRapido valor={e.estado} opciones={ESTADOS_RESOLUCION} onChange={v => cambiarRapido(e, { estado: v })} />}
-                  </td>
-                  <td className="py-2.5 px-3 whitespace-nowrap">{fecha(e.fechaUltimoMov)}</td>
-                  <td className="py-2.5 px-3" onClick={esJefa ? undefined : ev => ev.stopPropagation()}>
-                    {esJefa
-                      ? <span className="font-medium text-slate-900">{e.sectorActual || "-"}</span>
-                      : <SelectRapido valor={e.sectorActual} opciones={SECTORES_RESOLUCIONES} onChange={v => cambiarRapido(e, { sectorActual: v })} fuerte />}
-                  </td>
-                  <td className="py-2.5 px-3 whitespace-nowrap">
-                    {fecha(e.vencOfertas)}
-                    {e.renovacionAutomatica && e.renovacionDias > 0 && (
-                      <span className="block text-[10px] text-slate-500" title="Renovación automática">
-                        ↻ {e.renovacionDias} {e.renovacionHabiles ? "háb." : "corr."}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-2.5 px-3">{e.inicioServicio || "-"}</td>
-                  {/* Estado general (última columna): lo cambian Resoluciones y la jefa. */}
-                  <td className="py-2.5 px-3" onClick={ev => ev.stopPropagation()}>
-                    <SelectRapido valor={estadoGeneral(e)} opciones={ESTADOS_GENERALES} fuerte={esFinalizado(e)} className="min-w-[130px]"
-                      onChange={v => v && (esFinalizado(e) && v !== "FINALIZADO" ? setConsultaReingreso({ e, v }) : cambiarRapido(e, { situacion: v }))} />
-                  </td>
-                </tr>
-              );
-            })}
+              <tr><td colSpan={visibles.length} className="py-10 text-center text-sm text-slate-500">No hay expedientes con esos filtros.</td></tr>
+            ) : filasPagina.map(e => (
+              <tr key={e.id} onClick={() => setForm(e.id)} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 cursor-pointer align-top text-xs text-slate-700">
+                {visibles.map(c => <Fragment key={c.t}>{c.celda(e)}</Fragment>)}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
