@@ -857,8 +857,8 @@ export const SOLAPAS = [
   { id: "general", etiqueta: "General", incluye: () => true,
     muestra: "Todos los expedientes, en trámite y finalizados.",
     orden: "Primero los prioritarios; después " + POR_VENCIMIENTO + ". Los fracasados y desiertas van después de los demás y los finalizados, al fondo." },
-  { id: "escritorio", etiqueta: "Escritorio", incluye: e => !esFinalizado(e),
-    muestra: "Los que siguen en trámite (estado general Tramitando o Circuito).",
+  { id: "escritorio", etiqueta: "Escritorio", incluye: e => !esFinalizado(e) && !estaFueraDeResoluciones(e),
+    muestra: "Los que siguen en trámite (estado general Tramitando o Circuito) y están hoy en Resoluciones (o sin sector cargado).",
     orden: "Primero los prioritarios; después " + POR_VENCIMIENTO + ". Los fracasados y desiertas, al final." },
   // Los que siguen en trámite: marcados con estrella o en el Plan de Obras.
   { id: "prioritarios", etiqueta: "Prioritarios", incluye: e => !esFinalizado(e) && esPrioritario(e),
