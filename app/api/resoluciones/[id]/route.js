@@ -18,12 +18,12 @@ export async function PUT(request, { params }) {
   // La jefa no cambia tipo de resolución, estado, sector actual ni los
   // datos del expediente (solo agente y prioridad).
   // Si cambia el sector, el último movimiento pasa a ser hoy. La fecha de
-  // ingreso al sector queda como se cargó (de ahí corre el semáforo).
-  // Un finalizado que vuelve a trámite: `reingreso` dice si reingresó o fue
-  // un error de clic (ver conReingreso).
+  // ingreso al sector queda como se cargó (de ahí corre el semáforo), salvo
+  // en un reingreso: un finalizado que vuelve a trámite, donde `reingreso`
+  // dice si reingresó o fue un error de clic (ver conReingreso).
   const body = await request.json();
-  const { fechaIngreso, ...datos } = conUltimoMovPorSector(existente, await conReingreso(prisma, existente,
-    sinCamposDeResoluciones(soloCamposDeJefa(datosResolucion(body), session.user.email), session.user.email), body.reingreso));
+  const { fechaIngreso, ...editables } = sinCamposDeResoluciones(soloCamposDeJefa(datosResolucion(body), session.user.email), session.user.email);
+  const datos = conUltimoMovPorSector(existente, await conReingreso(prisma, existente, editables, body.reingreso));
   if (("exp" in datos && !datos.exp) || ("objeto" in datos && !datos.objeto)) {
     return NextResponse.json({ error: "Completá N° de expediente y objeto" }, { status: 400 });
   }

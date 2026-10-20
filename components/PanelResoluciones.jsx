@@ -672,7 +672,8 @@ function ElegirEstadoGeneral({ valor, onChange }) {
 }
 
 // Un finalizado que vuelve a trámite: ¿reingresó o fue un error de clic?
-// Si reingresó, la observación pasa a ser "REINGRESO I" (II, III...).
+// Si reingresó, la observación pasa a ser "REINGRESO I" (II, III...) con
+// los datos que cambiaron, y la fecha de ingreso al sector, hoy.
 function PreguntaReingreso({ valor, onChange }) {
   return (
     <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
@@ -682,7 +683,7 @@ function PreguntaReingreso({ valor, onChange }) {
         <BotonOpcion elegido={valor === false} onClick={() => onChange(false)}>No, fue un error</BotonOpcion>
       </div>
       <p className="text-xs text-amber-900">
-        {valor === true ? "Al guardar, la observación dice \"REINGRESO\" con su número (I, II, III...) y queda en el historial."
+        {valor === true ? "Al guardar, la fecha de ingreso pasa a ser hoy y la observación dice \"REINGRESO\" con su número (I, II, III...) y los datos que cambiaste (de cuál a cuál). Queda en el historial."
           : valor === false ? "Vuelve a como estaba, sin dejar constancia ni cambiar fechas."
           : "Si reingresó, queda anotado como REINGRESO I, II, III..."}
       </p>
@@ -1281,7 +1282,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
             <p className="text-sm text-slate-700">
               El expediente <span className="font-mono font-semibold">{consultaReingreso.e.exp}</span> estaba <b>Finalizado</b> y lo vas a pasar a <b>{ETIQUETA_ESTADO_GENERAL[consultaReingreso.v]}</b>.
             </p>
-            <p className="text-sm text-slate-600">Si reingresó, la observación queda como REINGRESO I (II, III...). Si fue un error de clic, vuelve sin dejar constancia.</p>
+            <p className="text-sm text-slate-600">Si reingresó, la fecha de ingreso pasa a ser hoy y la observación queda como REINGRESO I (II, III...), con la fecha de ingreso anterior. Si fue un error de clic, vuelve sin dejar constancia.</p>
             <div className="flex flex-wrap justify-end gap-2">
               <button type="button" onClick={() => setConsultaReingreso(null)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50">Cancelar</button>
               <button type="button" onClick={() => { const { e, v } = consultaReingreso; setConsultaReingreso(null); cambiarRapido(e, { situacion: v, reingreso: false }); }}
