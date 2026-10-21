@@ -53,6 +53,7 @@ export default function InformeDia() {
   const [dia, setDia] = useState(hoy);
   const [datos, setDatos] = useState(null); // { fecha, movimientos } | { error }
   const [usuario, setUsuario] = useState("");
+  const [ver, setVer] = useState("todo"); // "todo" | "ingresos" | "movimientos"
 
   useEffect(() => {
     let activo = true;
@@ -83,6 +84,7 @@ export default function InformeDia() {
   }, [movimientos]);
   const altas = ingresos.filter(e => e.tipo === "alta").length;
   const reingresos = ingresos.length - altas;
+  const verIngresos = ver !== "movimientos", verMovimientos = ver !== "ingresos";
 
   function elegirDia(v) { if (v) { setDia(v); setUsuario(""); } }
   const abrir = id => window.dispatchEvent(new CustomEvent(EVENTO_ABRIR_RESOLUCION, { detail: { id } }));
@@ -104,7 +106,8 @@ export default function InformeDia() {
           {dia !== hoy && (
             <button type="button" onClick={() => elegirDia(hoy)} className="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50">Hoy</button>
           )}
-          <button type="button" onClick={() => exportarExcel(ingresos, movimientos, dia)} disabled={!movimientos.length && !ingresos.length}
+          <button type="button" onClick={() => exportarExcel(verIngresos ? ingresos : [], verMovimientos ? movimientos : [], dia)}
+            disabled={!(verIngresos && ingresos.length) && !(verMovimientos && movimientos.length)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 disabled:opacity-40">
             <Download size={14} /> Exportar a Excel
           </button>
@@ -120,6 +123,14 @@ export default function InformeDia() {
       ) : (
         <>
           <div className="px-5 py-3 border-b border-slate-100 space-y-2">
+            <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5">
+              {[["todo", "Todo"], ["ingresos", "Ingresaron (" + ingresos.length + ")"], ["movimientos", "Movimientos (" + movimientos.length + ")"]].map(([v, etiqueta]) => (
+                <button key={v} type="button" onClick={() => setVer(v)}
+                  className={"px-3 py-1 rounded-md text-xs font-medium transition-colors " + (ver === v ? "bg-slate-900 text-white" : "text-slate-600 hover:text-slate-900")}>
+                  {etiqueta}
+                </button>
+              ))}
+            </div>
             <p className="text-sm text-slate-700">
               <b>{movimientos.length}</b> movimiento{movimientos.length !== 1 ? "s" : ""} en <b>{grupos.length}</b> expediente{grupos.length !== 1 ? "s" : ""}
               {altas > 0 && <> · <b>{altas}</b> ingresado{altas !== 1 ? "s" : ""}</>}
@@ -141,7 +152,7 @@ export default function InformeDia() {
             </div>
           </div>
 
-          {ingresos.length > 0 && (
+          {verIngresos && (ingresos.length > 0 ? (
             <section className="border-b border-slate-100">
               <h4 className="px-5 pt-3 pb-2 text-xs font-semibold text-slate-900 uppercase tracking-wide">Ingresaron a Resoluciones ({ingresos.length})</h4>
               <div className="overflow-x-auto">
@@ -178,9 +189,14 @@ export default function InformeDia() {
                 </table>
               </div>
             </section>
-          )}
+          ) : (
+            <p className="px-5 py-8 text-center text-sm text-slate-500 border-b border-slate-100">Ese día no ingresaron expedientes{usuario ? " de " + usuario : ""}.</p>
+          ))}
 
-          {grupos.length > 0 && <h4 className="px-5 pt-3 pb-1 text-xs font-semibold text-slate-900 uppercase tracking-wide">Movimientos</h4>}
+          {verMovimientos && grupos.length > 0 && <h4 className="px-5 pt-3 pb-1 text-xs font-semibold text-slate-900 uppercase tracking-wide">Movimientos</h4>}
+          {verMovimientos && (grupos.length === 0 ? (
+            <p className="px-5 py-8 text-center text-sm text-slate-500">Ese día no hubo movimientos{usuario ? " de " + usuario : ""}.</p>
+          ) : (
           <ul className="divide-y divide-slate-100">
             {grupos.map(({ e, movimientos: ms }) => (
               <li key={e.id} className="px-5 py-3">
@@ -211,6 +227,7 @@ export default function InformeDia() {
               </li>
             ))}
           </ul>
+          ))}
         </>
       )}
     </div>
