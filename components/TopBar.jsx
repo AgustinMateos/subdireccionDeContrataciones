@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, Phone, Globe, ExternalLink, User, Contact, FileDown, BarChart3, Building2, CalendarClock, Table2, Gavel, LayoutDashboard, FileCheck, Wrench, ShoppingCart } from "lucide-react";
+import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, Phone, Globe, ExternalLink, User, Contact, FileDown, BarChart3, Building2, CalendarClock, Table2, Gavel, LayoutDashboard, FileCheck, Wrench, ShoppingCart, ClipboardList } from "lucide-react";
 import { descargarArchivoBase64 } from "@/lib/utils";
 import { FORMULARIO_FALTAS_BASE64, EMAIL_CONTROL_SERVICIOS } from "@/lib/constants";
 import { SLUG_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION } from "@/lib/resoluciones";
@@ -9,9 +9,11 @@ import { SLUG_LICITACIONES } from "@/lib/licitaciones";
 import { SLUG_ORDENES_COMPRA } from "@/lib/ordenesCompra";
 import NotificacionesResoluciones from "./NotificacionesResoluciones";
 // Secciones del navbar de Resoluciones y Licitaciones. "expedientes" es
-// su panel. La jefa de la Subdirección tiene el suyo (NavJefa).
+// su panel. La jefa de la Subdirección tiene el suyo (NavJefa). Las de
+// `soloResoluciones` no van en Licitaciones ni Órdenes de Compra.
 const SECCIONES_RESOLUCIONES = [
   { vista: "expedientes", etiqueta: "Panel" },
+  { vista: "informeDia", etiqueta: "Informe del día", Icono: ClipboardList, soloResoluciones: true },
   { vista: "valorModular", etiqueta: "Valor Modular", Icono: Landmark },
   { vista: "listadoTelefonos", etiqueta: "Listado de Teléfonos", Icono: Phone },
   { vista: "cuadroCronologico", etiqueta: "Cuadro cronológico", Icono: Table2 },
@@ -25,6 +27,7 @@ const AREAS_JEFA = [
   { vista: "licitaciones", etiqueta: "Licitaciones", Icono: Gavel },
   { vista: "ordenesCompra", etiqueta: "Órdenes de Compra", Icono: ShoppingCart },
   { vista: "planObras", etiqueta: "Plan de Obras 2026", Icono: Building2 },
+  { vista: "informeDia", etiqueta: "Informe del día", Icono: ClipboardList },
   { vista: "graficosResoluciones", etiqueta: "Análisis", Icono: BarChart3 },
 ];
 const HERRAMIENTAS_JEFA = [
@@ -184,7 +187,7 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
 
       {conSecciones && !esJefa && (
         <div className="px-4 sm:px-6 lg:px-8 flex items-center gap-1 h-11 border-t border-slate-100 overflow-x-auto">
-          {SECCIONES_RESOLUCIONES.map(({ vista: v, etiqueta, Icono }) => (
+          {SECCIONES_RESOLUCIONES.filter(s => esResoluciones || !s.soloResoluciones).map(({ vista: v, etiqueta, Icono }) => (
             <button
               key={v}
               onClick={() => setVista(v)}

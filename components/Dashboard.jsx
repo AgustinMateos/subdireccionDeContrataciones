@@ -78,6 +78,7 @@ import PanelOrdenesCompra from "./PanelOrdenesCompra";
 import CuadroCronologico from "./CuadroCronologico";
 import GraficosSubdireccion from "./GraficosSubdireccion";
 import PlanObras from "./PlanObras";
+import InformeDia from "./InformeDia";
 import InicioSubdireccion from "./InicioSubdireccion";
 import { SLUG_RESOLUCIONES, USUARIOS_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, EVENTO_ABRIR_RESOLUCION } from "@/lib/resoluciones";
 import { SLUG_LICITACIONES } from "@/lib/licitaciones";
@@ -807,8 +808,10 @@ export default function App() {
   const esOrdenesCompra = sesion.departamentoSlug === SLUG_ORDENES_COMPRA;
   const esResoluciones = sesion.departamentoSlug === SLUG_RESOLUCIONES;
   // Gráficos, el Plan de Obras y el panel de Licitaciones (además del
-  // suyo) son solo de la jefa de la Subdirección.
-  const vistaResoluciones = VISTAS_RESOLUCIONES.includes(vista) || (["inicio", "graficosResoluciones", "planObras", "licitaciones", "ordenesCompra"].includes(vista) && sesion.email === EMAIL_JEFA_SUBDIRECCION)
+  // suyo) son solo de la jefa de la Subdirección; el informe del día, de
+  // Resoluciones (la jefa incluida).
+  const vistaResoluciones = VISTAS_RESOLUCIONES.includes(vista) || (vista === "informeDia" && esResoluciones)
+    || (["inicio", "graficosResoluciones", "planObras", "licitaciones", "ordenesCompra"].includes(vista) && sesion.email === EMAIL_JEFA_SUBDIRECCION)
     ? vista
     : "expedientes";
   // Defensivo: si se llega a una vista exclusiva de Informática y Varios sin pasar
@@ -841,6 +844,8 @@ export default function App() {
             <GraficosSubdireccion mostrarToast={mostrarToast} />
           ) : vistaResoluciones === "planObras" ? (
             <PlanObras mostrarToast={mostrarToast} />
+          ) : vistaResoluciones === "informeDia" ? (
+            <InformeDia />
           ) : vistaResoluciones === "cuadroCronologico" ? (
             <CuadroCronologico />
           ) : vistaResoluciones === "ordenesCompra" || esOrdenesCompra ? (
