@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PREFIJO_REINGRESO, sesionResoluciones } from "@/lib/resolucionesServidor";
 
-const DATOS_INGRESO = { id: true, exp: true, objeto: true, fuero: true, organismo: true, tipoContratacion: true, numero: true, tipoResolucion: true, agente: true };
+const DATOS_INGRESO = { id: true, exp: true, objeto: true, fuero: true, organismo: true, tipoContratacion: true, numero: true, tipoResolucion: true, agente: true, fechaIngreso: true };
 
 // Informe del día: los movimientos del historial de Resoluciones de una
 // fecha (`?fecha=AAAA-MM-DD`; sin fecha, hoy en Argentina), con su
 // expediente (`alta`: se cargó ese mismo día), y los que ingresaron ese
 // día (`ingresos`): los de esa fecha de ingreso al sector (se cargue el
-// día que sea) y los reingresos, con quién.
+// día que sea) y los reingresos, con quién; y los que se cargaron en el
+// sistema ese día (`cargados`), con la fecha de ingreso que tengan.
 export async function GET(request) {
   if (!(await sesionResoluciones())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const pedida = new URL(request.url).searchParams.get("fecha");
@@ -36,9 +37,15 @@ export async function GET(request) {
       ? { ...e, tipo: "reingreso", hora: reingreso.creadoEn, usuario: reingreso.usuario, detalle: reingreso.sector }
       : { ...e, tipo: "alta", hora: cargadoEseDia(creadoEn) ? creadoEn : null, usuario: primero?.usuario || null };
   }).sort((a, b) => (a.hora?.getTime() ?? 0) - (b.hora?.getTime() ?? 0) || a.exp.localeCompare(b.exp));
+  const cargados = await prisma.expedienteResolucion.findMany({
+    where: { creadoEn: { gte: new Date(inicioDia), lt: new Date(inicioDia + 24 * 3600e3) } },
+    orderBy: { creadoEn: "asc" },
+    select: { ...DATOS_INGRESO, creadoEn: true, movimientos: { orderBy: { creadoEn: "asc" }, take: 1, select: { usuario: true } } },
+  });
   return NextResponse.json({
     fecha: dia,
     ingresos,
+    cargados: cargados.map(({ movimientos: [primero], creadoEn, ...e }) => ({ ...e, tipo: "alta", hora: creadoEn, usuario: primero?.usuario || null })),
     movimientos: movimientos.map(({ expediente: e, ...m }) => ({
       ...m,
       expediente: { id: e.id, exp: e.exp, objeto: e.objeto, agente: e.agente, alta: cargadoEseDia(e.creadoEn) },

@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight, Download, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
-import { EVENTO_ABRIR_RESOLUCION } from "@/lib/resoluciones";
+import { fmtFecha } from "@/lib/utils";
+import { EVENTO_ABRIR_RESOLUCION, fechaISO } from "@/lib/resoluciones";
 
 // Observaciones y renovaciones de ofertas se leen como texto (como en el
 // historial del expediente).
@@ -22,38 +23,89 @@ function diaLargo(dia) {
   return new Date(dia + "T12:00:00").toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 }
 
-const COLUMNAS_INGRESO = [
-  ["Hora", e => hora(e.hora)], ["Exp.", e => e.exp], ["Objeto", e => e.objeto], ["Fuero", e => e.fuero], ["Organismo", e => e.organismo],
-  ["Tipo de contratación", e => e.tipoContratacion], ["Número", e => e.numero], ["Tipo de resolución", e => e.tipoResolucion],
-  ["Agente", e => e.agente], ["Cómo", e => (e.tipo === "reingreso" ? e.detalle : "Ingresó")], ["Usuario", e => e.usuario],
-];
+const fechaCorta = f => (f ? fmtFecha(fechaISO(f)) : "-");
+const cuandoIngreso = e => (e.tipo === "reingreso" ? e.detalle : "Ingresó");
 
-function exportarExcel(ingresos, movimientos, dia) {
-  const wb = XLSX.utils.book_new();
-  if (ingresos.length) {
-    const ws = XLSX.utils.aoa_to_sheet([COLUMNAS_INGRESO.map(([t]) => t.toUpperCase()), ...ingresos.map(e => COLUMNAS_INGRESO.map(([, v]) => v(e) || ""))]);
-    ws["!cols"] = [8, 16, 40, 24, 24, 16, 10, 18, 10, 40, 20].map(wch => ({ wch }));
-    XLSX.utils.book_append_sheet(wb, ws, "Ingresaron");
-  }
-  const datos = [
-    ["HORA", "EXP.", "OBJETO", "AGENTE", "CAMPO", "ANTES", "AHORA", "USUARIO"],
-    ...movimientos.map(m => [hora(m.creadoEn), m.expediente.exp, m.expediente.objeto, m.expediente.agente || "", m.campo, m.sectorAnterior || "", m.sector, m.usuario]),
-  ];
-  const ws = XLSX.utils.aoa_to_sheet(datos);
-  ws["!cols"] = [8, 16, 40, 10, 18, 30, 50, 20].map(wch => ({ wch }));
-  XLSX.utils.book_append_sheet(wb, ws, "Movimientos");
-  XLSX.writeFile(wb, "resoluciones-movimientos-" + dia + ".xlsx");
+// Columnas de las tablas de expedientes (las que ingresaron y las que se
+// cargaron): título y valor como texto (para el Excel).
+const COLUMNAS_EXP = [
+  ["Hora", e => hora(e.hora)], ["Exp.", e => e.exp], ["Objeto", e => e.objeto], ["Ingreso al sector", e => fechaCorta(e.fechaIngreso)],
+  ["Fuero", e => e.fuero], ["Organismo", e => e.organismo], ["Tipo de contratación", e => e.tipoContratacion], ["Número", e => e.numero],
+  ["Tipo de resolución", e => e.tipoResolucion], ["Agente", e => e.agente],
+];
+const COLUMNAS_INGRESO = [...COLUMNAS_EXP, ["Cómo", cuandoIngreso], ["Usuario", e => e.usuario]];
+const COLUMNAS_CARGADO = [...COLUMNAS_EXP, ["Cargó", e => e.usuario]];
+
+function hojaExpedientes(wb, nombre, columnas, filas) {
+  if (!filas.length) return;
+  const ws = XLSX.utils.aoa_to_sheet([columnas.map(([t]) => t.toUpperCase()), ...filas.map(e => columnas.map(([, v]) => v(e) || ""))]);
+  ws["!cols"] = columnas.map(([t]) => ({ wch: t === "Objeto" || t === "Cómo" ? 40 : t === "Exp." ? 16 : 18 }));
+  XLSX.utils.book_append_sheet(wb, ws, nombre);
 }
 
-// Informe del día de Resoluciones: los expedientes que ingresaron (se
-// cargaron o reingresaron) y todo lo que quedó en el historial en una
-// fecha, agrupado por expediente, con quién lo hizo.
+function exportarExcel({ ingresos, cargados, movimientos }, dia) {
+  const wb = XLSX.utils.book_new();
+  hojaExpedientes(wb, "Ingresaron", COLUMNAS_INGRESO, ingresos);
+  hojaExpedientes(wb, "Cargados", COLUMNAS_CARGADO, cargados);
+  if (movimientos.length) {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["HORA", "EXP.", "OBJETO", "AGENTE", "CAMPO", "ANTES", "AHORA", "USUARIO"],
+      ...movimientos.map(m => [hora(m.creadoEn), m.expediente.exp, m.expediente.objeto, m.expediente.agente || "", m.campo, m.sectorAnterior || "", m.sector, m.usuario]),
+    ]);
+    ws["!cols"] = [8, 16, 40, 10, 18, 30, 50, 20].map(wch => ({ wch }));
+    XLSX.utils.book_append_sheet(wb, ws, "Movimientos");
+  }
+  XLSX.writeFile(wb, "resoluciones-informe-" + dia + ".xlsx");
+}
+
+// Tabla de expedientes del día (los que ingresaron o los que se cargaron).
+// `columnas`: COLUMNAS_INGRESO | COLUMNAS_CARGADO. Vacía, lo avisa.
+function TablaExpedientes({ titulo, columnas, filas, vacia, abrir }) {
+  if (!filas.length) return <p className="px-5 py-8 text-center text-sm text-slate-500 border-b border-slate-100">{vacia}</p>;
+  return (
+    <section className="border-b border-slate-100">
+      <h4 className="px-5 pt-3 pb-2 text-xs font-semibold text-slate-900 uppercase tracking-wide">{titulo} ({filas.length})</h4>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[1200px]">
+          <thead>
+            <tr className="text-left border-y border-slate-100 bg-slate-50/40 text-[11px] font-medium text-slate-500 uppercase tracking-wide">
+              {columnas.map(([t]) => <th key={t} className="py-2 px-3 first:pl-5">{t}</th>)}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {filas.map(e => (
+              <tr key={e.id} className="align-top">
+                {columnas.map(([t, v]) => (
+                  <td key={t} className={"py-2 px-3 first:pl-5 " + (t === "Objeto" ? "text-slate-800 max-w-[280px]" : t === "Cómo" ? "max-w-[260px]" : "text-slate-600 " + (t === "Hora" || t === "Usuario" || t === "Cargó" ? "text-[11px] whitespace-nowrap tabular-nums" : ""))}>
+                    {t === "Exp." ? (
+                      <button type="button" onClick={() => abrir(e.id)} title="Abrir el expediente"
+                        className="font-mono font-semibold text-slate-900 underline decoration-slate-300 hover:decoration-slate-900 whitespace-nowrap">{e.exp}</button>
+                    ) : t === "Cómo" ? (
+                      e.tipo === "reingreso"
+                        ? <span className="inline-block px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 text-xs whitespace-pre-line">{e.detalle}</span>
+                        : <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[11px] font-medium">Ingresó</span>
+                    ) : v(e) || "-"}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+// Informe del día de Resoluciones: los expedientes que ingresaron (por
+// fecha de ingreso al sector o reingreso), los que se cargaron en el
+// sistema y todo lo que quedó en el historial en una fecha, agrupado por
+// expediente, con quién lo hizo.
 export default function InformeDia() {
   const hoy = hoyLocalISO();
   const [dia, setDia] = useState(hoy);
   const [datos, setDatos] = useState(null); // { fecha, movimientos } | { error }
   const [usuario, setUsuario] = useState("");
-  const [ver, setVer] = useState("todo"); // "todo" | "ingresos" | "movimientos"
+  const [ver, setVer] = useState("todo"); // "todo" | "ingresos" | "cargados" | "movimientos"
 
   useEffect(() => {
     let activo = true;
@@ -73,6 +125,7 @@ export default function InformeDia() {
   }, [todos]);
   const movimientos = usuario ? todos.filter(m => m.usuario === usuario) : todos;
   const ingresos = (datos?.ingresos || []).filter(e => !usuario || e.usuario === usuario);
+  const cargados = (datos?.cargados || []).filter(e => !usuario || e.usuario === usuario);
   // Por expediente, en el orden del primer movimiento del día.
   const grupos = useMemo(() => {
     const porExp = new Map();
@@ -84,7 +137,9 @@ export default function InformeDia() {
   }, [movimientos]);
   const altas = ingresos.filter(e => e.tipo === "alta").length;
   const reingresos = ingresos.length - altas;
-  const verIngresos = ver !== "movimientos", verMovimientos = ver !== "ingresos";
+  const verIngresos = ver === "todo" || ver === "ingresos", verCargados = ver === "todo" || ver === "cargados";
+  const verMovimientos = ver === "todo" || ver === "movimientos";
+  const visible = { ingresos: verIngresos ? ingresos : [], cargados: verCargados ? cargados : [], movimientos: verMovimientos ? movimientos : [] };
 
   function elegirDia(v) { if (v) { setDia(v); setUsuario(""); } }
   const abrir = id => window.dispatchEvent(new CustomEvent(EVENTO_ABRIR_RESOLUCION, { detail: { id } }));
@@ -106,8 +161,8 @@ export default function InformeDia() {
           {dia !== hoy && (
             <button type="button" onClick={() => elegirDia(hoy)} className="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50">Hoy</button>
           )}
-          <button type="button" onClick={() => exportarExcel(verIngresos ? ingresos : [], verMovimientos ? movimientos : [], dia)}
-            disabled={!(verIngresos && ingresos.length) && !(verMovimientos && movimientos.length)}
+          <button type="button" onClick={() => exportarExcel(visible, dia)}
+            disabled={!visible.ingresos.length && !visible.cargados.length && !visible.movimientos.length}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 disabled:opacity-40">
             <Download size={14} /> Exportar a Excel
           </button>
@@ -118,13 +173,13 @@ export default function InformeDia() {
         <div className="py-16 text-center text-sm text-slate-500">Cargando el informe...</div>
       ) : datos.error ? (
         <div className="py-16 text-center text-sm text-red-700">{datos.error}</div>
-      ) : todos.length === 0 && !datos.ingresos?.length ? (
+      ) : todos.length === 0 && !datos.ingresos?.length && !datos.cargados?.length ? (
         <div className="py-16 text-center text-sm text-slate-500">Ese día no hubo movimientos en Resoluciones.</div>
       ) : (
         <>
           <div className="px-5 py-3 border-b border-slate-100 space-y-2">
             <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5">
-              {[["todo", "Todo"], ["ingresos", "Ingresaron (" + ingresos.length + ")"], ["movimientos", "Movimientos (" + movimientos.length + ")"]].map(([v, etiqueta]) => (
+              {[["todo", "Todo"], ["ingresos", "Ingresaron (" + ingresos.length + ")"], ["cargados", "Cargados ese día (" + cargados.length + ")"], ["movimientos", "Movimientos (" + movimientos.length + ")"]].map(([v, etiqueta]) => (
                 <button key={v} type="button" onClick={() => setVer(v)}
                   className={"px-3 py-1 rounded-md text-xs font-medium transition-colors " + (ver === v ? "bg-slate-900 text-white" : "text-slate-600 hover:text-slate-900")}>
                   {etiqueta}
@@ -135,6 +190,7 @@ export default function InformeDia() {
               <b>{movimientos.length}</b> movimiento{movimientos.length !== 1 ? "s" : ""} en <b>{grupos.length}</b> expediente{grupos.length !== 1 ? "s" : ""}
               {altas > 0 && <> · <b>{altas}</b> ingresado{altas !== 1 ? "s" : ""}</>}
               {reingresos > 0 && <> · <b>{reingresos}</b> reingreso{reingresos !== 1 ? "s" : ""}</>}
+              {cargados.length > 0 && <> · <b>{cargados.length}</b> cargado{cargados.length !== 1 ? "s" : ""} en el sistema</>}
             </p>
             <div className="flex flex-wrap items-center gap-1.5">
               {usuarios.map(([u, n]) => (
@@ -152,46 +208,14 @@ export default function InformeDia() {
             </div>
           </div>
 
-          {verIngresos && (ingresos.length > 0 ? (
-            <section className="border-b border-slate-100">
-              <h4 className="px-5 pt-3 pb-2 text-xs font-semibold text-slate-900 uppercase tracking-wide">Ingresaron a Resoluciones ({ingresos.length})</h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[1100px]">
-                  <thead>
-                    <tr className="text-left border-y border-slate-100 bg-slate-50/40 text-[11px] font-medium text-slate-500 uppercase tracking-wide">
-                      {COLUMNAS_INGRESO.map(([t]) => <th key={t} className="py-2 px-3 first:pl-5">{t}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {ingresos.map(e => (
-                      <tr key={e.id} className="align-top">
-                        <td className="py-2 px-3 pl-5 text-[11px] text-slate-500 tabular-nums">{hora(e.hora)}</td>
-                        <td className="py-2 px-3 whitespace-nowrap">
-                          <button type="button" onClick={() => abrir(e.id)} title="Abrir el expediente"
-                            className="font-mono font-semibold text-slate-900 underline decoration-slate-300 hover:decoration-slate-900">{e.exp}</button>
-                        </td>
-                        <td className="py-2 px-3 text-slate-800 max-w-[280px]">{e.objeto}</td>
-                        <td className="py-2 px-3 text-slate-600">{e.fuero || "-"}</td>
-                        <td className="py-2 px-3 text-slate-600">{e.organismo || "-"}</td>
-                        <td className="py-2 px-3 text-slate-600">{e.tipoContratacion || "-"}</td>
-                        <td className="py-2 px-3 text-slate-600">{e.numero || "-"}</td>
-                        <td className="py-2 px-3 text-slate-600">{e.tipoResolucion || "-"}</td>
-                        <td className="py-2 px-3 text-slate-600">{e.agente || "-"}</td>
-                        <td className="py-2 px-3 max-w-[260px]">
-                          {e.tipo === "reingreso"
-                            ? <span className="inline-block px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 text-xs whitespace-pre-line">{e.detalle}</span>
-                            : <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[11px] font-medium">Ingresó</span>}
-                        </td>
-                        <td className="py-2 px-3 text-[11px] text-slate-500 whitespace-nowrap">{e.usuario || "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          ) : (
-            <p className="px-5 py-8 text-center text-sm text-slate-500 border-b border-slate-100">Ese día no ingresaron expedientes{usuario ? " de " + usuario : ""}.</p>
-          ))}
+          {verIngresos && (
+            <TablaExpedientes titulo="Ingresaron a Resoluciones" columnas={COLUMNAS_INGRESO} filas={ingresos} abrir={abrir}
+              vacia={"Ese día no ingresaron expedientes" + (usuario ? " de " + usuario : "") + "."} />
+          )}
+          {verCargados && (
+            <TablaExpedientes titulo="Cargados en el sistema ese día" columnas={COLUMNAS_CARGADO} filas={cargados} abrir={abrir}
+              vacia={"Ese día no se cargaron expedientes" + (usuario ? " de " + usuario : "") + "."} />
+          )}
 
           {verMovimientos && grupos.length > 0 && <h4 className="px-5 pt-3 pb-1 text-xs font-semibold text-slate-900 uppercase tracking-wide">Movimientos</h4>}
           {verMovimientos && (grupos.length === 0 ? (
