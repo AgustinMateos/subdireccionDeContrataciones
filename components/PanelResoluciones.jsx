@@ -11,7 +11,7 @@ import { sumarDiasHabiles } from "@/lib/diasHabiles";
 import {
   FUEROS_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, SECTORES_RESOLUCIONES,
   ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta, esFinalizado, ESTADOS_GENERALES, ETIQUETA_ESTADO_GENERAL, estadoGeneral, esParaAdjudicar, esPrioritario,
-  estaFueraDeResoluciones, fechaISO, EVENTO_CAMBIOS_RESOLUCIONES,
+  estaFueraDeResoluciones, faltaDelDictamen, fechaISO, EVENTO_CAMBIOS_RESOLUCIONES,
 } from "@/lib/resoluciones";
 import FiltroDesplegable from "./FiltroDesplegable";
 import BotonAccion from "./BotonAccion";
@@ -78,13 +78,14 @@ const VACIO = {
   tipoResolucion: "", estado: "", sectorActual: "", fechaUltimoMov: "", agente: "", vencOfertas: "",
   inicioServicio: "", montos: "", observaciones: "", prioritario: false,
   renovacionAutomatica: false, renovacionDias: "", renovacionHabiles: true,
+  enPrestamo: false, dictamenNumero: "", dictamenVence: "",
 };
 
 function aFormulario(e) {
   if (!e) return { ...VACIO, fechaIngreso: hoyLocalISO(), fechaUltimoMov: hoyLocalISO() };
   const f = {};
   for (const k of Object.keys(VACIO)) f[k] = e[k] ?? "";
-  for (const k of ["fechaIngreso", "fechaUltimoMov", "vencOfertas"]) f[k] = fechaISO(e[k]);
+  for (const k of ["fechaIngreso", "fechaUltimoMov", "vencOfertas", "dictamenVence"]) f[k] = fechaISO(e[k]);
   // El cuadro de observaciones es para agregar una nueva: las anteriores
   // quedan en el historial.
   f.observaciones = "";
@@ -142,8 +143,11 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
       : esJefa && f.renovacionAutomatica && !(Number(f.renovacionDias) > 0) ? "Completá los días de la renovación automática."
         : esJefa && f.renovacionAutomatica && !f.vencOfertas ? (fijo ? "Para la renovación automática falta el vencimiento de ofertas: lo carga Resoluciones." : "Para la renovación automática cargá el vencimiento de ofertas.")
           : vuelveDeFinalizado && f.reingreso === undefined ? "Estaba Finalizado: indicá si es un reingreso o fue un error."
+          : !fijo && faltaDelDictamen(f) ? faltaDelDictamen(f)
           : "";
-    if (falta) { setError(falta); setSolapa("datos"); pasos.abrir(...(f.exp.trim() && f.objeto.trim() ? [vuelveDeFinalizado && f.reingreso === undefined ? 4 : 3] : [1, 2])); return; }
+    const pasoConFalta = !f.exp.trim() || !f.objeto.trim() ? [1, 2] : !fijo && faltaDelDictamen(f) ? [1]
+      : [vuelveDeFinalizado && f.reingreso === undefined ? 4 : 3];
+    if (falta) { setError(falta); setSolapa("datos"); pasos.abrir(...pasoConFalta); return; }
     setGuardando(true);
     // Sin observación nueva, queda la última que tenía.
     const res = await onGuardar({ ...f, observaciones: f.observaciones.trim() || inicial?.observaciones || "" });
@@ -254,6 +258,7 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
                   <EntradaCantidad valor={f.cantidadRenglones} onChange={v => set("cantidadRenglones", v)} ejemplo="12" />
                 </Campo>
                 <DatoFicha label="Ingresó al sector" valor={fecha(f.fechaIngreso)} />
+                <DatoFicha label="En préstamo" valor={textoPrestamo(f)} />
                 <Campo pregunta="¿A quién se le asigna?" ancho>
                   <ElegirDeLista opciones={AGENTES_RESOLUCIONES} valor={f.agente} onChange={v => set("agente", v)} vacio="Sin asignar" />
                   <CargaPorAgente expedientes={expedientes} elegido={f.agente} onElegir={v => set("agente", v)} />
@@ -316,6 +321,22 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
                 <Campo pregunta="¿Qué día ingresó al sector?" ayuda={inicial ? "Queda como se cargó: desde este día se cuentan los días del semáforo." : "Desde este día se cuentan los días del semáforo. Después no se cambia."} ancho>
                   {inicial ? <p className="text-base text-slate-800 py-2">{fecha(f.fechaIngreso)}</p>
                     : <ElegirDia valor={f.fechaIngreso} onChange={v => set("fechaIngreso", v)} />}
+                </Campo>
+                <Campo pregunta="¿Está en préstamo?" ancho>
+                  <SiNo valor={!!f.enPrestamo} onChange={v => set("enPrestamo", v)} si="Sí, está en préstamo" no="No" />
+                  {f.enPrestamo && (
+                    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-4 grid md:grid-cols-2 gap-x-6 gap-y-4">
+                      <div>
+                        <Pregunta>N° de dictamen</Pregunta>
+                        <EntradaDictamen valor={f.dictamenNumero} onChange={v => set("dictamenNumero", v)} />
+                      </div>
+                      <div>
+                        <Pregunta>¿Cuándo vence el dictamen?</Pregunta>
+                        <ElegirDia valor={f.dictamenVence} onChange={v => set("dictamenVence", v)} />
+                      </div>
+                      <p className="md:col-span-2 text-sm text-slate-600">Ese día te llega un aviso en la campana para devolverlo a Aperturas, que notifica si hubo o no impugnaciones.</p>
+                    </div>
+                  )}
                 </Campo>
                 <Campo pregunta="Agente asignado" ancho>
                   {esJefa ? <>
@@ -487,6 +508,7 @@ function InfoExpediente({ e, historial, irA }) {
         <Dato label="Cantidad de ofertas">{e.cantidadOfertas != null && String(e.cantidadOfertas)}</Dato>
         <Dato label="Cantidad de renglones">{e.cantidadRenglones != null && String(e.cantidadRenglones)}</Dato>
         <Dato label="Ingresó al sector">{e.fechaIngreso && fecha(e.fechaIngreso)}</Dato>
+        <Dato label="En préstamo">{textoPrestamo(e)}</Dato>
       </Bloque>
 
       <Bloque titulo="Qué se contrata">
@@ -780,6 +802,27 @@ function SoloLaJefa({ valor }) {
   return <p className="text-base text-slate-800 py-2">{hay ? valor : "Sin cargar"} <span className="text-sm text-slate-500">(lo carga la jefa)</span></p>;
 }
 
+// N° de dictamen: número / año, con el año en 4 cifras (arranca en el
+// actual). Guarda "NNN/AAAA".
+function EntradaDictamen({ valor, onChange }) {
+  const [numero = "", anio = String(new Date().getFullYear())] = String(valor || "").split("/");
+  return (
+    <div className="flex items-center gap-2">
+      <input inputMode="numeric" value={numero} placeholder="Ej.: 123" aria-label="Número de dictamen"
+        onChange={e => onChange(e.target.value.replace(/\D/g, "") + "/" + anio)} className={CLASE_ENTRADA + " max-w-[8rem] font-mono"} />
+      <span className="text-lg text-slate-400">/</span>
+      <input inputMode="numeric" maxLength={4} value={anio} aria-label="Año del dictamen"
+        onChange={e => onChange(numero + "/" + e.target.value.replace(/\D/g, "").slice(0, 4))} className={CLASE_ENTRADA + " max-w-[6rem] font-mono"} />
+    </div>
+  );
+}
+
+// "No" o "Sí · Dictamen N° 123/2026 · vence el 30/10/2026".
+function textoPrestamo(e) {
+  if (!e.enPrestamo) return "No";
+  return ["Sí", e.dictamenNumero && "Dictamen N° " + e.dictamenNumero, e.dictamenVence && "vence el " + fecha(e.dictamenVence)].filter(Boolean).join(" · ");
+}
+
 // Cantidad: solo números enteros (teclado numérico en el celular).
 function EntradaCantidad({ valor, onChange, ejemplo }) {
   return (
@@ -792,7 +835,7 @@ function EntradaCantidad({ valor, onChange, ejemplo }) {
 function resumenPaso(n, f) {
   const partes = {
     1: [f.exp, f.numero && "Contratación N° " + f.numero, cuantos(f.cantidadOfertas, "oferta", "ofertas"),
-      cuantos(f.cantidadRenglones, "renglón", "renglones"), f.agente && "Agente: " + f.agente],
+      cuantos(f.cantidadRenglones, "renglón", "renglones"), f.agente && "Agente: " + f.agente, f.enPrestamo && "En préstamo"],
     2: [f.objeto, f.fuero, f.tipoContratacion],
     3: [f.vencOfertas && "Vencen las ofertas el " + fecha(f.vencOfertas), f.renovacionAutomatica && "se renuevan solas"],
     4: [ETIQUETA_ESTADO_GENERAL[estadoGeneral(f)], f.tipoResolucion, f.estado, f.sectorActual && "En " + f.sectorActual],

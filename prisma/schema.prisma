@@ -383,6 +383,14 @@ model ExpedienteResolucion {
   renovacionAutomatica Boolean @default(false)
   renovacionDias       Int?
   renovacionHabiles    Boolean @default(true)
+  // En préstamo (vino prestado de Aperturas): N° de dictamen (NNN/AAAA) y
+  // cuándo vence. Ese día llega un aviso a la campana de Resoluciones para
+  // devolverlo a Aperturas, que notifica si hubo o no impugnaciones.
+  // `dictamenAvisado`: el vencimiento que ya se avisó.
+  enPrestamo      Boolean   @default(false)
+  dictamenNumero  String?
+  dictamenVence   DateTime?
+  dictamenAvisado DateTime?
 
   movimientos   MovimientoResolucion[]
   creadoEn      DateTime               @default(now())

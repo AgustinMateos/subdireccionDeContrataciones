@@ -116,6 +116,8 @@ export default function NotificacionesResoluciones({ paraJefa = false }) {
                         ? n.creadoPor + " cargó este expediente: falta asignarlo."
                         : n.accion === "renovacion"
                         ? "Se renovó automáticamente el vencimiento de ofertas:"
+                        : n.accion === "dictamen-vence"
+                        ? "Está en préstamo y vence el dictamen: devolvelo a Aperturas para que notifique si hubo o no impugnaciones."
                         : n.accion === "renovacion-activada"
                           ? n.creadoPor + " activó la renovación automática de las ofertas:"
                           : n.creadoPor + (n.accion === "alta" ? " cargó este expediente" : " modificó:")}
@@ -125,7 +127,7 @@ export default function NotificacionesResoluciones({ paraJefa = false }) {
                         {n.cambios.map((c, i) => (
                           <li key={i} className="text-xs text-slate-700 flex flex-wrap items-center gap-1">
                             <span className="text-slate-500">{c.campo}:</span>
-                            {!["alta", "renovacion-activada", "para-asignar"].includes(n.accion) && <><span className="line-through text-slate-400">{c.anterior || "vacío"}</span><ArrowRight size={11} className="text-slate-400" /></>}
+                            {!["alta", "renovacion-activada", "para-asignar", "dictamen-vence"].includes(n.accion) && <><span className="line-through text-slate-400">{c.anterior || "vacío"}</span><ArrowRight size={11} className="text-slate-400" /></>}
                             <span className="font-medium">{c.nuevo || "vacío"}</span>
                           </li>
                         ))}
