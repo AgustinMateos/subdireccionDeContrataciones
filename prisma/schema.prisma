@@ -373,7 +373,7 @@ model ExpedienteResolucion {
   inicioServicio   String? // texto: una fecha o "A PARTIR DE LA OC"
   montos           String? // texto: monto y aclaraciones ("SIN DEFINIR PARTIDA")
   observaciones    String?
-  situacion        String    @default("TRAMITANDO") // estado general: TRAMITANDO | CIRCUITO | FINALIZADO (los finalizados van al fondo)
+  situacion        String    @default("TRAMITANDO") // estado general: TRAMITANDO | FINALIZADO (los finalizados van al fondo)
   // Lo marca la jefa de la Subdirección (igual que la asignación del
   // agente): va primero en la planilla, con su etiqueta.
   prioritario      Boolean   @default(false)

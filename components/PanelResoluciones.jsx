@@ -607,8 +607,7 @@ function RegistroEditable({ m, esObs, onCambiar }) {
 }
 
 // Carga de cada agente, para que la jefa asigne: expedientes tramitando
-// en el sector Resoluciones (no en Circuito, finalizados ni en otro
-// sector) por tipo de resolución y prioritarios. Se despliega
+// en el sector Resoluciones (no finalizados ni en otro sector) por tipo de resolución y prioritarios. Se despliega
 // tocando el título; tocar una fila asigna a ese agente.
 const GRUPOS_CARGA = [
   { titulo: "Para adjudicar", es: t => t === "ADJUDICAR" },
@@ -665,7 +664,7 @@ function CargaPorAgente({ expedientes, elegido, onElegir }) {
   );
 }
 
-// Estado general: Tramitando, Circuito o Finalizado (lo cambian
+// Estado general: Tramitando o Finalizado (lo cambian
 // Resoluciones y la jefa).
 function ElegirEstadoGeneral({ valor, onChange }) {
   return <ElegirDeLista opciones={ESTADOS_GENERALES} valor={valor || "TRAMITANDO"} onChange={v => v && onChange(v)} etiqueta={o => ETIQUETA_ESTADO_GENERAL[o] || o} />;
@@ -858,7 +857,7 @@ export const SOLAPAS = [
     muestra: "Todos los expedientes, en trámite y finalizados.",
     orden: "Primero los prioritarios; después " + POR_VENCIMIENTO + ". Los fracasados y desiertas van después de los demás y los finalizados, al fondo." },
   { id: "escritorio", etiqueta: "Escritorio", incluye: e => !esFinalizado(e) && !estaFueraDeResoluciones(e),
-    muestra: "Los que siguen en trámite (estado general Tramitando o Circuito) y están hoy en Resoluciones (o sin sector cargado).",
+    muestra: "Los que siguen en trámite (estado general Tramitando) y están hoy en Resoluciones (o sin sector cargado).",
     orden: "Primero los prioritarios; después " + POR_VENCIMIENTO + ". Los fracasados y desiertas, al final." },
   // Los que siguen en trámite: marcados con estrella o en el Plan de Obras.
   { id: "prioritarios", etiqueta: "Prioritarios", incluye: e => !esFinalizado(e) && esPrioritario(e),
