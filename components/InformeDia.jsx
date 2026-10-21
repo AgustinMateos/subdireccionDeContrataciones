@@ -9,7 +9,7 @@ import { EVENTO_ABRIR_RESOLUCION } from "@/lib/resoluciones";
 // Observaciones y renovaciones de ofertas se leen como texto (como en el
 // historial del expediente).
 const esTexto = m => m.campo === "Observaciones" || m.campo === "Renovación de ofertas";
-const hora = m => new Date(m.creadoEn).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+const hora = f => (f ? new Date(f).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "-");
 
 // "2026-10-21" ± n días.
 function moverDia(dia, n) {
@@ -23,9 +23,9 @@ function diaLargo(dia) {
 }
 
 const COLUMNAS_INGRESO = [
-  ["Hora", e => hora(e)], ["Exp.", e => e.exp], ["Objeto", e => e.objeto], ["Fuero", e => e.fuero], ["Organismo", e => e.organismo],
+  ["Hora", e => hora(e.hora)], ["Exp.", e => e.exp], ["Objeto", e => e.objeto], ["Fuero", e => e.fuero], ["Organismo", e => e.organismo],
   ["Tipo de contratación", e => e.tipoContratacion], ["Número", e => e.numero], ["Tipo de resolución", e => e.tipoResolucion],
-  ["Agente", e => e.agente], ["Cómo", e => (e.tipo === "reingreso" ? e.detalle : "Se cargó")], ["Usuario", e => e.usuario],
+  ["Agente", e => e.agente], ["Cómo", e => (e.tipo === "reingreso" ? e.detalle : "Ingresó")], ["Usuario", e => e.usuario],
 ];
 
 function exportarExcel(ingresos, movimientos, dia) {
@@ -37,7 +37,7 @@ function exportarExcel(ingresos, movimientos, dia) {
   }
   const datos = [
     ["HORA", "EXP.", "OBJETO", "AGENTE", "CAMPO", "ANTES", "AHORA", "USUARIO"],
-    ...movimientos.map(m => [hora(m), m.expediente.exp, m.expediente.objeto, m.expediente.agente || "", m.campo, m.sectorAnterior || "", m.sector, m.usuario]),
+    ...movimientos.map(m => [hora(m.creadoEn), m.expediente.exp, m.expediente.objeto, m.expediente.agente || "", m.campo, m.sectorAnterior || "", m.sector, m.usuario]),
   ];
   const ws = XLSX.utils.aoa_to_sheet(datos);
   ws["!cols"] = [8, 16, 40, 10, 18, 30, 50, 20].map(wch => ({ wch }));
@@ -122,7 +122,7 @@ export default function InformeDia() {
           <div className="px-5 py-3 border-b border-slate-100 space-y-2">
             <p className="text-sm text-slate-700">
               <b>{movimientos.length}</b> movimiento{movimientos.length !== 1 ? "s" : ""} en <b>{grupos.length}</b> expediente{grupos.length !== 1 ? "s" : ""}
-              {altas > 0 && <> · <b>{altas}</b> cargado{altas !== 1 ? "s" : ""}</>}
+              {altas > 0 && <> · <b>{altas}</b> ingresado{altas !== 1 ? "s" : ""}</>}
               {reingresos > 0 && <> · <b>{reingresos}</b> reingreso{reingresos !== 1 ? "s" : ""}</>}
             </p>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -153,8 +153,8 @@ export default function InformeDia() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {ingresos.map(e => (
-                      <tr key={e.tipo + e.id + e.creadoEn} className="align-top">
-                        <td className="py-2 px-3 pl-5 text-[11px] text-slate-500 tabular-nums">{hora(e)}</td>
+                      <tr key={e.id} className="align-top">
+                        <td className="py-2 px-3 pl-5 text-[11px] text-slate-500 tabular-nums">{hora(e.hora)}</td>
                         <td className="py-2 px-3 whitespace-nowrap">
                           <button type="button" onClick={() => abrir(e.id)} title="Abrir el expediente"
                             className="font-mono font-semibold text-slate-900 underline decoration-slate-300 hover:decoration-slate-900">{e.exp}</button>
@@ -169,7 +169,7 @@ export default function InformeDia() {
                         <td className="py-2 px-3 max-w-[260px]">
                           {e.tipo === "reingreso"
                             ? <span className="inline-block px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 text-xs whitespace-pre-line">{e.detalle}</span>
-                            : <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[11px] font-medium">Se cargó</span>}
+                            : <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[11px] font-medium">Ingresó</span>}
                         </td>
                         <td className="py-2 px-3 text-[11px] text-slate-500 whitespace-nowrap">{e.usuario || "-"}</td>
                       </tr>
@@ -194,7 +194,7 @@ export default function InformeDia() {
                 <ol className="mt-2 space-y-1.5">
                   {ms.map(m => (
                     <li key={m.id} className="flex flex-wrap items-start gap-x-2 gap-y-0.5 text-sm">
-                      <span className="w-12 shrink-0 text-[11px] text-slate-500 tabular-nums pt-0.5">{hora(m)}</span>
+                      <span className="w-12 shrink-0 text-[11px] text-slate-500 tabular-nums pt-0.5">{hora(m.creadoEn)}</span>
                       <span className="shrink-0 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px]">{m.campo}</span>
                       {esTexto(m) ? (
                         <p className="flex-1 min-w-[200px] text-slate-800 whitespace-pre-line">{m.sector}</p>
