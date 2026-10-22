@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { CAMPOS_DE_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, datosResolucion, faltaDelDictamen, sinCamposDeResoluciones, soloCamposDeJefa } from "@/lib/resoluciones";
-import { INCLUDE_RESOLUCION, avisarSiActivaRenovacion, avisarSiEsJefa, marcarAsignado, conPlanObras, conReingreso, conUltimoMovPorSector, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { INCLUDE_RESOLUCION, avisarSiActivaRenovacion, avisarSiEsJefa, marcarAsignado, conPlanObras, conPrestamo, conReingreso, conUltimoMovPorSector, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
 
 // Edición. Los cambios de sector actual, tipo de resolución, estado y
 // estado general quedan en el historial; el último movimiento pasa a ser
@@ -23,7 +23,7 @@ export async function PUT(request, { params }) {
   // dice si reingresó o fue un error de clic (ver conReingreso).
   const body = await request.json();
   const { fechaIngreso, ...editables } = sinCamposDeResoluciones(soloCamposDeJefa(datosResolucion(body), session.user.email), session.user.email);
-  const datos = conUltimoMovPorSector(existente, await conReingreso(prisma, existente, editables, body.reingreso));
+  const datos = conPrestamo(existente, conUltimoMovPorSector(existente, await conReingreso(prisma, existente, editables, body.reingreso)));
   if (("exp" in datos && !datos.exp) || ("objeto" in datos && !datos.objeto)) {
     return NextResponse.json({ error: "Completá N° de expediente y objeto" }, { status: 400 });
   }
