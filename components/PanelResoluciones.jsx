@@ -817,6 +817,18 @@ function EntradaDictamen({ valor, onChange }) {
   );
 }
 
+// Debajo de la etiqueta "En préstamo" en la tabla: "Dict. 416/2026 · vence
+// 26/10/2026", en rojo si ya venció (hay que devolverlo a Aperturas).
+function EtiquetaPrestamo({ expediente: e }) {
+  if (!e.enPrestamo) return null;
+  const vencido = e.dictamenVence && fechaISO(e.dictamenVence) <= hoyLocalISO();
+  return (
+    <p className={"mt-0.5 text-[11px] " + (vencido ? "text-red-700 font-semibold" : "text-slate-600")}>
+      {[e.dictamenNumero && "Dict. " + e.dictamenNumero, e.dictamenVence && (vencido ? "venció " : "vence ") + fecha(e.dictamenVence)].filter(Boolean).join(" · ")}
+    </p>
+  );
+}
+
 // "No" o "Sí · Dictamen N° 123/2026 · vence el 30/10/2026".
 function textoPrestamo(e) {
   if (!e.enPrestamo) return "No";
@@ -912,6 +924,11 @@ export const SOLAPAS = [
   { id: "fuera", etiqueta: "Fuera de Resoluciones", incluye: e => !esFinalizado(e) && estaFueraDeResoluciones(e),
     muestra: "En trámite y hoy en otro sector (el sector actual no es Resoluciones).",
     orden: "Primero los prioritarios; después " + POR_VENCIMIENTO + ". Los fracasados y desiertas, al final." },
+  // Prestados por Aperturas: hay que devolverlos cuando vence el dictamen.
+  { id: "prestamo", etiqueta: "En préstamo", incluye: e => !!e.enPrestamo,
+    comparar: (a, b) => fechaISO(a.dictamenVence).localeCompare(fechaISO(b.dictamenVence)) || compararResoluciones(a, b),
+    muestra: "Los que están en préstamo (con N° de dictamen y cuándo vence), en trámite o finalizados.",
+    orden: "Por vencimiento del dictamen, el más próximo arriba." },
   { id: "fracasos", etiqueta: "Fracasados y desiertas", incluye: e => !esFinalizado(e) && esFracasoODesierta(e),
     muestra: "En trámite con tipo de resolución FRACASAR o DESIERTA.",
     orden: "Primero los prioritarios; después " + POR_VENCIMIENTO + "." },
@@ -1050,7 +1067,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
     if (f.agente && (f.agente === SIN_AGENTE ? String(e.agente || "").trim() : e.agente !== f.agente)) return false;
     if (f.situacion && estadoGeneral(e) !== f.situacion) return false;
     return true;
-  }).sort(compararResoluciones), [deLaSolapa, f]);
+  }).sort(SOLAPAS.find(s => s.id === solapa).comparar || compararResoluciones), [deLaSolapa, f, solapa]);
 
   // Si la lista se achica (otro filtro, un expediente que cambia de
   // solapa), la página no queda fuera de rango.
@@ -1139,6 +1156,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
             <span className="font-mono font-semibold text-slate-900">{e.exp}</span>
           </div>
           <EtiquetasPrioridad expediente={e} />
+          <EtiquetaPrestamo expediente={e} />
         </td>
       ) },
     { t: "Objeto", w: "w-[240px]", filtro: <input value={f.objeto} onChange={e => set("objeto", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} />,
