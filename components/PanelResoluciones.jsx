@@ -384,8 +384,8 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
               </Paso>
 
               <Paso {...paso(4)} titulo={"Dónde está y cómo sigue" + (esJefa && inicial ? " · lo carga Resoluciones" : "")}>
-                <Campo pregunta="¿En qué sector está ahora?" ayuda="Tocá para ver la lista, o escribí una parte para buscar.">
-                  <CampoOpciones grande value={f.sectorActual} onChange={v => set("sectorActual", v)} opciones={SECTORES_RESOLUCIONES} placeholder="Elegí o escribí" />
+                <Campo pregunta="¿En qué sector está ahora?" ancho>
+                  <ElegirDeLista opciones={SECTORES_RESOLUCIONES} valor={f.sectorActual} onChange={v => set("sectorActual", v)} otro="Otro sector" />
                 </Campo>
                 <Campo pregunta="¿Qué día fue el último movimiento?" ayuda={inicial ? "Al cambiar el sector se pone hoy solo. No cambia los días del semáforo." : ""}>
                   {inicial ? <ElegirDia valor={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
