@@ -20,7 +20,7 @@ export async function POST(request) {
   const session = await sesionResoluciones();
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   // El último movimiento de un expediente nuevo es el día en que se crea.
-  const datos = conPrestamo(null, { ...soloCamposDeJefa(datosResolucion(await request.json()), session.user.email), fechaUltimoMov: hoy() });
+  const datos = await conPrestamo(prisma, null, { ...soloCamposDeJefa(datosResolucion(await request.json()), session.user.email), fechaUltimoMov: hoy() });
   if (!datos.exp || !datos.objeto) {
     return NextResponse.json({ error: "Completá N° de expediente y objeto" }, { status: 400 });
   }
