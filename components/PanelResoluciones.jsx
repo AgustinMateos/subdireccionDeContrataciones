@@ -282,14 +282,14 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
                 </Campo>
               </Paso>
               <Paso {...paso(4)} titulo="Dónde está y cómo sigue">
+                <DatoFicha label="Sector donde está" valor={f.sectorActual} />
+                <DatoFicha label="Último movimiento" valor={fecha(f.fechaUltimoMov)} />
+                <DatoFicha label="Estado" valor={f.estado} />
+                <DatoFicha label="Tipo de resolución (lo carga Resoluciones)" valor={f.tipoResolucion} />
                 <Campo pregunta="¿Cuál es el estado general?" ayuda="Finalizado: va al fondo de la lista y deja de contar días." ancho>
                   <ElegirEstadoGeneral valor={f.situacion} onChange={v => set("situacion", v)} />
                   {vuelveDeFinalizado && <PreguntaReingreso valor={f.reingreso} onChange={v => setF(prev => ({ ...prev, reingreso: v }))} />}
                 </Campo>
-                <DatoFicha label="Tipo de resolución (lo carga Resoluciones)" valor={f.tipoResolucion} />
-                <DatoFicha label="Estado" valor={f.estado} />
-                <DatoFicha label="Sector donde está" valor={f.sectorActual} />
-                <DatoFicha label="Último movimiento" valor={fecha(f.fechaUltimoMov)} />
               </Paso>
             </>
           ) : solapa === "datos" ? (
@@ -384,22 +384,22 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
               </Paso>
 
               <Paso {...paso(4)} titulo={"Dónde está y cómo sigue" + (esJefa && inicial ? " · lo carga Resoluciones" : "")}>
-                <Campo pregunta="¿Cuál es el estado general?" ayuda="Finalizado: va al fondo de la lista y deja de contar días." ancho>
-                  <ElegirEstadoGeneral valor={f.situacion} onChange={v => set("situacion", v)} />
-                  {vuelveDeFinalizado && <PreguntaReingreso valor={f.reingreso} onChange={v => setF(prev => ({ ...prev, reingreso: v }))} />}
-                </Campo>
-                <Campo pregunta="¿Qué tipo de resolución es?" ancho>
-                  <ElegirDeLista opciones={TIPOS_RESOLUCION} valor={f.tipoResolucion} onChange={v => set("tipoResolucion", v)} />
-                </Campo>
-                <Campo pregunta="¿En qué estado está?" ancho>
-                  <ElegirDeLista opciones={ESTADOS_RESOLUCION} valor={f.estado} onChange={v => set("estado", v)} />
-                </Campo>
                 <Campo pregunta="¿En qué sector está ahora?" ayuda="Tocá para ver la lista, o escribí una parte para buscar.">
                   <CampoOpciones grande value={f.sectorActual} onChange={v => set("sectorActual", v)} opciones={SECTORES_RESOLUCIONES} placeholder="Elegí o escribí" />
                 </Campo>
                 <Campo pregunta="¿Qué día fue el último movimiento?" ayuda={inicial ? "Al cambiar el sector se pone hoy solo. No cambia los días del semáforo." : ""}>
                   {inicial ? <ElegirDia valor={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
                     : <p className="text-base text-slate-800 py-2">Hoy, {fecha(f.fechaUltimoMov)} <span className="text-sm text-slate-500">(es el día en que se crea el expediente)</span></p>}
+                </Campo>
+                <Campo pregunta="¿En qué estado está?" ancho>
+                  <ElegirDeLista opciones={ESTADOS_RESOLUCION} valor={f.estado} onChange={v => set("estado", v)} />
+                </Campo>
+                <Campo pregunta="¿Qué tipo de resolución es?" ancho>
+                  <ElegirDeLista opciones={TIPOS_RESOLUCION} valor={f.tipoResolucion} onChange={v => set("tipoResolucion", v)} />
+                </Campo>
+                <Campo pregunta="¿Cuál es el estado general?" ayuda="Finalizado: va al fondo de la lista y deja de contar días." ancho>
+                  <ElegirEstadoGeneral valor={f.situacion} onChange={v => set("situacion", v)} />
+                  {vuelveDeFinalizado && <PreguntaReingreso valor={f.reingreso} onChange={v => setF(prev => ({ ...prev, reingreso: v }))} />}
                 </Campo>
               </Paso>
             </>
