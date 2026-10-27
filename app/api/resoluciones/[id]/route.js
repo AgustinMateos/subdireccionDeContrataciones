@@ -20,7 +20,9 @@ export async function PUT(request, { params }) {
   // Si cambia el sector, el último movimiento pasa a ser hoy. La fecha de
   // ingreso al sector queda como se cargó (de ahí corre el semáforo), salvo
   // en un reingreso: un finalizado que vuelve a trámite, donde `reingreso`
-  // dice si reingresó o fue un error de clic (ver conReingreso).
+  // dice si reingresó o fue un error de clic (ver conReingreso), o al
+  // entrar a Resoluciones después de un préstamo que ya terminó (ver
+  // conPrestamo).
   const body = await request.json();
   const { fechaIngreso, ...editables } = sinCamposDeResoluciones(soloCamposDeJefa(datosResolucion(body), session.user.email), session.user.email);
   const datos = await conPrestamo(prisma, existente, conUltimoMovPorSector(existente, await conReingreso(prisma, existente, editables, body.reingreso)));
@@ -64,6 +66,9 @@ export async function PATCH(request, { params }) {
   }
   if ("prioritario" in body) data.prioritario = body.prioritario === true;
   if ("situacion" in body) data.situacion = datosResolucion({ situacion: body.situacion }).situacion;
+  if (existente.enPrestamo && data.situacion === "FINALIZADO") {
+    return NextResponse.json({ error: "Está en préstamo: sigue en trámite hasta que vuelva a Aperturas" }, { status: 400 });
+  }
   data = await conPrestamo(prisma, existente, conUltimoMovPorSector(existente, await conReingreso(prisma, existente, data, body.reingreso)));
   const cambios = registrosDeCambios(existente, data, session.user.name);
   const expediente = await prisma.expedienteResolucion.update({

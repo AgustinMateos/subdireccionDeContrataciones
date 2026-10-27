@@ -927,7 +927,7 @@ export const SOLAPAS = [
   // Prestados por Aperturas: hay que devolverlos cuando vence el dictamen.
   { id: "prestamo", etiqueta: "En préstamo", incluye: e => !!e.enPrestamo,
     comparar: (a, b) => fechaISO(a.dictamenVence).localeCompare(fechaISO(b.dictamenVence)) || compararResoluciones(a, b),
-    muestra: "Los que están en préstamo (con N° de dictamen y cuándo vence), en trámite o finalizados.",
+    muestra: "Los que están en préstamo (con N° de dictamen y cuándo vence). Siempre en trámite: también figuran en las demás solapas.",
     orden: "Por vencimiento del dictamen, el más próximo arriba." },
   { id: "fracasos", etiqueta: "Fracasados y desiertas", incluye: e => !esFinalizado(e) && esFracasoODesierta(e),
     muestra: "En trámite con tipo de resolución FRACASAR o DESIERTA.",
