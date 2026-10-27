@@ -43,6 +43,7 @@ export async function PUT(request, { params }) {
 }
 
 // Cambio rápido desde la tabla: `{ sectorActual }`, `{ tipoResolucion }`
+// (con FRACASA / AUTORIZA, también `autorizaTipo` y `autorizaNumero`)
 // o `{ estado }` (cualquier usuario de Resoluciones, queda en el
 // historial); `{ situacion }` (estado general: Resoluciones y la jefa);
 // `{ agente }` o `{ prioritario }` solo la jefa de la Subdirección.
@@ -61,7 +62,7 @@ export async function PATCH(request, { params }) {
   if (!existente) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   let data = {};
-  for (const k of ["sectorActual", "tipoResolucion", "estado", "agente"]) {
+  for (const k of ["sectorActual", "tipoResolucion", "autorizaTipo", "autorizaNumero", "estado", "agente"]) {
     if (k in body) data[k] = String(body[k] || "").trim() || null;
   }
   if ("prioritario" in body) data.prioritario = body.prioritario === true;

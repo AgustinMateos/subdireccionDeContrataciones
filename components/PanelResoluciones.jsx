@@ -11,7 +11,7 @@ import { sumarDiasHabiles } from "@/lib/diasHabiles";
 import {
   FUEROS_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, SECTORES_RESOLUCIONES,
   ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta, esFinalizado, ESTADOS_GENERALES, ETIQUETA_ESTADO_GENERAL, estadoGeneral, esParaAdjudicar, esPrioritario,
-  estaFueraDeResoluciones, faltaDelDictamen, fechaISO, EVENTO_CAMBIOS_RESOLUCIONES,
+  estaFueraDeResoluciones, faltaDelDictamen, fechaISO, EVENTO_CAMBIOS_RESOLUCIONES, FRACASA_AUTORIZA, esFracasaAutoriza, textoAutoriza,
 } from "@/lib/resoluciones";
 import FiltroDesplegable from "./FiltroDesplegable";
 import BotonAccion from "./BotonAccion";
@@ -75,7 +75,7 @@ function filtroVacio() {
 const VACIO = {
   exp: "", fechaIngreso: "", objeto: "", fuero: "", organismo: "", tipoContratacion: "", numero: "",
   cantidadOfertas: "", cantidadRenglones: "", situacion: "TRAMITANDO",
-  tipoResolucion: "", estado: "", sectorActual: "", fechaUltimoMov: "", agente: "", vencOfertas: "",
+  tipoResolucion: "", autorizaTipo: "", autorizaNumero: "", estado: "", sectorActual: "", fechaUltimoMov: "", agente: "", vencOfertas: "",
   inicioServicio: "", montos: "", observaciones: "", prioritario: false,
   renovacionAutomatica: false, renovacionDias: "", renovacionHabiles: true,
   enPrestamo: false, dictamenNumero: "", dictamenVence: "",
@@ -286,6 +286,7 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
                 <DatoFicha label="Último movimiento" valor={fecha(f.fechaUltimoMov)} />
                 <DatoFicha label="Estado" valor={f.estado} />
                 <DatoFicha label="Tipo de resolución (lo carga Resoluciones)" valor={f.tipoResolucion} />
+                {esFracasaAutoriza(f) && <DatoFicha label="Contratación que se autoriza" valor={textoAutoriza(f)} />}
                 <Campo pregunta="¿Cuál es el estado general?" ayuda="Finalizado: va al fondo de la lista y deja de contar días." ancho>
                   <ElegirEstadoGeneral valor={f.situacion} onChange={v => set("situacion", v)} />
                   {vuelveDeFinalizado && <PreguntaReingreso valor={f.reingreso} onChange={v => setF(prev => ({ ...prev, reingreso: v }))} />}
@@ -396,6 +397,12 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
                 </Campo>
                 <Campo pregunta="¿Qué tipo de resolución es?" ancho>
                   <ElegirDeLista opciones={TIPOS_RESOLUCION} valor={f.tipoResolucion} onChange={v => set("tipoResolucion", v)} />
+                  {esFracasaAutoriza(f) && (
+                    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                      <DatosAutoriza expediente={f} tipo={f.autorizaTipo} numero={f.autorizaNumero}
+                        onTipo={v => set("autorizaTipo", v)} onNumero={v => set("autorizaNumero", v)} />
+                    </div>
+                  )}
                 </Campo>
                 <Campo pregunta="¿Cuál es el estado general?" ayuda="Finalizado: va al fondo de la lista y deja de contar días." ancho>
                   <ElegirEstadoGeneral valor={f.situacion} onChange={v => set("situacion", v)} />
@@ -493,6 +500,7 @@ function InfoExpediente({ e, historial, irA }) {
         <Dato label="Estado general"><span className={"font-semibold " + (esFinalizado(e) ? "text-emerald-700" : "")}>{ETIQUETA_ESTADO_GENERAL[estadoGeneral(e)]}</span></Dato>
         <Dato label="Sector">{e.sectorActual}</Dato>
         <Dato label="Tipo de resolución">{e.tipoResolucion}</Dato>
+        {esFracasaAutoriza(e) && <Dato label="Contratación que se autoriza">{textoAutoriza(e)}</Dato>}
         <Dato label="Estado de la resolución">{e.estado}</Dato>
         <Dato label="Días en el sector">
           {dias != null && <span className={"inline-block text-sm font-medium px-2 py-0.5 rounded border " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""} (desde el {fecha(e.fechaIngreso || e.fechaUltimoMov)})</span>}
@@ -817,6 +825,37 @@ function EntradaDictamen({ valor, onChange }) {
   );
 }
 
+// FRACASA / AUTORIZA: cuál fracasa (la contratación del expediente) y
+// cuál se autoriza, para cargarla. En la ficha y en la consulta de la tabla.
+function DatosAutoriza({ expediente: e, tipo, numero, onTipo, onNumero }) {
+  const fracasa = [e.tipoContratacion, e.numero && "N° " + e.numero].filter(Boolean).join(" ");
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-700">Fracasa: <b>{fracasa || "la contratación del expediente"}</b>. ¿Qué contratación se autoriza?</p>
+      <div>
+        <Pregunta>Tipo de contratación que se autoriza</Pregunta>
+        <ElegirDeLista opciones={TIPOS_CONTRATACION_RESOLUCIONES} valor={tipo} onChange={onTipo} otro="Otro tipo" />
+      </div>
+      <div>
+        <Pregunta>Número</Pregunta>
+        <Entrada valor={numero} onChange={onNumero} ejemplo="45/26" />
+      </div>
+    </div>
+  );
+}
+
+// Celda de la tabla con lo del expediente y, si es FRACASA / AUTORIZA, lo
+// que se autoriza debajo, en la misma fila.
+function ConAutoriza({ expediente: e, valor, autoriza }) {
+  if (!esFracasaAutoriza(e) || !autoriza) return valor || "-";
+  return (
+    <>
+      <span className="block">{valor || "-"} <span className="text-[11px] text-red-700">fracasa</span></span>
+      <span className="block">{autoriza} <span className="text-[11px] text-emerald-700">autoriza</span></span>
+    </>
+  );
+}
+
 // Debajo de la etiqueta "En préstamo" en la tabla: "Dict. 416/2026 · vence
 // 26/10/2026", en rojo si ya venció (hay que devolverlo a Aperturas).
 function EtiquetaPrestamo({ expediente: e }) {
@@ -850,7 +889,7 @@ function resumenPaso(n, f) {
       cuantos(f.cantidadRenglones, "renglón", "renglones"), f.agente && "Agente: " + f.agente, f.enPrestamo && "En préstamo"],
     2: [f.objeto, f.fuero, f.tipoContratacion],
     3: [f.vencOfertas && "Vencen las ofertas el " + fecha(f.vencOfertas), f.renovacionAutomatica && "se renuevan solas"],
-    4: [ETIQUETA_ESTADO_GENERAL[estadoGeneral(f)], f.tipoResolucion, f.estado, f.sectorActual && "En " + f.sectorActual],
+    4: [ETIQUETA_ESTADO_GENERAL[estadoGeneral(f)], f.tipoResolucion, textoAutoriza(f) && "autoriza " + textoAutoriza(f), f.estado, f.sectorActual && "En " + f.sectorActual],
   }[n];
   return partes.filter(Boolean).join(" · ");
 }
@@ -943,17 +982,18 @@ export const SOLAPAS = [
 
 function exportarExcel(filas, solapa) {
   const datos = [
-    ["EXP.", "FECHA INGRESO AL SECTOR", "OBJETO", "FUERO", "ORGANISMO", "TIPO DE CONTRATACION", "NUMERO", "DIAS EN SECTOR",
+    ["EXP.", "FECHA INGRESO AL SECTOR", "OBJETO", "FUERO", "ORGANISMO", "TIPO DE CONTRATACION", "NUMERO", "AUTORIZA (TIPO)", "AUTORIZA (NUMERO)", "DIAS EN SECTOR",
       "TIPO DE RESOLUCION", "ESTADO", "ESTADO GRAL.", "ULTIMO MOV", "SECTOR ACTUAL", "AGENTE", "VENC. OFERTAS", "INICIO DE SERV", "MONTOS",
       "OBSERVACIONES", "PRIORITARIO"],
     ...filas.map(e => [
       e.exp, fecha(e.fechaIngreso), e.objeto, e.fuero || "", e.organismo || "", e.tipoContratacion || "", e.numero || "",
+      esFracasaAutoriza(e) ? e.autorizaTipo || "" : "", esFracasaAutoriza(e) ? e.autorizaNumero || "" : "",
       diasEnSector(e) ?? "", e.tipoResolucion || "", e.estado || "", ETIQUETA_ESTADO_GENERAL[estadoGeneral(e)], fecha(e.fechaUltimoMov), e.sectorActual || "", e.agente || "",
       fecha(e.vencOfertas), e.inicioServicio || "", e.montos || "", e.observaciones || "", e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
     ]),
   ];
   const ws = XLSX.utils.aoa_to_sheet(datos);
-  ws["!cols"] = [14, 12, 40, 30, 30, 14, 10, 8, 18, 18, 14, 12, 16, 8, 12, 16, 18, 50, 12].map(wch => ({ wch }));
+  ws["!cols"] = [14, 12, 40, 30, 30, 14, 10, 14, 10, 8, 18, 18, 14, 12, 16, 8, 12, 16, 18, 50, 12].map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Resoluciones");
   XLSX.writeFile(wb, "resoluciones-" + (solapa === "general" ? "" : solapa + "-") + hoyLocalISO() + ".xlsx");
@@ -971,6 +1011,8 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
   const [form, setForm] = useState(abrirId || null);
   // Pasar un finalizado a trámite desde la tabla: se pregunta si reingresó.
   const [consultaReingreso, setConsultaReingreso] = useState(null);
+  // Elegir FRACASA / AUTORIZA desde la tabla: se pregunta qué se autoriza.
+  const [consultaAutoriza, setConsultaAutoriza] = useState(null);
   const [pagina, setPagina] = useState(0);
   const [porPagina, setPorPagina] = useState(OPCIONES_POR_PAGINA[0]);
   // Columnas que cada uno ocultó con la flechita del encabezado (quedan
@@ -1047,7 +1089,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
     const de = (campo, base) => [...new Set([...base, ...lista.map(e => e[campo]).filter(Boolean)])].sort((a, b) => a.localeCompare(b));
     return {
       fuero: de("fuero", []),
-      tipoContratacion: de("tipoContratacion", TIPOS_CONTRATACION_RESOLUCIONES),
+      tipoContratacion: de("tipoContratacion", [...TIPOS_CONTRATACION_RESOLUCIONES, ...lista.filter(esFracasaAutoriza).map(e => e.autorizaTipo).filter(Boolean)]),
       tipoResolucion: de("tipoResolucion", TIPOS_RESOLUCION),
       estado: de("estado", ESTADOS_RESOLUCION),
       sectorActual: de("sectorActual", []),
@@ -1057,11 +1099,12 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
   const solapas = SOLAPAS.filter(s => !s.soloJefa || esJefa);
   const deLaSolapa = useMemo(() => lista.filter(SOLAPAS.find(s => s.id === solapa).incluye), [lista, solapa]);
   const filas = useMemo(() => deLaSolapa.filter(e => {
-    if (f.exp && !norm(e.exp + " " + (e.numero || "")).includes(norm(expParaBuscar(f.exp)))) return false;
+    if (f.exp && !norm(e.exp + " " + (e.numero || "") + " " + (esFracasaAutoriza(e) ? e.autorizaNumero || "" : "")).includes(norm(expParaBuscar(f.exp)))) return false;
     if (f.objeto && !norm(e.objeto + " " + (e.observaciones || "")).includes(norm(f.objeto))) return false;
     if (f.organismo && !norm(e.organismo).includes(norm(f.organismo))) return false;
     for (const campo of ["fuero", "tipoContratacion", "tipoResolucion", "estado", "sectorActual"]) {
-      if (f[campo] && e[campo] !== f[campo]) return false;
+      const autoriza = campo === "tipoContratacion" && esFracasaAutoriza(e) && e.autorizaTipo === f[campo];
+      if (f[campo] && e[campo] !== f[campo] && !autoriza) return false;
     }
     // Botones de agente: SIN_AGENTE son los que no tienen asignado.
     if (f.agente && (f.agente === SIN_AGENTE ? String(e.agente || "").trim() : e.agente !== f.agente)) return false;
@@ -1166,9 +1209,9 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
     { t: "Organismo", w: "w-[200px]", filtro: <input value={f.organismo} onChange={e => set("organismo", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} />,
       celda: e => <td className="py-2.5 px-3"><span className="line-clamp-2" title={e.organismo || ""}>{e.organismo || "-"}</span></td> },
     { t: "Tipo de contratación", w: "w-[130px]", filtro: <FiltroColumna valor={f.tipoContratacion} etiqueta="Todos" opciones={opciones.tipoContratacion} onChange={v => set("tipoContratacion", v)} />,
-      celda: e => <td className="py-2.5 px-3 whitespace-nowrap">{e.tipoContratacion || "-"}</td> },
+      celda: e => <td className="py-2.5 px-3 whitespace-nowrap"><ConAutoriza expediente={e} valor={e.tipoContratacion} autoriza={e.autorizaTipo} /></td> },
     { t: "Número",
-      celda: e => <td className="py-2.5 px-3 whitespace-nowrap">{e.numero || "-"}</td> },
+      celda: e => <td className="py-2.5 px-3 whitespace-nowrap"><ConAutoriza expediente={e} valor={e.numero} autoriza={e.autorizaNumero} /></td> },
     // Días en el sector con el semáforo (la fecha de ingreso, en la ficha).
     { t: "Días en sector",
       celda: e => {
@@ -1184,7 +1227,8 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
     { t: "Tipo de resolución", w: "w-[150px]", filtro: <FiltroColumna valor={f.tipoResolucion} etiqueta="Todos" opciones={opciones.tipoResolucion} onChange={v => set("tipoResolucion", v)} />,
       celda: e => (
         <td className="py-2.5 px-3" onClick={editable}>
-          {esJefa ? (e.tipoResolucion || "-") : <SelectRapido valor={e.tipoResolucion} opciones={TIPOS_RESOLUCION} onChange={v => cambiarRapido(e, { tipoResolucion: v })} />}
+          {esJefa ? (e.tipoResolucion || "-") : <SelectRapido valor={e.tipoResolucion} opciones={TIPOS_RESOLUCION}
+            onChange={v => (v === FRACASA_AUTORIZA ? setConsultaAutoriza({ e, tipo: e.autorizaTipo || "", numero: e.autorizaNumero || "" }) : cambiarRapido(e, { tipoResolucion: v }))} />}
         </td>
       ) },
     { t: "Estado", w: "w-[160px]", filtro: <FiltroColumna valor={f.estado} etiqueta="Todos" opciones={opciones.estado} onChange={v => set("estado", v)} />,
@@ -1349,6 +1393,27 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
                 className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50">No, fue un error</button>
               <button type="button" onClick={() => { const { e, v } = consultaReingreso; setConsultaReingreso(null); cambiarRapido(e, { situacion: v, reingreso: true }); }}
                 className="px-4 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800">Sí, es un reingreso</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {consultaAutoriza && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/50" onClick={() => setConsultaAutoriza(null)} />
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-base font-semibold text-slate-900">Fracasa / autoriza</h3>
+            <p className="text-sm text-slate-600">
+              Expediente <span className="font-mono font-semibold">{consultaAutoriza.e.exp}</span>. Lo que se autoriza aparece en la misma fila, debajo de lo que fracasa.
+            </p>
+            <DatosAutoriza expediente={consultaAutoriza.e} tipo={consultaAutoriza.tipo} numero={consultaAutoriza.numero}
+              onTipo={v => setConsultaAutoriza(c => ({ ...c, tipo: v }))} onNumero={v => setConsultaAutoriza(c => ({ ...c, numero: v }))} />
+            <div className="flex flex-wrap justify-end gap-2">
+              <button type="button" onClick={() => setConsultaAutoriza(null)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50">Cancelar</button>
+              <button type="button" onClick={() => { const { e } = consultaAutoriza; setConsultaAutoriza(null); cambiarRapido(e, { tipoResolucion: FRACASA_AUTORIZA }); }}
+                className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50">Cargarlo después</button>
+              <button type="button" onClick={() => { const { e, tipo, numero } = consultaAutoriza; setConsultaAutoriza(null); cambiarRapido(e, { tipoResolucion: FRACASA_AUTORIZA, autorizaTipo: tipo, autorizaNumero: numero }); }}
+                className="px-4 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800">Guardar</button>
             </div>
           </div>
         </div>

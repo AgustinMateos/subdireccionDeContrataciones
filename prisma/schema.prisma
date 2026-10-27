@@ -365,6 +365,11 @@ model ExpedienteResolucion {
   cantidadOfertas   Int? // ofertas recibidas
   cantidadRenglones Int?
   tipoResolucion   String? // FRACASAR | ADJUDICAR | AUTORIZAR...
+  // Con FRACASA / AUTORIZA: la contratación que se autoriza (la que fracasa
+  // es tipoContratacion + numero). Ej.: fracasa la DIRECTA 44 y autoriza la
+  // DESCENTRALIZADA 45, en el mismo expediente.
+  autorizaTipo     String?
+  autorizaNumero   String?
   estado           String? // de la resolución: Confeccion de Resol | Completado...
   sectorActual     String?
   fechaUltimoMov   DateTime? // se renueva al cambiar de sector (los días en el sector corren desde fechaIngreso)
