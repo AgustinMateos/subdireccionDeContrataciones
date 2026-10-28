@@ -1281,7 +1281,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
           onClick={() => {
             setSolapa(s.id); setPagina(0);
             // Ahí no están los botones de agente: no queda un agente elegido escondido.
-            if (["general", "finalizados"].includes(s.id)) setF(prev => ({ ...prev, agente: "" }));
+            if (s.id === "general") setF(prev => ({ ...prev, agente: "" }));
           }}
           className={"px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 " +
             (solapa === s.id ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}
@@ -1318,8 +1318,8 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
       {/* Debajo: qué muestra la solapa y cómo está ordenada. */}
       <p className="mt-2 text-xs text-slate-600"><span className="font-medium text-slate-700">Muestra:</span> {SOLAPAS.find(s => s.id === solapa).muestra}</p>
       <p className="text-xs text-slate-600"><span className="font-medium text-slate-700">Orden:</span> {SOLAPAS.find(s => s.id === solapa).orden}</p>
-      {/* En General y Finalizados no hace falta filtrar por agente. */}
-      {!["general", "finalizados"].includes(solapa) && (
+      {/* En General no hace falta filtrar por agente. En Finalizados, cuántos terminó cada uno. */}
+      {solapa !== "general" && (
         <BotonesAgente expedientes={deLaSolapa} elegido={f.agente} onElegir={v => set("agente", f.agente === v ? "" : v)} />
       )}
       {/* Las columnas ocultas, para volver a mostrarlas. */}
