@@ -11,7 +11,7 @@ import { EMAIL_JEFA_SUBDIRECCION, fechaISO } from "@/lib/resoluciones";
 import { esFechaISO } from "@/lib/diasHabiles";
 import {
   AGENTES_ORDENES_COMPRA, TIPOS_ORDEN_COMPRA, ESTADOS_ORDEN_COMPRA, PASES_ORDEN_COMPRA, PASOS_ORDEN_COMPRA,
-  CONTROLADORES_ORDENES_COMPRA, avanceOC, cbuCargado, compararOrdenesCompra, fechaYQuien, textoFechaYQuien, compararPorNumeroOC, diasEnOC, siguienteNumeroOC, diasParaVencerOC, esCompleta, esPrioritariaOC, porVencerOC,
+  CONTROLADORES_ORDENES_COMPRA, avanceOC, cbuCargado, compararOrdenesCompra, fechaYQuien, numeroOCSiguiente, textoFechaYQuien, compararPorNumeroOC, diasEnOC, siguienteNumeroOC, diasParaVencerOC, esCompleta, esPrioritariaOC, porVencerOC,
 } from "@/lib/ordenesCompra";
 import BotonAccion from "./BotonAccion";
 import {
@@ -42,8 +42,12 @@ const VACIO = {
   pase: "", estado: "", fechaPublicacion: "", observaciones: "", prioritario: false,
 };
 
+// En el alta, cada proveedor del expediente con su N° de OC y sus montos:
+// se guarda una orden por proveedor.
+const proveedorVacio = numeroOC => ({ numeroOC: numeroOC || "", proveedor: "", montoResolucion: "", seAjusta: false, montoAjustado: "", cbu: "" });
+
 function aFormulario(e, numeroNuevo) {
-  if (!e) return { ...VACIO, ...partesControlYFirma(VACIO), ingresoOC: hoyLocalISO(), autoriza: "AG", numeroOC: numeroNuevo || "" };
+  if (!e) return { ...VACIO, ...partesControlYFirma(VACIO), ingresoOC: hoyLocalISO(), autoriza: "AG", proveedores: [proveedorVacio(numeroNuevo)] };
   const f = {};
   for (const k of Object.keys(VACIO)) f[k] = e[k] ?? "";
   for (const k of CAMPOS_FECHA) f[k] = fechaISO(e[k]);
@@ -204,6 +208,50 @@ function ElegirCBU({ valor, onChange }) {
   );
 }
 
+// Proveedores de una OC nueva: uno por fila, cada uno con su N° de OC
+// (el siguiente al anterior), sus montos y su CBU.
+function ProveedoresOC({ proveedores, onChange }) {
+  const cambiar = (i, cambios) => onChange(proveedores.map((p, j) => (j === i ? { ...p, ...cambios } : p)));
+  return (
+    <div className="space-y-3">
+      {proveedores.map((p, i) => (
+        <div key={i} className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 grid md:grid-cols-2 gap-3">
+          <div className="md:col-span-2 flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-800">{proveedores.length > 1 ? "Proveedor " + (i + 1) : "Proveedor"}</p>
+            {proveedores.length > 1 && (
+              <button type="button" onClick={() => onChange(proveedores.filter((_, j) => j !== i))} className="text-sm text-red-700 underline">Quitar</button>
+            )}
+          </div>
+          <Campo pregunta="N° de orden de compra" ayuda={i === 0 ? "Ya viene puesto el que sigue al último cargado." : ""}>
+            <Entrada valor={p.numeroOC} onChange={v => cambiar(i, { numeroOC: v })} ejemplo="146" />
+          </Campo>
+          <Campo pregunta="Proveedor">
+            <Entrada valor={p.proveedor} onChange={v => cambiar(i, { proveedor: v })} ejemplo="LIMPRO SAS" />
+          </Campo>
+          <Campo pregunta="Monto de la resolución">
+            <Entrada valor={p.montoResolucion} onChange={v => cambiar(i, { montoResolucion: v })} ejemplo="$ 49.355.142,75" />
+          </Campo>
+          <Campo pregunta="¿El monto cambió para la orden de compra?">
+            <SiNo valor={!!p.seAjusta} si="Sí, se ajustó" no="No, es el mismo"
+              onChange={v => cambiar(i, { seAjusta: v, montoAjustado: v ? p.montoAjustado : "" })} />
+            {p.seAjusta && <div className="mt-2"><Entrada valor={p.montoAjustado} onChange={v => cambiar(i, { montoAjustado: v })} ejemplo="$ 51.000.000,00" /></div>}
+          </Campo>
+          <Campo pregunta="¿Está cargado el CBU?" ancho>
+            <ElegirCBU valor={p.cbu} onChange={v => cambiar(i, { cbu: v })} />
+          </Campo>
+        </div>
+      ))}
+      <button type="button" onClick={() => onChange([...proveedores, proveedorVacio(numeroOCSiguiente(proveedores.at(-1)?.numeroOC))])}
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50">
+        <Plus size={15} /> Agregar otro proveedor del mismo expediente
+      </button>
+      {proveedores.length > 1 && (
+        <p className="text-xs text-slate-500">Se guardan {proveedores.length} órdenes de compra, una por proveedor, con el resto de los datos iguales.</p>
+      )}
+    </div>
+  );
+}
+
 // Pasos del circuito hechos y por hacer.
 function AvanceCircuito({ f }) {
   const { hechos } = avanceOC(f);
@@ -224,7 +272,9 @@ function resumenPaso(n, f) {
   const partes = {
     1: [f.exp, f.numeroResol && "Resol. " + f.numeroResol, f.fechaResol && fecha(f.fechaResol)],
     2: [f.objeto, f.organismo, f.tipo && etiqueta(f.tipo)],
-    3: [f.numeroOC && "OC " + f.numeroOC, f.proveedor, f.agente && "Agente: " + f.agente],
+    3: f.proveedores
+      ? [...f.proveedores.map(p => [p.numeroOC && "OC " + p.numeroOC, p.proveedor].filter(Boolean).join(" ")), f.agente && "Agente: " + f.agente]
+      : [f.numeroOC && "OC " + f.numeroOC, f.proveedor, f.agente && "Agente: " + f.agente],
     4: [avanceOC(f).hechos + " de " + PASOS_ORDEN_COMPRA.length + " pasos hechos", f.estado && etiqueta(f.estado.toUpperCase())],
   }[n];
   return partes.filter(Boolean).join(" · ");
@@ -382,10 +432,15 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
     setGuardando(true);
     // Sin observación nueva, queda la última que tenía.
     // Sin ajuste, el total para la O/C es el mismo monto de la resolución.
+    // En el alta, una orden por proveedor.
+    const { proveedores, ...datos } = f;
     const res = await onGuardar({
-      ...f,
+      ...datos,
       montoAjustado: f.seAjusta ? f.montoAjustado : f.montoResolucion,
       observaciones: f.observaciones.trim() || inicial?.observaciones || "",
+      ...(proveedores && {
+        proveedores: proveedores.map(p => ({ ...p, montoAjustado: p.seAjusta ? p.montoAjustado : p.montoResolucion })),
+      }),
     });
     setGuardando(false);
     if (res?.error) setError(res.error);
@@ -553,21 +608,29 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
                 )}
               </Paso>
 
-              <Paso {...paso(3)} titulo="La orden de compra">
-                <Campo pregunta="N° de orden de compra" ayuda={inicial ? "" : "Ya viene puesto el que sigue al último cargado."}>
-                  <Entrada valor={f.numeroOC} onChange={v => set("numeroOC", v)} ejemplo="146" />
-                </Campo>
-                <Campo pregunta="Proveedor">
-                  <Entrada valor={f.proveedor} onChange={v => set("proveedor", v)} ejemplo="LIMPRO SAS" />
-                </Campo>
-                <Campo pregunta="Monto de la resolución">
-                  <Entrada valor={f.montoResolucion} onChange={v => set("montoResolucion", v)} ejemplo="$ 49.355.142,75" />
-                </Campo>
-                <Campo pregunta="¿El monto cambió para la orden de compra?">
-                  <SiNo valor={!!f.seAjusta} si="Sí, se ajustó" no="No, es el mismo"
-                    onChange={v => setF(prev => ({ ...prev, seAjusta: v, montoAjustado: v ? prev.montoAjustado : "" }))} />
-                  {f.seAjusta && <div className="mt-2"><Entrada valor={f.montoAjustado} onChange={v => set("montoAjustado", v)} ejemplo="$ 51.000.000,00" /></div>}
-                </Campo>
+              <Paso {...paso(3)} titulo={inicial ? "La orden de compra" : "Las órdenes de compra"}>
+                {inicial ? (
+                  <>
+                    <Campo pregunta="N° de orden de compra">
+                      <Entrada valor={f.numeroOC} onChange={v => set("numeroOC", v)} ejemplo="146" />
+                    </Campo>
+                    <Campo pregunta="Proveedor">
+                      <Entrada valor={f.proveedor} onChange={v => set("proveedor", v)} ejemplo="LIMPRO SAS" />
+                    </Campo>
+                    <Campo pregunta="Monto de la resolución">
+                      <Entrada valor={f.montoResolucion} onChange={v => set("montoResolucion", v)} ejemplo="$ 49.355.142,75" />
+                    </Campo>
+                    <Campo pregunta="¿El monto cambió para la orden de compra?">
+                      <SiNo valor={!!f.seAjusta} si="Sí, se ajustó" no="No, es el mismo"
+                        onChange={v => setF(prev => ({ ...prev, seAjusta: v, montoAjustado: v ? prev.montoAjustado : "" }))} />
+                      {f.seAjusta && <div className="mt-2"><Entrada valor={f.montoAjustado} onChange={v => set("montoAjustado", v)} ejemplo="$ 51.000.000,00" /></div>}
+                    </Campo>
+                  </>
+                ) : (
+                  <Campo pregunta="Proveedores del expediente" ayuda="Si el expediente tiene varios proveedores, agregalos acá: cada uno lleva su N° de OC y queda en su propia fila." ancho>
+                    <ProveedoresOC proveedores={f.proveedores} onChange={v => set("proveedores", v)} />
+                  </Campo>
+                )}
                 <Campo pregunta="¿Qué día ingresó a Órdenes de Compra?">
                   {inicial ? <ElegirDia valor={f.ingresoOC} onChange={v => set("ingresoOC", v)} />
                     : <p className="text-base text-slate-800 py-2">Hoy, {fecha(f.ingresoOC)} <span className="text-sm text-slate-500">(se pone solo)</span></p>}
@@ -587,9 +650,11 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
                 <Campo pregunta="¿Qué día se notificó el art. 44?" ancho>
                   <ElegirDiaTexto valor={f.notificacion44} onChange={v => set("notificacion44", v)} extras={[{ etiqueta: "No lleva", valor: "NO LLEVA" }]} />
                 </Campo>
-                <Campo pregunta="¿Está cargado el CBU?" ancho>
-                  <ElegirCBU valor={f.cbu} onChange={v => set("cbu", v)} />
-                </Campo>
+                {inicial && (
+                  <Campo pregunta="¿Está cargado el CBU?" ancho>
+                    <ElegirCBU valor={f.cbu} onChange={v => set("cbu", v)} />
+                  </Campo>
+                )}
                 <Campo pregunta="¿Qué día fue a Contabilidad?" ancho>
                   <ElegirDiaTexto valor={f.contabilidad} onChange={v => set("contabilidad", v)} />
                 </Campo>
@@ -667,7 +732,7 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
           </button>
           <BotonAccion onClick={guardar} cargando={guardando}
             className="px-5 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-50">
-            {inicial ? "Guardar cambios" : "Guardar la orden de compra"}
+            {inicial ? "Guardar cambios" : f.proveedores.length > 1 ? "Guardar las " + f.proveedores.length + " órdenes de compra" : "Guardar la orden de compra"}
           </BotonAccion>
         </div>
       </div>
@@ -841,12 +906,13 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
       ? await enviar("/api/ordenes-compra/" + seleccionada.id, "PUT", datos)
       : await enviar("/api/ordenes-compra", "POST", datos);
     if (data.error) return data;
-    setOrdenes(prev => seleccionada ? prev.map(e => (e.id === data.expediente.id ? data.expediente : e)) : [...prev, data.expediente]);
+    setOrdenes(prev => seleccionada ? prev.map(e => (e.id === data.expediente.id ? data.expediente : e)) : [...prev, ...data.expedientes]);
     setForm(null);
     // Un informe nuevo queda en el historial: se avisa.
     const informeNuevo = String(datos.informe || "").trim() && String(datos.informe || "").trim() !== String(seleccionada?.informe || "").trim();
     mostrarToast(informeNuevo ? "Se cargó lo informado en el historial y el circuito"
-      : seleccionada ? "Orden de compra actualizada" : "Orden de compra cargada");
+      : seleccionada ? "Orden de compra actualizada"
+      : data.expedientes.length > 1 ? "Se cargaron " + data.expedientes.length + " órdenes de compra" : "Orden de compra cargada");
   }
 
   // Cambio rápido desde la tabla: estado o pase (el departamento),
