@@ -892,9 +892,9 @@ function ConAutoriza({ expediente: e, valor, autoriza }) {
   );
 }
 
-// Un escrito se ve en la columna del expediente como "RES <N°>" (se busca
+// Un escrito se ve en la columna del expediente como "ESC <N°>" (se busca
 // igual por el N°).
-const PREFIJO_ESCRITO = "RES ";
+const PREFIJO_ESCRITO = "ESC ";
 const expConPrefijo = e => (e.esEscrito ? PREFIJO_ESCRITO : "") + e.exp;
 
 // En la tabla, debajo del N° de un escrito: por qué se generó.
