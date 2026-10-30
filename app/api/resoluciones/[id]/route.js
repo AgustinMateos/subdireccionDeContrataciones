@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { CAMPOS_DE_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, datosResolucion, faltaDelDictamen, sinCamposDeResoluciones, soloCamposDeJefa } from "@/lib/resoluciones";
+import { CAMPOS_DE_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, datosResolucion, faltaDelDictamen, faltaDelEscrito, sinCamposDeResoluciones, soloCamposDeJefa } from "@/lib/resoluciones";
 import { INCLUDE_RESOLUCION, avisarSiActivaRenovacion, avisarSiEsJefa, marcarAsignado, conPlanObras, conPrestamo, conReingreso, conUltimoMovPorSector, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
 
 // Edición. Los cambios de sector actual, tipo de resolución, estado y
@@ -30,6 +30,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ error: "Completá N° de expediente y objeto" }, { status: 400 });
   }
   if (faltaDelDictamen(datos)) return NextResponse.json({ error: faltaDelDictamen(datos) }, { status: 400 });
+  if (faltaDelEscrito(datos)) return NextResponse.json({ error: faltaDelEscrito(datos) }, { status: 400 });
   const cambios = registrosDeCambios(existente, datos, session.user.name);
   const expediente = await prisma.expedienteResolucion.update({
     where: { id },

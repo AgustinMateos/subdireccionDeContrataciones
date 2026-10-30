@@ -370,6 +370,12 @@ model ExpedienteResolucion {
   // DESCENTRALIZADA 45, en el mismo expediente.
   autorizaTipo     String?
   autorizaNumero   String?
+  // Escrito: no es un expediente sino un escrito referido a uno (`exp` es
+  // el N° de ese expediente). `escritoMotivo`: por qué se generó o qué
+  // tramita. Al darlo de alta, los registros de ese expediente que
+  // estuvieron en Resoluciones suman una observación con el motivo.
+  esEscrito        Boolean   @default(false)
+  escritoMotivo    String?
   estado           String? // de la resolución: Confeccion de Resol | Completado...
   sectorActual     String?
   fechaUltimoMov   DateTime? // se renueva al cambiar de sector (los días en el sector corren desde fechaIngreso)

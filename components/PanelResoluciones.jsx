@@ -11,7 +11,7 @@ import { sumarDiasHabiles } from "@/lib/diasHabiles";
 import {
   FUEROS_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, SECTORES_RESOLUCIONES,
   ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta, esFinalizado, ESTADOS_GENERALES, ETIQUETA_ESTADO_GENERAL, estadoGeneral, esParaAdjudicar, esPrioritario,
-  estaFueraDeResoluciones, faltaDelDictamen, fechaISO, EVENTO_CAMBIOS_RESOLUCIONES, FRACASA_AUTORIZA, esFracasaAutoriza, textoAutoriza,
+  estaFueraDeResoluciones, faltaDelDictamen, faltaDelEscrito, fechaISO, EVENTO_CAMBIOS_RESOLUCIONES, FRACASA_AUTORIZA, esFracasaAutoriza, textoAutoriza,
 } from "@/lib/resoluciones";
 import FiltroDesplegable from "./FiltroDesplegable";
 import BotonAccion from "./BotonAccion";
@@ -22,7 +22,7 @@ import CampoOpciones from "./CampoOpciones";
 import {
   AbrirTodos, BotonOpcion, CLASE_ENTRADA, Campo, ElegirDeLista, ElegirDia, Entrada, Paso, Pregunta, SiNo, usePasos,
 } from "./FormularioFacil";
-import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
+import { expParaBuscar, mismoExp, normalizarExp } from "@/lib/numeroExpediente";
 
 const CLAVE_OCULTAS = "resoluciones.columnasOcultas";
 const norm = s => String(s || "").trim().toLowerCase();
@@ -73,6 +73,7 @@ function filtroVacio() {
 }
 
 const VACIO = {
+  esEscrito: false, escritoMotivo: "",
   exp: "", fechaIngreso: "", objeto: "", fuero: "", organismo: "", tipoContratacion: "", numero: "",
   cantidadOfertas: "", cantidadRenglones: "", situacion: "TRAMITANDO",
   tipoResolucion: "", autorizaTipo: "", autorizaNumero: "", estado: "", sectorActual: "", fechaUltimoMov: "", agente: "", vencOfertas: "",
@@ -137,6 +138,22 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
   // un reingreso (o fue un error de clic).
   const vuelveDeFinalizado = !!inicial && esFinalizado(inicial) && !esFinalizado(f);
 
+  // Escrito nuevo cuyo expediente ya estuvo en Resoluciones: se traen sus
+  // datos (N° de contratación, objeto, fuero...) a lo que esté vacío.
+  const delExp = !inicial && f.esEscrito ? registrosDelExp(f.exp, expedientes) : null;
+  const origen = delExp?.length ? delExp.reduce((a, b) => (String(b.creadoEn) > String(a.creadoEn) ? b : a)) : null;
+  useEffect(() => {
+    if (!origen) return;
+    setF(prev => {
+      const n = { ...prev };
+      for (const k of DATOS_DEL_EXPEDIENTE) {
+        const valor = ["vencOfertas"].includes(k) ? fechaISO(origen[k]) : origen[k];
+        if ((n[k] === "" || n[k] == null) && valor != null && valor !== "") n[k] = valor;
+      }
+      return n;
+    });
+  }, [origen?.id]);
+
   async function guardar() {
     // Los campos que faltan están en la solapa de datos: se vuelve a ella.
     const falta = !f.exp.trim() || !f.objeto.trim() ? "Completá N° de expediente y objeto."
@@ -144,8 +161,9 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
         : esJefa && f.renovacionAutomatica && !f.vencOfertas ? (fijo ? "Para la renovación automática falta el vencimiento de ofertas: lo carga Resoluciones." : "Para la renovación automática cargá el vencimiento de ofertas.")
           : vuelveDeFinalizado && f.reingreso === undefined ? "Estaba Finalizado: indicá si es un reingreso o fue un error."
           : !fijo && faltaDelDictamen(f) ? faltaDelDictamen(f)
+          : !fijo && faltaDelEscrito(f) ? faltaDelEscrito(f)
           : "";
-    const pasoConFalta = !f.exp.trim() || !f.objeto.trim() ? [1, 2] : !fijo && faltaDelDictamen(f) ? [1]
+    const pasoConFalta = !f.exp.trim() || !f.objeto.trim() ? [1, 2] : !fijo && (faltaDelDictamen(f) || faltaDelEscrito(f)) ? [1]
       : [vuelveDeFinalizado && f.reingreso === undefined ? 4 : 3];
     if (falta) { setError(falta); setSolapa("datos"); pasos.abrir(...pasoConFalta); return; }
     setGuardando(true);
@@ -182,7 +200,8 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-base font-semibold text-slate-900">
-                {inicial ? <>Expediente <span className="font-mono">{inicial.exp}</span></> : "Nuevo expediente"}
+                {inicial ? <>{inicial.esEscrito ? "Escrito" : "Expediente"} <span className="font-mono">{expConPrefijo(inicial)}</span></>
+                  : f.esEscrito ? "Nuevo escrito" : "Nuevo expediente"}
               </h2>
               {inicial && <p className="text-xs text-slate-500 truncate" title={inicial.objeto}>{inicial.objeto}</p>}
               {inicial && (
@@ -248,8 +267,9 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
           ) : solapa === "datos" && fijo ? (
             // La jefa ve la ficha: solo cambia agente y prioridad.
             <>
-              <Paso {...paso(1)} titulo="El expediente">
-                <DatoFicha label="N° de expediente" valor={f.exp} mono />
+              <Paso {...paso(1)} titulo={f.esEscrito ? "El escrito" : "El expediente"}>
+                <DatoFicha label="N° de expediente" valor={expConPrefijo(f)} mono />
+                {f.esEscrito && <DatoFicha label="Por qué se generó / qué tramita" valor={f.escritoMotivo} />}
                 <DatoFicha label="Número de contratación" valor={f.numero} />
                 <Campo pregunta="¿Cuántas ofertas hay?">
                   <EntradaCantidad valor={f.cantidadOfertas} onChange={v => set("cantidadOfertas", v)} ejemplo="3" />
@@ -295,12 +315,27 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
             </>
           ) : solapa === "datos" ? (
             <>
-              <p className="text-sm text-slate-600">Completá lo que sepas; lo demás se puede cargar después. Lo único obligatorio es el <b>N° de expediente</b> y el <b>objeto</b>. Tocá cada paso para abrirlo.</p>
+              <p className="text-sm text-slate-600">Completá lo que sepas; lo demás se puede cargar después. Lo único obligatorio es el <b>N° de expediente</b> y el <b>objeto</b>{f.esEscrito && <> (y, en un escrito, <b>por qué se generó</b>)</>}. Tocá cada paso para abrirlo.</p>
 
-              <Paso {...paso(1)} titulo="El expediente">
-                <Campo pregunta="N° de expediente (obligatorio)">
-                  <Entrada valor={f.exp} onChange={v => set("exp", v)} ejemplo="13-05999/2025" mono />
+              <Paso {...paso(1)} titulo={f.esEscrito ? "El escrito" : "El expediente"}>
+                <Campo pregunta="¿Qué estás cargando?" ancho>
+                  {inicial ? <p className="text-base text-slate-800 py-2">{f.esEscrito ? "Un escrito referido a un expediente" : "Un expediente"}</p> : (
+                    <div className="flex flex-wrap gap-2">
+                      <BotonOpcion elegido={!f.esEscrito} onClick={() => set("esEscrito", false)}>Expediente</BotonOpcion>
+                      <BotonOpcion elegido={!!f.esEscrito} onClick={() => set("esEscrito", true)}>Escrito</BotonOpcion>
+                    </div>
+                  )}
                 </Campo>
+                <Campo pregunta={f.esEscrito ? "N° del expediente al que se refiere el escrito (obligatorio)" : "N° de expediente (obligatorio)"} ancho={f.esEscrito}>
+                  <Entrada valor={f.exp} onChange={v => set("exp", v)} ejemplo="13-05999/2025" mono />
+                  {f.esEscrito && !inicial && <ExpedienteDelEscrito delExp={delExp} origen={origen} />}
+                </Campo>
+                {f.esEscrito && (
+                  <Campo pregunta="¿Por qué se generó el escrito o qué tramita? (obligatorio)" ayuda={inicial ? "" : "Queda como observación en el escrito y, si el expediente estuvo en Resoluciones, también en él."} ancho>
+                    <textarea value={f.escritoMotivo} onChange={e => set("escritoMotivo", e.target.value)} rows={2}
+                      placeholder="Ej.: PEDIDO DE PRÓRROGA DEL PROVEEDOR" className={CLASE_ENTRADA + " resize-y"} />
+                  </Campo>
+                )}
                 <Campo pregunta="Número de contratación">
                   <Entrada valor={f.numero} onChange={v => set("numero", v)} ejemplo="139/26" />
                 </Campo>
@@ -508,8 +543,9 @@ function InfoExpediente({ e, historial, irA }) {
         <Dato label="Último movimiento">{e.fechaUltimoMov && fecha(e.fechaUltimoMov)}</Dato>
       </Bloque>
 
-      <Bloque titulo="El expediente">
-        <Dato label="N° de expediente"><span className="font-mono">{e.exp}</span></Dato>
+      <Bloque titulo={e.esEscrito ? "El escrito" : "El expediente"}>
+        <Dato label="N° de expediente"><span className="font-mono">{expConPrefijo(e)}</span></Dato>
+        {e.esEscrito && <Dato label="Por qué se generó / qué tramita" ancho>{e.escritoMotivo}</Dato>}
         <Dato label="Número de contratación">{e.numero}</Dato>
         <Dato label="Agente asignado">{e.agente}</Dato>
         <Dato label="Prioridad">{e.enPlanObras ? "Prioritario (Plan de Obras)" : e.prioritario ? "Prioritario" : "Normal"}</Dato>
@@ -856,6 +892,45 @@ function ConAutoriza({ expediente: e, valor, autoriza }) {
   );
 }
 
+// Un escrito se ve en la columna del expediente como "RES <N°>" (se busca
+// igual por el N°).
+const PREFIJO_ESCRITO = "RES ";
+const expConPrefijo = e => (e.esEscrito ? PREFIJO_ESCRITO : "") + e.exp;
+
+// En la tabla, debajo del N° de un escrito: por qué se generó.
+function EtiquetaEscrito({ expediente: e }) {
+  if (!e.esEscrito || !e.escritoMotivo) return null;
+  return <p className="mt-0.5 max-w-[220px] whitespace-normal text-[11px] text-slate-600 line-clamp-2" title={e.escritoMotivo}>{e.escritoMotivo}</p>;
+}
+
+// Datos que un escrito trae del expediente al que se refiere.
+const DATOS_DEL_EXPEDIENTE = [
+  "numero", "objeto", "fuero", "organismo", "tipoContratacion", "montos", "vencOfertas", "inicioServicio", "cantidadOfertas", "cantidadRenglones",
+];
+
+// Registros de Resoluciones (no escritos) con ese N° de expediente; null
+// mientras el N° no esté completo.
+function registrosDelExp(exp, expedientes) {
+  if (!/^\d{2}-\d{5}\/\d{4}$/.test(normalizarExp(String(exp || "").trim()))) return null;
+  return (expedientes || []).filter(e => !e.esEscrito && mismoExp(e.exp, exp));
+}
+
+// Al cargar un escrito: si el expediente estuvo en Resoluciones, avisa que
+// se trajeron sus datos y que los dos quedan con la constancia.
+function ExpedienteDelEscrito({ delExp, origen }) {
+  if (!delExp) return null;
+  if (!origen) {
+    return <p className="mt-2 text-sm text-slate-600">Este expediente no pasó por Resoluciones: el escrito se carga solo, con la constancia en sus observaciones.</p>;
+  }
+  return (
+    <div className="mt-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
+      Este expediente estuvo en Resoluciones{origen.objeto ? <> ({origen.objeto})</> : null}: se trajeron sus datos
+      {origen.numero ? <> (contratación N° <b>{origen.numero}</b>, objeto, fuero...)</> : " (objeto, fuero...)"}; revisalos en los pasos siguientes.
+      Al guardar, el expediente{delExp.length > 1 ? " (sus " + delExp.length + " registros)" : ""} y el escrito quedan con la constancia en observaciones.
+    </div>
+  );
+}
+
 // Debajo de la etiqueta "En préstamo" en la tabla: "Dict. 416/2026 · vence
 // 26/10/2026", en rojo si ya venció (hay que devolverlo a Aperturas).
 function EtiquetaPrestamo({ expediente: e }) {
@@ -885,7 +960,7 @@ function EntradaCantidad({ valor, onChange, ejemplo }) {
 // Lo que se ve de cada paso cuando está cerrado.
 function resumenPaso(n, f) {
   const partes = {
-    1: [f.exp, f.numero && "Contratación N° " + f.numero, cuantos(f.cantidadOfertas, "oferta", "ofertas"),
+    1: [f.esEscrito && "Escrito", f.exp, f.numero && "Contratación N° " + f.numero, cuantos(f.cantidadOfertas, "oferta", "ofertas"),
       cuantos(f.cantidadRenglones, "renglón", "renglones"), f.agente && "Agente: " + f.agente, f.enPrestamo && "En préstamo"],
     2: [f.objeto, f.fuero, f.tipoContratacion],
     3: [f.vencOfertas && "Vencen las ofertas el " + fecha(f.vencOfertas), f.renovacionAutomatica && "se renuevan solas"],
@@ -986,7 +1061,7 @@ function exportarExcel(filas, solapa) {
       "TIPO DE RESOLUCION", "ESTADO", "ESTADO GRAL.", "ULTIMO MOV", "SECTOR ACTUAL", "AGENTE", "VENC. OFERTAS", "INICIO DE SERV", "MONTOS",
       "OBSERVACIONES", "PRIORITARIO"],
     ...filas.map(e => [
-      e.exp, fecha(e.fechaIngreso), e.objeto, e.fuero || "", e.organismo || "", e.tipoContratacion || "", e.numero || "",
+      expConPrefijo(e), fecha(e.fechaIngreso), e.objeto, e.fuero || "", e.organismo || "", e.tipoContratacion || "", e.numero || "",
       esFracasaAutoriza(e) ? e.autorizaTipo || "" : "", esFracasaAutoriza(e) ? e.autorizaNumero || "" : "",
       diasEnSector(e) ?? "", e.tipoResolucion || "", e.estado || "", ETIQUETA_ESTADO_GENERAL[estadoGeneral(e)], fecha(e.fechaUltimoMov), e.sectorActual || "", e.agente || "",
       fecha(e.vencOfertas), e.inicioServicio || "", e.montos || "", e.observaciones || "", e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
@@ -1099,7 +1174,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
   const solapas = SOLAPAS.filter(s => !s.soloJefa || esJefa);
   const deLaSolapa = useMemo(() => lista.filter(SOLAPAS.find(s => s.id === solapa).incluye), [lista, solapa]);
   const filas = useMemo(() => deLaSolapa.filter(e => {
-    if (f.exp && !norm(e.exp + " " + (e.numero || "") + " " + (esFracasaAutoriza(e) ? e.autorizaNumero || "" : "")).includes(norm(expParaBuscar(f.exp)))) return false;
+    if (f.exp && !norm(expConPrefijo(e) + " " + (e.numero || "") + " " + (esFracasaAutoriza(e) ? e.autorizaNumero || "" : "")).includes(norm(expParaBuscar(f.exp)))) return false;
     if (f.objeto && !norm(e.objeto + " " + (e.observaciones || "")).includes(norm(f.objeto))) return false;
     if (f.organismo && !norm(e.organismo).includes(norm(f.organismo))) return false;
     for (const campo of ["fuero", "tipoContratacion", "tipoResolucion", "estado", "sectorActual"]) {
@@ -1137,9 +1212,17 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
       ? await enviar("/api/resoluciones/" + seleccionado.id, "PUT", datos)
       : await enviar("/api/resoluciones", "POST", datos);
     if (data.error) return data;
-    setExpedientes(prev => seleccionado ? prev.map(e => (e.id === data.expediente.id ? data.expediente : e)) : [...prev, data.expediente]);
+    // Un escrito nuevo también trae los registros de su expediente que
+    // sumaron la observación (`anotados`).
+    const anotados = new Map((data.anotados || []).map(e => [e.id, e]));
+    setExpedientes(prev => {
+      const resto = prev.map(e => anotados.get(e.id) || e);
+      return seleccionado ? resto.map(e => (e.id === data.expediente.id ? data.expediente : e)) : [...resto, data.expediente];
+    });
     setForm(null);
-    mostrarToast(seleccionado ? "Expediente actualizado" : "Expediente " + data.expediente.exp + " cargado");
+    mostrarToast(seleccionado ? "Expediente actualizado"
+      : data.expediente.esEscrito ? "Escrito del Exp. " + data.expediente.exp + " cargado" + (anotados.size ? "; se anotó en el expediente" : "")
+        : "Expediente " + data.expediente.exp + " cargado");
   }
 
   // Cambio rápido desde la tabla: sector actual, tipo de resolución o
@@ -1196,10 +1279,11 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
         <td className="py-2.5 px-3 whitespace-nowrap">
           <div className="flex items-center gap-1.5">
             {esJefa && <EstrellaPrioridad prioritario={e.prioritario} onClick={() => cambiarRapido(e, { prioritario: !e.prioritario })} />}
-            <span className="font-mono font-semibold text-slate-900">{e.exp}</span>
+            <span className="font-mono font-semibold text-slate-900">{expConPrefijo(e)}</span>
           </div>
           <EtiquetasPrioridad expediente={e} />
           <EtiquetaPrestamo expediente={e} />
+          <EtiquetaEscrito expediente={e} />
         </td>
       ) },
     { t: "Objeto", w: "w-[240px]", filtro: <input value={f.objeto} onChange={e => set("objeto", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} />,
