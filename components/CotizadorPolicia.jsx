@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { CheckCircle2, Download, Shield, CalendarDays, FileText } from "lucide-react";
 import { FUERZAS_SEGURIDAD, PERIODICIDADES_POLICIA, FERIADOS_2026 } from "@/lib/constants";
@@ -25,6 +25,32 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
   const [fojasPresupuesto, setFojasPresupuesto] = useState("");
   const [fojasCuadro, setFojasCuadro] = useState("");
   const [agente, setAgente] = useState("");
+
+  // Años que cubre el servicio (hasta 5), para pedir sus feriados nacionales a
+  // /api/feriados (ArgentinaDatos), la misma fuente que los calendarios del resto
+  // del sistema. Si cambian las fechas a otro año, se vuelven a traer.
+  const aniosServicio = useMemo(() => {
+    const desde = Number(fechaInicio.slice(0, 4));
+    const hasta = Number(fechaFin.slice(0, 4));
+    if (!(desde >= 2000 && hasta <= 2100 && hasta >= desde)) return "";
+    return Array.from({ length: Math.min(hasta - desde + 1, 5) }, (_, i) => desde + i).join(",");
+  }, [fechaInicio, fechaFin]);
+  const [estadoFeriados, setEstadoFeriados] = useState("cargando"); // "cargando" | "ok" | "error"
+
+  useEffect(() => {
+    if (!aniosServicio) return;
+    let activo = true;
+    setEstadoFeriados("cargando");
+    fetch("/api/feriados?anios=" + aniosServicio)
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error())))
+      .then(d => {
+        if (!activo) return;
+        setFeriadosTexto((d.feriados || []).join(", "));
+        setEstadoFeriados("ok");
+      })
+      .catch(() => { if (activo) setEstadoFeriados("error"); });
+    return () => { activo = false; };
+  }, [aniosServicio]);
 
   const feriadosSet = useMemo(() => {
     return new Set(feriadosTexto.split(",").map(f => f.trim()).filter(Boolean));
@@ -306,6 +332,8 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
         <details className="text-xs">
           <summary className="cursor-pointer text-slate-500 hover:text-slate-800 flex items-center gap-1.5 w-fit">
             <CalendarDays size={13} /> Ver / editar feriados considerados ({feriadosSet.size})
+            {estadoFeriados === "cargando" && <span className="text-slate-400"> · trayendo feriados de {aniosServicio.replace(/,/g, ", ")}...</span>}
+            {estadoFeriados === "error" && <span className="text-red-600"> · no se pudieron traer los feriados de {aniosServicio.replace(/,/g, ", ")}: cargalos a mano</span>}
           </summary>
           <textarea
             value={feriadosTexto}
@@ -315,7 +343,8 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
           />
           <p className="text-[11px] text-slate-400 mt-1">
             Fechas en formato AAAA-MM-DD separadas por coma. Se usan para "lunes a viernes hábiles" (se excluyen) y
-            "sábados, domingos y feriados" (se incluyen). Ajustalas si el servicio corresponde a otro año.
+            "sábados, domingos y feriados" (se incluyen). Se traen solas según los años del servicio (feriados
+            nacionales, la misma fuente que los calendarios del sistema); si las editás y cambiás de año, se vuelven a cargar.
           </p>
         </details>
       </div>
