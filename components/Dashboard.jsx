@@ -839,7 +839,7 @@ export default function App() {
           ) : vistaResoluciones === "valorModular" ? (
             <ValorModular moduloValor={moduloValor} setModuloValor={guardarValorModular} sesion={sesion} />
           ) : vistaResoluciones === "listadoTelefonos" ? (
-            <ListadoTelefonos sesion={sesion} mostrarToast={mostrarToast} seccionesIniciales={secciones} />
+            <ListadoTelefonos sesion={sesion} mostrarToast={mostrarToast} seccionesIniciales={secciones} onGuardado={setSecciones} />
           ) : vistaResoluciones === "graficosResoluciones" ? (
             <GraficosSubdireccion mostrarToast={mostrarToast} />
           ) : vistaResoluciones === "planObras" ? (
@@ -879,7 +879,7 @@ export default function App() {
         ) : vistaEfectiva === "cotizadorAvisos" ? (
           <CotizadorAvisos mostrarToast={mostrarToast} expedientes={expedientes} onVincular={vincularCotizacionAExpediente} />
         ) : vistaEfectiva === "listadoTelefonos" ? (
-          <ListadoTelefonos sesion={sesion} mostrarToast={mostrarToast} seccionesIniciales={secciones} />
+          <ListadoTelefonos sesion={sesion} mostrarToast={mostrarToast} seccionesIniciales={secciones} onGuardado={setSecciones} />
         ) : vistaEfectiva === "planillaCotizacion" ? (
           <PlanillaCotizacion mostrarToast={mostrarToast} />
         ) : esMesaDeEntradas ? (

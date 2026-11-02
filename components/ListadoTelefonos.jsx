@@ -1,16 +1,40 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Plus, Lock, Trash2, Phone, Printer } from "lucide-react";
+import { Plus, Lock, Trash2, Phone, Printer, Save } from "lucide-react";
 import { TELEFONOS_INICIALES } from "@/lib/constants";
-export default function ListadoTelefonos({ sesion, mostrarToast, seccionesIniciales }) {
+export default function ListadoTelefonos({ sesion, mostrarToast, seccionesIniciales, onGuardado }) {
   const [secciones, setSecciones] = useState(
     seccionesIniciales && seccionesIniciales.length > 0 ? seccionesIniciales : TELEFONOS_INICIALES
   );
   const [busqueda, setBusqueda] = useState("");
+  const [sinGuardar, setSinGuardar] = useState(false);
+  const [guardando, setGuardando] = useState(false);
   const puedeEditar = sesion.rol === "soporte";
 
+  async function guardar() {
+    setGuardando(true);
+    try {
+      const res = await fetch("/api/telefonos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secciones }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setSecciones(data.secciones);
+      onGuardado?.(data.secciones);
+      setSinGuardar(false);
+      mostrarToast("Listado de teléfonos guardado");
+    } catch {
+      mostrarToast("No se pudo guardar el listado de teléfonos");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
   function actualizarPersona(seccionId, grupoIdx, personaIdx, campo, valor) {
+    setSinGuardar(true);
     setSecciones(prev => prev.map(s => {
       if (s.id !== seccionId) return s;
       const grupos = s.grupos.map((g, gi) => {
@@ -23,6 +47,7 @@ export default function ListadoTelefonos({ sesion, mostrarToast, seccionesInicia
   }
 
   function agregarPersona(seccionId, grupoIdx) {
+    setSinGuardar(true);
     setSecciones(prev => prev.map(s => {
       if (s.id !== seccionId) return s;
       const grupos = s.grupos.map((g, gi) => gi === grupoIdx ? { ...g, personas: [...g.personas, { nombre: "", interno: "" }] } : g);
@@ -31,6 +56,7 @@ export default function ListadoTelefonos({ sesion, mostrarToast, seccionesInicia
   }
 
   function quitarPersona(seccionId, grupoIdx, personaIdx) {
+    setSinGuardar(true);
     setSecciones(prev => prev.map(s => {
       if (s.id !== seccionId) return s;
       const grupos = s.grupos.map((g, gi) => gi === grupoIdx ? { ...g, personas: g.personas.filter((_, pi) => pi !== personaIdx) } : g);
@@ -46,7 +72,7 @@ export default function ListadoTelefonos({ sesion, mostrarToast, seccionesInicia
       .map(s => ({
         ...s,
         grupos: s.grupos
-          .map(g => ({ ...g, personas: g.personas.filter(p => p.nombre.toLowerCase().includes(q) || p.interno.includes(q)) }))
+          .map(g => ({ ...g, personas: g.personas.filter(p => p.nombre.toLowerCase().includes(q) || (p.interno ?? "").includes(q)) }))
           .filter(g => g.personas.length > 0),
       }))
       .filter(s => s.grupos.length > 0);
@@ -61,7 +87,7 @@ export default function ListadoTelefonos({ sesion, mostrarToast, seccionesInicia
         ${s.titulo ? `<thead><tr><th colspan="3">${esc(s.titulo)}</th></tr></thead>` : ""}
         <tbody>
           ${s.grupos.map(g => {
-            const personas = g.personas.filter(p => p.nombre.trim() || p.interno.trim());
+            const personas = g.personas.filter(p => p.nombre.trim() || (p.interno ?? "").trim());
             if (personas.length === 0) return "";
             return personas.map((p, i) => `
               <tr>
@@ -119,9 +145,18 @@ export default function ListadoTelefonos({ sesion, mostrarToast, seccionesInicia
           <Printer size={13} /> Imprimir
         </button>
         {puedeEditar ? (
-          <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-1.5">
-            Edición habilitada (usuario Soporte)
-          </span>
+          <>
+            <span className={"text-[11px] rounded-md px-3 py-1.5 border " + (sinGuardar ? "text-amber-700 bg-amber-50 border-amber-200" : "text-emerald-700 bg-emerald-50 border-emerald-200")}>
+              {sinGuardar ? "Hay cambios sin guardar" : "Edición habilitada (usuario Soporte)"}
+            </span>
+            <button
+              onClick={guardar}
+              disabled={!sinGuardar || guardando}
+              className="flex items-center gap-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-700 disabled:opacity-40 rounded-md px-3 py-2"
+            >
+              <Save size={13} /> {guardando ? "Guardando..." : "Guardar"}
+            </button>
+          </>
         ) : (
           <div className="flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
             <Lock size={13} /> Solo el usuario de Soporte puede editar este listado
@@ -162,7 +197,7 @@ export default function ListadoTelefonos({ sesion, mostrarToast, seccionesInicia
                           className={"flex-1 text-sm rounded px-2 py-1 " + (puedeEditar ? "border border-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-800" : "border-0 bg-transparent text-slate-700")}
                         />
                         <input
-                          value={p.interno}
+                          value={p.interno ?? ""}
                           disabled={!puedeEditar}
                           onChange={e => actualizarPersona(s.id, gi, pi, "interno", e.target.value)}
                           placeholder="Interno"
