@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { CheckCircle2, Download, Shield, CalendarDays, FileText } from "lucide-react";
-import { FUERZAS_SEGURIDAD, PERIODICIDADES_POLICIA, FERIADOS_2026 } from "@/lib/constants";
+import { FUERZAS_SEGURIDAD, PERIODICIDADES_POLICIA, FERIADOS_2026, NOMBRES_MES } from "@/lib/constants";
 import { calcularDiasServicio, diasServicioPorMes, fmtMoneda, fmtFecha } from "@/lib/utils";
 import { armarPase } from "@/lib/paseContaduria";
 import { mismoExp, normalizarExp } from "@/lib/numeroExpediente";
@@ -17,6 +17,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
   const [modoValor, setModoValor] = useState("uniforme"); // "uniforme" | "mensual"
   const [valorModulo, setValorModulo] = useState("");
   const [valoresPorMes, setValoresPorMes] = useState({}); // { "2026-09": "45000", ... }
+  const [modulosPorMes, setModulosPorMes] = useState({}); // modalidad discontinua: { "2026-09": "120", ... }
   const [expNro, setExpNro] = useState("");
   const [objeto, setObjeto] = useState("");
   const [feriadosTexto, setFeriadosTexto] = useState(FERIADOS_2026.join(", "));
@@ -61,9 +62,13 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
     [fechaInicio, fechaFin, periodicidad, feriadosSet]
   );
 
+  const discontinua = periodicidad === "discontinua";
+
+  // En la discontinua no se cuentan días: van todos los meses del período, y
+  // los módulos de cada uno se cargan a mano.
   const mesesDetalle = useMemo(
-    () => diasServicioPorMes(fechaInicio, fechaFin, periodicidad, feriadosSet),
-    [fechaInicio, fechaFin, periodicidad, feriadosSet]
+    () => (discontinua ? mesesDelPeriodo(fechaInicio, fechaFin) : diasServicioPorMes(fechaInicio, fechaFin, periodicidad, feriadosSet)),
+    [discontinua, fechaInicio, fechaFin, periodicidad, feriadosSet]
   );
 
   function numero(v) {
@@ -76,7 +81,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
 
   // Desglose mensual: módulos y monto por mes, usando el valor uniforme o el de cada mes según el modo.
   const desgloseMensual = mesesDetalle.map(m => {
-    const modulos = m.dias * modulosPorDiaNum * oficialesNum;
+    const modulos = discontinua ? numero(modulosPorMes[m.mes]) : m.dias * modulosPorDiaNum * oficialesNum;
     const valorDelMes = modoValor === "uniforme" ? valorModuloNum : numero(valoresPorMes[m.mes]);
     return { ...m, modulos, valorModulo: valorDelMes, monto: modulos * valorDelMes };
   });
@@ -149,8 +154,8 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
   }
 
   function exportarExcel() {
-    if (dias === 0) {
-      mostrarToast("Revisá las fechas: no hay días de servicio calculados");
+    if (discontinua ? totalModulos === 0 : dias === 0) {
+      mostrarToast(discontinua ? "Cargá los módulos de cada mes" : "Revisá las fechas: no hay días de servicio calculados");
       return;
     }
 
@@ -166,13 +171,13 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
       ["Modalidad del servicio", periodicidadSeleccionada.label],
       ["Fecha de inicio", fmtFecha(fechaInicio)],
       ["Fecha de finalización", fmtFecha(fechaFin)],
-      ["Días de servicio calculados", dias],
-      ["Módulos por día", modulosPorDiaNum],
-      ["Cantidad de oficiales", oficialesNum],
+      ...(discontinua
+        ? [["Módulos", "Cantidad por mes (ver detalle)"]]
+        : [["Días de servicio calculados", dias], ["Módulos por día", modulosPorDiaNum], ["Cantidad de oficiales", oficialesNum]]),
       ["Valor del módulo", modoValor === "uniforme" ? "Uniforme: " + fmtMoneda(valorModuloNum) : "Variable por mes (ver detalle)"],
       [],
       ["Detalle mensual", "Días", "Módulos", "Valor módulo", "Monto"],
-      ...desgloseMensual.map(m => [m.etiqueta, m.dias, m.modulos, m.valorModulo, m.monto]),
+      ...desgloseMensual.map(m => [m.etiqueta, discontinua ? "-" : m.dias, m.modulos, m.valorModulo, m.monto]),
       [],
       ["Total de módulos", totalModulos],
       ["Costo total estimado", costoTotal],
@@ -196,6 +201,10 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
   }
 
   function aprobarYVincular() {
+    if (discontinua && totalModulos === 0) {
+      mostrarToast("Cargá los módulos de cada mes antes de aprobar");
+      return;
+    }
     if (costoTotal <= 0) {
       mostrarToast("Cargá el valor del módulo antes de aprobar");
       return;
@@ -209,14 +218,14 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
       fuerza,
       periodicidad,
       periodo: { inicio: fechaInicio, fin: fechaFin },
-      dias,
-      modulosPorDia: modulosPorDiaNum,
-      cantidadOficiales: oficialesNum,
+      dias: discontinua ? null : dias,
+      modulosPorDia: discontinua ? null : modulosPorDiaNum,
+      cantidadOficiales: discontinua ? null : oficialesNum,
       totalModulos,
       costoTotal,
       objeto,
       desglose: desgloseMensual.map(m => ({
-        mes: m.mes, etiqueta: m.etiqueta, dias: m.dias, modulos: m.modulos, valorModulo: m.valorModulo, monto: m.monto,
+        mes: m.mes, etiqueta: m.etiqueta, dias: discontinua ? null : m.dias, modulos: m.modulos, valorModulo: m.valorModulo, monto: m.monto,
       })),
       texto:
         "Cotizador de policía adicional aprobado: " + fuerzaSeleccionada.nombre + ", " + periodicidadSeleccionada.label +
@@ -301,6 +310,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
             <input type="date" max="9999-12-31" value={fechaFin} onChange={e => setFechaFin(e.target.value)}
               className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
           </div>
+          {!discontinua && <>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Módulos por día</label>
             <input type="number" step="0.5" min="0" value={modulosPorDia} onChange={e => setModulosPorDia(e.target.value)}
@@ -311,7 +321,33 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
             <input type="number" min="1" value={cantidadOficiales} onChange={e => setCantidadOficiales(e.target.value)}
               className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
           </div>
+          </>}
         </div>
+
+        {discontinua && (
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Módulos por mes</label>
+            <p className="text-[11px] text-slate-400 mb-2">Servicio discontinuo: no se cuentan días. Cargá el total de módulos de cada mes (todos los oficiales).</p>
+            {mesesDetalle.length === 0 ? (
+              <p className="text-xs text-slate-400">Elegí fechas de inicio y fin para poder cargar los módulos de cada mes.</p>
+            ) : (
+              <div className="grid sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {mesesDetalle.map(m => (
+                  <div key={m.mes}>
+                    <label className="block text-[11px] font-medium text-slate-500 mb-1">{m.etiqueta}</label>
+                    <input
+                      value={modulosPorMes[m.mes] || ""}
+                      onChange={e => setModulosPorMes(prev => ({ ...prev, [m.mes]: e.target.value }))}
+                      placeholder="0"
+                      inputMode="decimal"
+                      className="w-full text-sm border border-slate-300 rounded-md px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="grid sm:grid-cols-3 gap-4">
           <div className="sm:col-span-1">
@@ -329,7 +365,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
           </div>
         </div>
 
-        <details className="text-xs">
+        {!discontinua && <details className="text-xs">
           <summary className="cursor-pointer text-slate-500 hover:text-slate-800 flex items-center gap-1.5 w-fit">
             <CalendarDays size={13} /> Ver / editar feriados considerados ({feriadosSet.size})
             {estadoFeriados === "cargando" && <span className="text-slate-400"> · trayendo feriados de {aniosServicio.replace(/,/g, ", ")}...</span>}
@@ -346,7 +382,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
             "sábados, domingos y feriados" (se incluyen). Se traen solas según los años del servicio (feriados
             nacionales, la misma fuente que los calendarios del sistema); si las editás y cambiás de año, se vuelven a cargar.
           </p>
-        </details>
+        </details>}
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl p-5">
@@ -406,15 +442,15 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
 
       <div className="grid sm:grid-cols-3 gap-4">
         <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Días de servicio calculados</div>
-          <div className="text-2xl font-semibold text-slate-900">{dias}</div>
+          <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">{discontinua ? "Meses del período" : "Días de servicio calculados"}</div>
+          <div className="text-2xl font-semibold text-slate-900">{discontinua ? mesesDetalle.length : dias}</div>
           <p className="text-[11px] text-slate-400 mt-1">Entre {fmtFecha(fechaInicio)} y {fmtFecha(fechaFin)}</p>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-5">
           <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Total de módulos</div>
           <div className="text-2xl font-semibold text-slate-900">{totalModulos.toLocaleString("es-AR")}</div>
           <p className="text-[11px] text-slate-400 mt-1">
-            {dias} días × {modulosPorDia || 0} módulo(s) × {cantidadOficiales || 1} oficial(es)
+            {discontinua ? "Suma de los módulos cargados por mes" : <>{dias} días × {modulosPorDia || 0} módulo(s) × {cantidadOficiales || 1} oficial(es)</>}
           </p>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-5">
@@ -434,7 +470,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wide text-slate-500 border-b border-slate-100">
                   <th className="py-2.5 px-5">Mes</th>
-                  <th className="py-2.5 px-5">Días de servicio</th>
+                  {!discontinua && <th className="py-2.5 px-5">Días de servicio</th>}
                   <th className="py-2.5 px-5">Módulos</th>
                   <th className="py-2.5 px-5">Valor módulo</th>
                   <th className="py-2.5 px-5">Monto</th>
@@ -444,7 +480,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
                 {desgloseMensual.map(m => (
                   <tr key={m.mes} className="border-b border-slate-50 last:border-0">
                     <td className="py-2 px-5 font-medium text-slate-900">{m.etiqueta}</td>
-                    <td className="py-2 px-5 text-slate-600">{m.dias}</td>
+                    {!discontinua && <td className="py-2 px-5 text-slate-600">{m.dias}</td>}
                     <td className="py-2 px-5 text-slate-600">{m.modulos.toLocaleString("es-AR")}</td>
                     <td className="py-2 px-5 text-slate-600">{m.valorModulo > 0 ? fmtMoneda(m.valorModulo) : "-"}</td>
                     <td className="py-2 px-5 font-semibold text-slate-900">{m.monto > 0 ? fmtMoneda(m.monto) : "-"}</td>
@@ -454,7 +490,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
               <tfoot>
                 <tr className="bg-slate-50 border-t border-slate-200">
                   <td className="py-2 px-5 font-semibold text-slate-900">Total</td>
-                  <td className="py-2 px-5 font-semibold text-slate-900">{dias}</td>
+                  {!discontinua && <td className="py-2 px-5 font-semibold text-slate-900">{dias}</td>}
                   <td className="py-2 px-5 font-semibold text-slate-900">{totalModulos.toLocaleString("es-AR")}</td>
                   <td className="py-2 px-5"></td>
                   <td className="py-2 px-5 font-semibold text-slate-900">{fmtMoneda(costoTotal)}</td>
@@ -523,3 +559,19 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
   );
 }
 
+// Todos los meses entre las dos fechas ("aaaa-mm-dd"), para la modalidad
+// discontinua: [{ mes: "2027-03", etiqueta: "Marzo 2027" }, ...].
+function mesesDelPeriodo(inicio, fin) {
+  if (!inicio || !fin || fin < inicio) return [];
+  const meses = [];
+  let a = Number(inicio.slice(0, 4));
+  let m = Number(inicio.slice(5, 7));
+  const hasta = fin.slice(0, 7);
+  while (meses.length < 120) {
+    const mes = a + "-" + String(m).padStart(2, "0");
+    if (mes > hasta) break;
+    meses.push({ mes, etiqueta: NOMBRES_MES[m - 1] + " " + a });
+    if (++m > 12) { m = 1; a++; }
+  }
+  return meses;
+}
