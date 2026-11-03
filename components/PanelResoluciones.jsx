@@ -95,7 +95,7 @@ function aFormulario(e) {
 
 // Alta / edición de un expediente, en dos solapas: los datos del
 // expediente y sus movimientos y estados (con el historial).
-export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, onGuardar, onEliminar, onCambiarMovimiento }) {
+export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, onGuardar, onEliminar, onCambiarMovimiento, onAbrir }) {
   const [f, setF] = useState(() => aFormulario(inicial));
   // Un expediente cargado abre en "Información" (todo a la vista, sin
   // editar); uno nuevo, directo en la carga de datos.
@@ -154,6 +154,13 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
     });
   }, [origen?.id]);
 
+  // Alta de un expediente cuyo N° ya está cargado: se avisa y hay que
+  // confirmarlo (puede ser otro trámite del mismo expediente). La
+  // confirmación vale para ese N°: si se cambia, se vuelve a preguntar.
+  const yaCargados = !inicial && !f.esEscrito ? registrosDelExp(f.exp, expedientes) || [] : [];
+  const [cargarIgualExp, setCargarIgualExp] = useState("");
+  const cargarIgual = cargarIgualExp === f.exp;
+
   async function guardar() {
     // Los campos que faltan están en la solapa de datos: se vuelve a ella.
     const falta = !f.exp.trim() || !f.objeto.trim() ? "Completá N° de expediente y objeto."
@@ -166,6 +173,10 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
     const pasoConFalta = !f.exp.trim() || !f.objeto.trim() ? [1, 2] : !fijo && (faltaDelDictamen(f) || faltaDelEscrito(f)) ? [1]
       : [vuelveDeFinalizado && f.reingreso === undefined ? 4 : 3];
     if (falta) { setError(falta); setSolapa("datos"); pasos.abrir(...pasoConFalta); return; }
+    if (yaCargados.length && !cargarIgual) {
+      setError("Este N° de expediente ya está cargado: abrí el que existe o, si es otro trámite, marcá que lo querés cargar igual.");
+      setSolapa("datos"); pasos.abrir(1); return;
+    }
     setGuardando(true);
     // Sin observación nueva, queda la última que tenía.
     const res = await onGuardar({ ...f, observaciones: f.observaciones.trim() || inicial?.observaciones || "" });
@@ -329,6 +340,8 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
                 <Campo pregunta={f.esEscrito ? "N° del expediente al que se refiere el escrito (obligatorio)" : "N° de expediente (obligatorio)"} ancho={f.esEscrito}>
                   <Entrada valor={f.exp} onChange={v => set("exp", v)} ejemplo="13-05999/2025" mono />
                   {f.esEscrito && !inicial && <ExpedienteDelEscrito delExp={delExp} origen={origen} />}
+                  <ExpedienteYaCargado registros={yaCargados} onAbrir={onAbrir} confirmado={cargarIgual}
+                    onConfirmar={si => { setCargarIgualExp(si ? f.exp : ""); setError(""); }} />
                 </Campo>
                 {f.esEscrito && (
                   <Campo pregunta="¿Por qué se generó el escrito o qué tramita? (obligatorio)" ayuda={inicial ? "" : "Queda como observación en el escrito y, si el expediente estuvo en Resoluciones, también en él."} ancho>
@@ -913,6 +926,29 @@ const DATOS_DEL_EXPEDIENTE = [
 function registrosDelExp(exp, expedientes) {
   if (!/^\d{2}-\d{5}\/\d{4}$/.test(normalizarExp(String(exp || "").trim()))) return null;
   return (expedientes || []).filter(e => !e.esEscrito && mismoExp(e.exp, exp));
+}
+
+// Alta de un expediente que ya está cargado: muestra los registros que hay
+// (con "Abrir ese") y pide confirmar si es otro trámite del mismo N°.
+function ExpedienteYaCargado({ registros, onAbrir, confirmado, onConfirmar }) {
+  if (!registros.length) return null;
+  return (
+    <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+      <p className="font-medium">Este expediente ya está cargado en Resoluciones{registros.length > 1 ? " (" + registros.length + " veces)" : ""}:</p>
+      <ul className="mt-1 space-y-1">
+        {registros.map(e => (
+          <li key={e.id} className="flex flex-wrap items-center gap-x-2">
+            <span>{[e.numero && "Contratación N° " + e.numero, e.situacion, e.sectorActual, e.agente && "agente " + e.agente, "alta " + fecha(e.creadoEn)].filter(Boolean).join(" · ")}</span>
+            {onAbrir && <button type="button" onClick={() => onAbrir(e.id)} className="font-medium underline hover:text-amber-700">Abrir ese</button>}
+          </li>
+        ))}
+      </ul>
+      <label className="mt-2 flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" checked={confirmado} onChange={ev => onConfirmar(ev.target.checked)} />
+        Es otro trámite del mismo expediente: cargarlo igual
+      </label>
+    </div>
+  );
 }
 
 // Al cargar un escrito: si el expediente estuvo en Resoluciones, avisa que
@@ -1513,6 +1549,7 @@ export default function PanelResoluciones({ sesion, mostrarToast, solapaInicial,
           onGuardar={guardar}
           onEliminar={eliminar}
           onCambiarMovimiento={cambiarMovimiento}
+          onAbrir={id => setForm(id)}
         />
       )}
     </div>
