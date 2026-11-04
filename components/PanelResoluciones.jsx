@@ -721,15 +721,28 @@ const EXTRAS_EXCEL = [
   ["RENOVACION AUTOMATICA", 22, e => (e.renovacionAutomatica ? (e.renovacionDias || "?") + " DIAS " + (e.renovacionHabiles ? "HABILES" : "CORRIDOS") : "")],
 ];
 
-function exportarCargaPorAgente(todas, hayOtros) {
+function exportarCargaPorAgente(todas, hayOtros, sinAsignar = []) {
   // Solo los agentes que tienen algún expediente.
   const filas = todas.filter(r => r.total > 0);
-  if (!filas.length) return;
+  if (!filas.length && !sinAsignar.length) return;
   const titulos = ["AGENTE", "TOTAL", ...GRUPOS_CARGA.map(g => g.titulo.toUpperCase()), ...(hayOtros ? ["OTROS"] : []), "FUERA DE RESOLUCIONES", "PRIORITARIOS"];
   const numeros = r => [r.total, ...r.grupos, ...(hayOtros ? [r.otros] : []), r.fuera, r.prioritarios];
-  const totales = numeros(filas[0]).map((_, i) => filas.reduce((s, r) => s + numeros(r)[i], 0));
-  const resumen = XLSX.utils.aoa_to_sheet([titulos, ...filas.map(r => [r.agente, ...numeros(r)]), ["TOTAL", ...totales]]);
-  resumen["!cols"] = titulos.map((t, i) => ({ wch: i === 0 ? 10 : Math.max(10, t.length + 2) }));
+  const totales = titulos.slice(1).map((_, i) => filas.reduce((s, r) => s + numeros(r)[i], 0));
+  // Debajo del cuadro, los expedientes a asignar con toda su info (las
+  // cantidades de ofertas y renglones, al lado del N°).
+  const extrasDetalle = EXTRAS_EXCEL.slice(2);
+  const encabezadoAsignar = [ENCABEZADO_EXCEL[0], "CANT. OFERTAS", "CANT. RENGLONES", ...ENCABEZADO_EXCEL.slice(1), ...extrasDetalle.map(x => x[0])];
+  const filaAsignar = e => { const f = filaExcel(e); return [f[0], e.cantidadOfertas ?? "", e.cantidadRenglones ?? "", ...f.slice(1), ...extrasDetalle.map(x => x[2](e))]; };
+  const resumen = XLSX.utils.aoa_to_sheet([
+    titulos, ...filas.map(r => [r.agente, ...numeros(r)]), ["TOTAL", ...totales],
+    [], [],
+    ["EXPEDIENTES A ASIGNAR (" + sinAsignar.length + ")"],
+    ...(sinAsignar.length
+      ? [encabezadoAsignar, ...[...sinAsignar].sort(compararResoluciones).map(filaAsignar)]
+      : [["No hay expedientes sin asignar."]]),
+  ]);
+  const anchosAsignar = [ANCHOS_EXCEL[0], 10, 10, ...ANCHOS_EXCEL.slice(1), ...extrasDetalle.map(x => x[1])];
+  resumen["!cols"] = anchosAsignar.map((w, i) => ({ wch: Math.max(w, titulos[i] ? titulos[i].length + 2 : 0) }));
 
   // Una hoja con un bloque por agente: su fila del cuadro y, seguido, sus
   // expedientes con toda la info; entre agente y agente, dos filas vacías.
@@ -773,6 +786,8 @@ function CargaPorAgente({ expedientes, elegido, onElegir }) {
     };
   });
   const hayOtros = filas.some(r => r.otros);
+  // Los que falta asignar (sin agente o S/A), para el Excel.
+  const sinAsignar = enTramite.filter(e => !String(e.agente || "").trim() || e.agente === "S/A");
   const celda = (n, fuerte) => <td className={"px-2 py-1.5 text-center tabular-nums " + (n ? (fuerte ? "font-semibold text-slate-900" : "text-slate-800") : "text-slate-300")}>{n || "–"}</td>;
   return (
     <div className="mt-3 rounded-lg border border-slate-200 overflow-x-auto">
@@ -787,7 +802,7 @@ function CargaPorAgente({ expedientes, elegido, onElegir }) {
       {abierta && (
       <>
       <div className="flex justify-end px-3 pb-1">
-        <button type="button" onClick={() => exportarCargaPorAgente(filas, hayOtros)}
+        <button type="button" onClick={() => exportarCargaPorAgente(filas, hayOtros, sinAsignar)}
           className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
           <Download size={13} /> Exportar a Excel
         </button>
