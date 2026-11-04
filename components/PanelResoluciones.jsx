@@ -686,43 +686,107 @@ function RegistroEditable({ m, esObs, onCambiar }) {
 }
 
 // Carga de cada agente, para que la jefa asigne: expedientes tramitando
-// en el sector Resoluciones (no finalizados ni en otro sector) por tipo de resolución y prioritarios. Se despliega
-// tocando el título; tocar una fila asigna a ese agente.
+// (no finalizados), en Resoluciones por tipo de resolución y los que están
+// en otro sector. El total es la suma de esas columnas; los prioritarios
+// (estrella o Plan de Obras) se cuentan aparte. Se despliega tocando el
+// título; tocar una fila asigna a ese agente.
 const GRUPOS_CARGA = [
-  { titulo: "Para adjudicar", es: t => t === "ADJUDICAR" },
-  { titulo: "Fracasa / autoriza", es: t => t === "FRACASA / AUTORIZA" },
+  { titulo: "Para adjudicar", es: t => t === "ADJUDICAR" || t === "FRACASA / AUTORIZA" },
   { titulo: "Fracasar, desierta, sin efecto o revocar", es: t => ["FRACASAR", "DESIERTA", "SIN EFECTO", "REVOCAR"].includes(t) },
 ];
+const tipoCarga = e => String(e.tipoResolucion || "").trim().toUpperCase();
+// Lo que no entra en ningún grupo (autorizar, dictaminar, otros, sin tipo),
+// para que el total siga cerrando con la suma de las columnas.
+const esOtroTipoCarga = e => !GRUPOS_CARGA.some(g => g.es(tipoCarga(e)));
+
+// Excel del cuadro "Cuánto tiene cada uno": hoja Resumen (el cuadro) y hoja
+// Expedientes (los de cada agente, con sus datos y en qué columna cuentan).
+function columnaCarga(e) {
+  if (estaFueraDeResoluciones(e)) return "Fuera de Resoluciones";
+  const g = GRUPOS_CARGA.find(g => g.es(tipoCarga(e)));
+  return g ? g.titulo : "Otros";
+}
+
+// Datos del expediente que no están en la planilla general, para que el
+// detalle tenga toda su info: [título, ancho, valor].
+const EXTRAS_EXCEL = [
+  ["CANT. OFERTAS", 10, e => e.cantidadOfertas ?? ""],
+  ["CANT. RENGLONES", 10, e => e.cantidadRenglones ?? ""],
+  ["ESCRITO", 8, e => (e.esEscrito ? "SI" : "")],
+  ["MOTIVO DEL ESCRITO", 40, e => e.escritoMotivo || ""],
+  ["EN PRESTAMO", 10, e => (e.enPrestamo ? "SI" : "")],
+  ["N° DICTAMEN", 12, e => e.dictamenNumero || ""],
+  ["VENCE DICTAMEN", 12, e => fecha(e.dictamenVence)],
+  ["RENOVACION AUTOMATICA", 22, e => (e.renovacionAutomatica ? (e.renovacionDias || "?") + " DIAS " + (e.renovacionHabiles ? "HABILES" : "CORRIDOS") : "")],
+];
+
+function exportarCargaPorAgente(filas, hayOtros) {
+  const titulos = ["AGENTE", "TOTAL", ...GRUPOS_CARGA.map(g => g.titulo.toUpperCase()), ...(hayOtros ? ["OTROS"] : []), "FUERA DE RESOLUCIONES", "PRIORITARIOS"];
+  const numeros = r => [r.total, ...r.grupos, ...(hayOtros ? [r.otros] : []), r.fuera, r.prioritarios];
+  const totales = numeros(filas[0]).map((_, i) => filas.reduce((s, r) => s + numeros(r)[i], 0));
+  const resumen = XLSX.utils.aoa_to_sheet([titulos, ...filas.map(r => [r.agente, ...numeros(r)]), ["TOTAL", ...totales]]);
+  resumen["!cols"] = titulos.map((t, i) => ({ wch: i === 0 ? 10 : Math.max(10, t.length + 2) }));
+
+  const detalle = XLSX.utils.aoa_to_sheet([
+    ["COLUMNA DEL CUADRO", ...ENCABEZADO_EXCEL, ...EXTRAS_EXCEL.map(x => x[0])],
+    ...filas.flatMap(r => [...r.suyos].sort(compararResoluciones).map(e => [columnaCarga(e), ...filaExcel(e), ...EXTRAS_EXCEL.map(x => x[2](e))])),
+  ]);
+  detalle["!cols"] = [24, ...ANCHOS_EXCEL, ...EXTRAS_EXCEL.map(x => x[1])].map(wch => ({ wch }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, resumen, "Resumen");
+  XLSX.utils.book_append_sheet(wb, detalle, "Expedientes");
+  XLSX.writeFile(wb, "carga-por-agente-" + hoyLocalISO() + ".xlsx");
+}
 
 function CargaPorAgente({ expedientes, elegido, onElegir }) {
   const [abierta, setAbierta] = useState(false);
   if (!expedientes?.length) return null;
-  const enTramite = expedientes.filter(e => estadoGeneral(e) === "TRAMITANDO" && !estaFueraDeResoluciones(e));
+  const enTramite = expedientes.filter(e => estadoGeneral(e) === "TRAMITANDO");
   // S/A es "sin asignar": no es un agente al que repartirle.
   const agentes = [...new Set([...AGENTES_RESOLUCIONES, ...enTramite.map(e => e.agente).filter(Boolean)])].filter(a => a !== "S/A");
   const filas = agentes.map(a => {
     const suyos = enTramite.filter(e => e.agente === a);
-    const tipo = e => String(e.tipoResolucion || "").trim().toUpperCase();
-    return { agente: a, total: suyos.length, grupos: GRUPOS_CARGA.map(g => suyos.filter(e => g.es(tipo(e))).length), prioritarios: suyos.filter(esPrioritario).length };
+    const enSector = suyos.filter(e => !estaFueraDeResoluciones(e));
+    const fuera = suyos.length - enSector.length;
+    return {
+      agente: a,
+      total: suyos.length,
+      grupos: GRUPOS_CARGA.map(g => enSector.filter(e => g.es(tipoCarga(e))).length),
+      otros: enSector.filter(esOtroTipoCarga).length,
+      fuera,
+      prioritarios: suyos.filter(esPrioritario).length,
+      suyos,
+    };
   });
+  const hayOtros = filas.some(r => r.otros);
   const celda = (n, fuerte) => <td className={"px-2 py-1.5 text-center tabular-nums " + (n ? (fuerte ? "font-semibold text-slate-900" : "text-slate-800") : "text-slate-300")}>{n || "–"}</td>;
   return (
     <div className="mt-3 rounded-lg border border-slate-200 overflow-x-auto">
       <button type="button" onClick={() => setAbierta(!abierta)} aria-expanded={abierta}
         className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg">
-        <span>Cuánto tiene cada uno (tramitando en Resoluciones){abierta && <span className="font-normal text-slate-500"> · tocá una fila para asignar</span>}</span>
+        <span>Cuánto tiene cada uno (tramitando){abierta && <span className="font-normal text-slate-500"> · tocá una fila para asignar</span>}</span>
         <span className="shrink-0 inline-flex items-center gap-1 text-slate-600">
           {abierta ? "Ocultar" : "Ver"}
           <ChevronDown size={18} className={"transition-transform " + (abierta ? "rotate-180" : "")} />
         </span>
       </button>
       {abierta && (
+      <>
+      <div className="flex justify-end px-3 pb-1">
+        <button type="button" onClick={() => exportarCargaPorAgente(filas, hayOtros)}
+          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+          <Download size={13} /> Exportar a Excel
+        </button>
+      </div>
       <table className="w-full text-sm">
         <thead>
           <tr className="text-xs text-slate-500 border-b border-slate-200">
             <th className="px-3 py-1.5 text-left font-medium">Agente</th>
             <th className="px-2 py-1.5 font-medium">Total</th>
             {GRUPOS_CARGA.map(g => <th key={g.titulo} className="px-2 py-1.5 font-medium">{g.titulo}</th>)}
+            {hayOtros && <th className="px-2 py-1.5 font-medium">Otros</th>}
+            <th className="px-2 py-1.5 font-medium">Fuera de Resoluciones</th>
             <th className="px-2 py-1.5 font-medium">Prioritarios</th>
           </tr>
         </thead>
@@ -733,11 +797,14 @@ function CargaPorAgente({ expedientes, elegido, onElegir }) {
               <td className="px-3 py-1.5 font-mono whitespace-nowrap">{r.agente === elegido && <Check size={13} className="inline -mt-0.5 mr-1" />}{r.agente}</td>
               {celda(r.total, true)}
               {r.grupos.map((n, i) => <Fragment key={i}>{celda(n)}</Fragment>)}
+              {hayOtros && celda(r.otros)}
+              {celda(r.fuera)}
               <td className={"px-2 py-1.5 text-center tabular-nums " + (r.prioritarios ? "font-semibold text-amber-700" : "text-slate-300")}>{r.prioritarios || "–"}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      </>
       )}
     </div>
   );
@@ -1091,20 +1158,20 @@ export const SOLAPAS = [
     orden: "Primero los prioritarios; después " + POR_VENCIMIENTO + ". Los fracasados y desiertas, al final." },
 ];
 
-function exportarExcel(filas, solapa) {
-  const datos = [
-    ["EXP.", "FECHA INGRESO AL SECTOR", "OBJETO", "FUERO", "ORGANISMO", "TIPO DE CONTRATACION", "NUMERO", "AUTORIZA (TIPO)", "AUTORIZA (NUMERO)", "DIAS EN SECTOR",
+const ENCABEZADO_EXCEL = ["EXP.", "FECHA INGRESO AL SECTOR", "OBJETO", "FUERO", "ORGANISMO", "TIPO DE CONTRATACION", "NUMERO", "AUTORIZA (TIPO)", "AUTORIZA (NUMERO)", "DIAS EN SECTOR",
       "TIPO DE RESOLUCION", "ESTADO", "ESTADO GRAL.", "ULTIMO MOV", "SECTOR ACTUAL", "AGENTE", "VENC. OFERTAS", "INICIO DE SERV", "MONTOS",
-      "OBSERVACIONES", "PRIORITARIO"],
-    ...filas.map(e => [
+      "OBSERVACIONES", "PRIORITARIO"];
+const ANCHOS_EXCEL = [14, 12, 40, 30, 30, 14, 10, 14, 10, 8, 18, 18, 14, 12, 16, 8, 12, 16, 18, 50, 12];
+const filaExcel = e => [
       expConPrefijo(e), fecha(e.fechaIngreso), e.objeto, e.fuero || "", e.organismo || "", e.tipoContratacion || "", e.numero || "",
       esFracasaAutoriza(e) ? e.autorizaTipo || "" : "", esFracasaAutoriza(e) ? e.autorizaNumero || "" : "",
       diasEnSector(e) ?? "", e.tipoResolucion || "", e.estado || "", ETIQUETA_ESTADO_GENERAL[estadoGeneral(e)], fecha(e.fechaUltimoMov), e.sectorActual || "", e.agente || "",
       fecha(e.vencOfertas), e.inicioServicio || "", e.montos || "", e.observaciones || "", e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
-    ]),
-  ];
-  const ws = XLSX.utils.aoa_to_sheet(datos);
-  ws["!cols"] = [14, 12, 40, 30, 30, 14, 10, 14, 10, 8, 18, 18, 14, 12, 16, 8, 12, 16, 18, 50, 12].map(wch => ({ wch }));
+];
+
+function exportarExcel(filas, solapa) {
+  const ws = XLSX.utils.aoa_to_sheet([ENCABEZADO_EXCEL, ...filas.map(filaExcel)]);
+  ws["!cols"] = ANCHOS_EXCEL.map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Resoluciones");
   XLSX.writeFile(wb, "resoluciones-" + (solapa === "general" ? "" : solapa + "-") + hoyLocalISO() + ".xlsx");
