@@ -699,8 +699,9 @@ const tipoCarga = e => String(e.tipoResolucion || "").trim().toUpperCase();
 // para que el total siga cerrando con la suma de las columnas.
 const esOtroTipoCarga = e => !GRUPOS_CARGA.some(g => g.es(tipoCarga(e)));
 
-// Excel del cuadro "Cuánto tiene cada uno": hoja Resumen (el cuadro) y hoja
-// Expedientes (los de cada agente, con sus datos y en qué columna cuentan).
+// Excel del cuadro "Cuánto tiene cada uno": hoja Por agente (cada agente
+// con su fila del cuadro y sus expedientes, con sus datos y en qué columna
+// cuentan) y hoja Resumen (el cuadro completo, con el total).
 function columnaCarga(e) {
   if (estaFueraDeResoluciones(e)) return "Fuera de Resoluciones";
   const g = GRUPOS_CARGA.find(g => g.es(tipoCarga(e)));
@@ -730,15 +731,24 @@ function exportarCargaPorAgente(todas, hayOtros) {
   const resumen = XLSX.utils.aoa_to_sheet([titulos, ...filas.map(r => [r.agente, ...numeros(r)]), ["TOTAL", ...totales]]);
   resumen["!cols"] = titulos.map((t, i) => ({ wch: i === 0 ? 10 : Math.max(10, t.length + 2) }));
 
-  const detalle = XLSX.utils.aoa_to_sheet([
-    ["COLUMNA DEL CUADRO", ...ENCABEZADO_EXCEL, ...EXTRAS_EXCEL.map(x => x[0])],
-    ...filas.flatMap(r => [...r.suyos].sort(compararResoluciones).map(e => [columnaCarga(e), ...filaExcel(e), ...EXTRAS_EXCEL.map(x => x[2](e))])),
+  // Una hoja con un bloque por agente: su fila del cuadro y, seguido, sus
+  // expedientes con toda la info; entre agente y agente, dos filas vacías.
+  const encabezadoExp = ["COLUMNA DEL CUADRO", ...ENCABEZADO_EXCEL, ...EXTRAS_EXCEL.map(x => x[0])];
+  const bloques = filas.flatMap((r, i) => [
+    ...(i ? [[], []] : []),
+    titulos,
+    [r.agente, ...numeros(r)],
+    [],
+    encabezadoExp,
+    ...[...r.suyos].sort(compararResoluciones).map(e => [columnaCarga(e), ...filaExcel(e), ...EXTRAS_EXCEL.map(x => x[2](e))]),
   ]);
-  detalle["!cols"] = [24, ...ANCHOS_EXCEL, ...EXTRAS_EXCEL.map(x => x[1])].map(wch => ({ wch }));
+  const porAgente = XLSX.utils.aoa_to_sheet(bloques);
+  const anchosExp = [24, ...ANCHOS_EXCEL, ...EXTRAS_EXCEL.map(x => x[1])];
+  porAgente["!cols"] = anchosExp.map((w, i) => ({ wch: Math.max(w, titulos[i] ? titulos[i].length + 2 : 0) }));
 
   const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, porAgente, "Por agente");
   XLSX.utils.book_append_sheet(wb, resumen, "Resumen");
-  XLSX.utils.book_append_sheet(wb, detalle, "Expedientes");
   XLSX.writeFile(wb, "carga-por-agente-" + hoyLocalISO() + ".xlsx");
 }
 
