@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, Phone, Globe, ExternalLink, User, Contact, FileDown, BarChart3, Building2, CalendarClock, Table2, Gavel, LayoutDashboard, FileCheck, Wrench, ShoppingCart, ClipboardList } from "lucide-react";
+import { Search, LogOut, ChevronDown, FileText, Landmark, Mic, Shield, Newspaper, Phone, Globe, ExternalLink, User, Contact, FileDown, BarChart3, Building2, CalendarClock, Table2, Gavel, LayoutDashboard, FileCheck, Wrench, ShoppingCart, ClipboardList, History } from "lucide-react";
 import { descargarArchivoBase64 } from "@/lib/utils";
 import { FORMULARIO_FALTAS_BASE64, EMAIL_CONTROL_SERVICIOS } from "@/lib/constants";
 import { SLUG_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION } from "@/lib/resoluciones";
@@ -223,6 +223,15 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
         >
           <Phone size={13} /> Listado de Teléfonos
         </button>
+        {sesion.rol === "soporte" && (
+          <button
+            onClick={() => { setVista("registroCambios"); setVariosAbierto(false); }}
+            className={"h-full px-3 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 " +
+              (vista === "registroCambios" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}
+          >
+            <History size={13} /> Registro de cambios
+          </button>
+        )}
         <button
           onClick={() => { setVista("planillaCotizacion"); setVariosAbierto(false); }}
           className={"h-full px-3 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 " +

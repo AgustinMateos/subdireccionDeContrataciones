@@ -100,6 +100,7 @@ import CotizadorTaquigrafico from "./CotizadorTaquigrafico";
 import CotizadorPolicia from "./CotizadorPolicia";
 import CotizadorAvisos from "./CotizadorAvisos";
 import ListadoTelefonos from "./ListadoTelefonos";
+import RegistroCambios from "./RegistroCambios";
 import PlanillaCotizacion from "./PlanillaCotizacion";
 import ValorModular from "./ValorModular";
 import InformePoliciaAdicional from "./InformePoliciaAdicional";
@@ -880,6 +881,8 @@ export default function App() {
           <CotizadorAvisos mostrarToast={mostrarToast} expedientes={expedientes} onVincular={vincularCotizacionAExpediente} />
         ) : vistaEfectiva === "listadoTelefonos" ? (
           <ListadoTelefonos sesion={sesion} mostrarToast={mostrarToast} seccionesIniciales={secciones} onGuardado={setSecciones} />
+        ) : vistaEfectiva === "registroCambios" && sesion.rol === "soporte" ? (
+          <RegistroCambios />
         ) : vistaEfectiva === "planillaCotizacion" ? (
           <PlanillaCotizacion mostrarToast={mostrarToast} />
         ) : esMesaDeEntradas ? (

@@ -614,3 +614,22 @@ model NotificacionArt44 {
 
   @@index([exp])
 }
+
+// Registro de lo que se hace en los paneles (por ahora Resoluciones): altas,
+// ediciones, borrados de expedientes y de su historial. Lo consulta Soporte
+// ("Registro de cambios"). Sin relación con el expediente para que quede
+// aunque se borre; en un borrado, `detalle` guarda la copia completa.
+model RegistroAuditoria {
+  id         String   @id @default(cuid())
+  creadoEn   DateTime @default(now())
+  usuario    String // nombre de quien lo hizo
+  email      String?
+  panel      String // "resoluciones"
+  accion     String // "alta" | "edicion" | "cambio-rapido" | "borrado" | "observacion-editada" | "historial-borrado"
+  exp        String?
+  registroId String?
+  detalle    Json? // { objeto, cambios: [{ campo, anterior, nuevo }] } o { copia } en un borrado
+
+  @@index([creadoEn])
+  @@index([panel])
+}

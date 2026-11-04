@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { compararResoluciones, datosResolucion, faltaDelDictamen, faltaDelEscrito, soloCamposDeJefa } from "@/lib/resoluciones";
-import { INCLUDE_RESOLUCION, anotarEscritoEnExpediente, conConstanciaDeEscrito, aplicarRenovaciones, avisarDictamenesVencidos, avisarJefaParaAsignar, avisarSiActivaRenovacion, avisarSiEsJefa, conPlanObras, conPrestamo, hoy, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { INCLUDE_RESOLUCION, anotarEscritoEnExpediente, conConstanciaDeEscrito, aplicarRenovaciones, avisarDictamenesVencidos, avisarJefaParaAsignar, avisarSiActivaRenovacion, avisarSiEsJefa, cambiosParaAuditoria, conPlanObras, conPrestamo, hoy, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 // Expedientes del sector de Resoluciones (sistema aparte). Antes se
 // aplican las renovaciones automáticas de vencimiento de ofertas y se
@@ -38,5 +39,9 @@ export async function POST(request) {
   await avisarSiActivaRenovacion(prisma, session, null, expediente);
   await avisarJefaParaAsignar(prisma, session, expediente);
   const anotados = await anotarEscritoEnExpediente(prisma, expediente, session.user.name);
+  await registrarAuditoria(prisma, session, {
+    panel: "resoluciones", accion: "alta", exp: expediente.exp, registroId: expediente.id,
+    detalle: { objeto: expediente.objeto, esEscrito: expediente.esEscrito, cambios: cambiosParaAuditoria(null, conConstancia, expediente) },
+  });
   return NextResponse.json({ expediente: await conPlanObras(prisma, expediente), anotados: await conPlanObras(prisma, anotados) });
 }

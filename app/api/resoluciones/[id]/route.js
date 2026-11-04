@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { CAMPOS_DE_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, datosResolucion, faltaDelDictamen, faltaDelEscrito, sinCamposDeResoluciones, soloCamposDeJefa } from "@/lib/resoluciones";
-import { INCLUDE_RESOLUCION, avisarSiActivaRenovacion, avisarSiEsJefa, marcarAsignado, conPlanObras, conPrestamo, conReingreso, conUltimoMovPorSector, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { INCLUDE_RESOLUCION, avisarSiActivaRenovacion, avisarSiEsJefa, cambiosParaAuditoria, marcarAsignado, conPlanObras, conPrestamo, conReingreso, conUltimoMovPorSector, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 // Edición. Los cambios de sector actual, tipo de resolución, estado y
 // estado general quedan en el historial; el último movimiento pasa a ser
@@ -40,6 +41,7 @@ export async function PUT(request, { params }) {
   await avisarSiEsJefa(prisma, session, existente, datos, expediente);
   await avisarSiActivaRenovacion(prisma, session, existente, expediente);
   await marcarAsignado(prisma, expediente);
+  await auditarCambios(session, "edicion", existente, datos, expediente);
   return NextResponse.json({ expediente: await conPlanObras(prisma, expediente) });
 }
 
@@ -80,13 +82,31 @@ export async function PATCH(request, { params }) {
   });
   await avisarSiEsJefa(prisma, session, existente, data, expediente);
   await marcarAsignado(prisma, expediente);
+  await auditarCambios(session, "cambio-rapido", existente, data, expediente);
   return NextResponse.json({ expediente: await conPlanObras(prisma, expediente) });
 }
 
+// Borrado: el registro de auditoría guarda la copia completa (con su
+// historial), que se pierde con el expediente.
 export async function DELETE(request, { params }) {
   const { id } = await params;
-  if (!(await sesionResoluciones())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const session = await sesionResoluciones();
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const copia = await prisma.expedienteResolucion.findUnique({ where: { id }, include: { movimientos: { orderBy: { creadoEn: "asc" } } } });
   const { count } = await prisma.expedienteResolucion.deleteMany({ where: { id } });
   if (count === 0) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+  await registrarAuditoria(prisma, session, {
+    panel: "resoluciones", accion: "borrado", exp: copia?.exp, registroId: id,
+    detalle: { objeto: copia?.objeto, esEscrito: copia?.esEscrito, copia },
+  });
   return NextResponse.json({ ok: true });
+}
+
+// Edición o cambio rápido: solo si cambió algo.
+async function auditarCambios(session, accion, existente, datos, expediente) {
+  const cambios = cambiosParaAuditoria(existente, datos, expediente);
+  if (!cambios.length) return;
+  await registrarAuditoria(prisma, session, {
+    panel: "resoluciones", accion, exp: expediente.exp, registroId: expediente.id, detalle: { objeto: expediente.objeto, cambios },
+  });
 }

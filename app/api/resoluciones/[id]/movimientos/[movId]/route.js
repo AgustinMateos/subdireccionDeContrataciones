@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { INCLUDE_RESOLUCION, conPlanObras, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 // Corregir una observación del historial (texto) o borrar cualquier
 // registro del historial (null). Borrar un cambio automático (sector,
@@ -9,7 +10,8 @@ import { INCLUDE_RESOLUCION, conPlanObras, sesionResoluciones } from "@/lib/reso
 // planilla) pasa a ser la última que quede.
 async function cambiarMovimiento(params, texto) {
   const { id, movId } = await params;
-  if (!(await sesionResoluciones())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const session = await sesionResoluciones();
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const mov = await prisma.movimientoResolucion.findFirst({ where: { id: movId, expedienteId: id } });
   if (!mov) return NextResponse.json({ error: "No se encontró el registro" }, { status: 404 });
   if (texto !== null && mov.campo !== "Observaciones") {
@@ -29,6 +31,15 @@ async function cambiarMovimiento(params, texto) {
     }
     // Se actualiza siempre: así cambia la versión y los demás lo ven.
     return tx.expedienteResolucion.update({ where: { id }, data, include: INCLUDE_RESOLUCION });
+  });
+  // Lo que había en el historial (quién lo cargó y cuándo) queda en el registro.
+  await registrarAuditoria(prisma, session, {
+    panel: "resoluciones", accion: texto === null ? "historial-borrado" : "observacion-editada", exp: expediente.exp, registroId: id,
+    detalle: {
+      objeto: expediente.objeto,
+      movimiento: { campo: mov.campo, fecha: mov.fecha, cargadoPor: mov.usuario, anterior: mov.sectorAnterior, valor: mov.sector },
+      cambios: [{ campo: mov.campo, anterior: mov.sector, nuevo: texto }],
+    },
   });
   return NextResponse.json({ expediente: await conPlanObras(prisma, expediente) });
 }
