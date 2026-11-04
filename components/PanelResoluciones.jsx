@@ -691,8 +691,8 @@ function RegistroEditable({ m, esObs, onCambiar }) {
 // (estrella o Plan de Obras) se cuentan aparte. Se despliega tocando el
 // título; tocar una fila asigna a ese agente.
 const GRUPOS_CARGA = [
-  { titulo: "Para adjudicar", es: t => t === "ADJUDICAR" || t === "FRACASA / AUTORIZA" },
-  { titulo: "Fracasar, desierta, sin efecto o revocar", es: t => ["FRACASAR", "DESIERTA", "SIN EFECTO", "REVOCAR"].includes(t) },
+  { titulo: "Para adjudicar en Resoluciones", es: t => t === "ADJUDICAR" || t === "FRACASA / AUTORIZA" },
+  { titulo: "Fracasar, desierta, sin efecto o revocar en Resoluciones", es: t => ["FRACASAR", "DESIERTA", "SIN EFECTO", "REVOCAR"].includes(t) },
 ];
 const tipoCarga = e => String(e.tipoResolucion || "").trim().toUpperCase();
 // Lo que no entra en ningún grupo (autorizar, dictaminar, otros, sin tipo),
