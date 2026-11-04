@@ -720,7 +720,10 @@ const EXTRAS_EXCEL = [
   ["RENOVACION AUTOMATICA", 22, e => (e.renovacionAutomatica ? (e.renovacionDias || "?") + " DIAS " + (e.renovacionHabiles ? "HABILES" : "CORRIDOS") : "")],
 ];
 
-function exportarCargaPorAgente(filas, hayOtros) {
+function exportarCargaPorAgente(todas, hayOtros) {
+  // Solo los agentes que tienen algún expediente.
+  const filas = todas.filter(r => r.total > 0);
+  if (!filas.length) return;
   const titulos = ["AGENTE", "TOTAL", ...GRUPOS_CARGA.map(g => g.titulo.toUpperCase()), ...(hayOtros ? ["OTROS"] : []), "FUERA DE RESOLUCIONES", "PRIORITARIOS"];
   const numeros = r => [r.total, ...r.grupos, ...(hayOtros ? [r.otros] : []), r.fuera, r.prioritarios];
   const totales = numeros(filas[0]).map((_, i) => filas.reduce((s, r) => s + numeros(r)[i], 0));
