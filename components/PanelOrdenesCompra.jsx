@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Plus, Download, Trash2, ArrowRight, Users, Check, XCircle, CheckCircle2 } from "lucide-react";
+import { X, Plus, Download, Trash2, ArrowRight, Users, Check, XCircle, CheckCircle2, Printer } from "lucide-react";
 import * as XLSX from "xlsx";
 import { ALERTA_ESTILO } from "@/lib/constants";
 import { alertaDias } from "@/lib/diasEnSector";
@@ -256,6 +256,92 @@ function ProveedoresOC({ proveedores, onChange }) {
   );
 }
 
+// Ficha del expediente para imprimir (la carátula de papel del
+// departamento): ingreso y vencimientos y, por cada orden de compra, su N°,
+// el código y el nombre del proveedor y si tiene CBU. Junta todas las OC
+// del mismo expediente (en el alta, las de cada proveedor cargado).
+function ordenesDeLaFicha(f, inicial, ordenes) {
+  if (f.proveedores) return f.proveedores;
+  const otras = (ordenes || []).filter(o => o.id !== inicial?.id && mismoExp(o.exp, f.exp));
+  return [f, ...otras].sort((a, b) => compararPorNumeroOC(b, a)); // de menor a mayor
+}
+
+function imprimirFicha(f, ocs) {
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const vacio = '<span class="linea"></span>';
+  const dato = v => (v ? "<b>" + esc(v) + "</b>" : vacio);
+  const anio = (fechaISO(f.ingresoOC) || hoyLocalISO()).slice(0, 4);
+  const vtoOC = fechaISO(f.vencimientoOC);
+  const [dd, mm, aa] = vtoOC ? [vtoOC.slice(8, 10), vtoOC.slice(5, 7), vtoOC.slice(0, 4)] : ["", "", ""];
+  const bloque = o => `
+    <div class="oc">
+      <div>OC N° ${dato(o.numeroOC)} &nbsp; N° ${dato(o.codigoProveedor)} &nbsp; CBU: <b>${cbuCargado(o) ? "SI" : "NO"}</b></div>
+      <div>Nom. ${dato(o.proveedor)}</div>
+    </div>`;
+  // Como en el papel: hasta 6 OC a la izquierda; el resto, arriba a la derecha.
+  const izquierda = ocs.slice(0, 6), derecha = ocs.slice(6);
+  const ventana = window.open("", "_blank", "width=800,height=1000");
+  if (!ventana) return false;
+  ventana.document.write(`<!DOCTYPE html>
+    <html lang="es"><head><meta charset="utf-8"><title>Ficha ${esc(f.exp)}</title>
+    <style>
+      body { font-family: "Times New Roman", serif; font-size: 15px; color: #000; margin: 0; }
+      .ficha { border: 2px solid #000; max-width: 720px; margin: 0 auto; }
+      .exp { padding: 6px 10px; border-bottom: 1px solid #000; font-size: 13px; }
+      .cuerpo { display: grid; grid-template-columns: 1fr 1fr; }
+      .col { padding: 8px 10px; }
+      .col + .col { border-left: 1px solid #000; }
+      .cabecera { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 6px; }
+      .oc { margin-bottom: 14px; line-height: 1.7; }
+      .fechas { border-top: 1px solid #000; margin-top: 8px; padding-top: 8px; line-height: 2; }
+      .linea { display: inline-block; min-width: 90px; border-bottom: 1px dotted #000; }
+      b { font-weight: bold; }
+      .vence { border-top: 2px solid #000; text-align: center; padding: 18px 10px 24px; }
+      .vence h2 { font-family: Arial, sans-serif; font-size: 64px; margin: 0 0 12px; letter-spacing: 2px; }
+      .vence .dia { font-family: Arial, sans-serif; font-size: 44px; font-weight: bold; }
+      @page { margin: 12mm; }
+    </style></head>
+    <body><div class="ficha">
+      <div class="exp">Expediente: <b>${esc(f.exp)}</b>${f.objeto ? " · " + esc(f.objeto) : ""}</div>
+      <div class="cuerpo">
+        <div class="col">
+          <div class="cabecera"><span>AÑO: ${anio}</span><span>(CBU)</span></div>
+          ${izquierda.map(bloque).join("")}
+        </div>
+        <div class="col">
+          ${derecha.map(bloque).join("")}
+          <div class="fechas"${derecha.length ? "" : ' style="border-top:0;margin-top:0;padding-top:0"'}>
+            <div>INGRESO: ${dato(f.ingresoOC ? fecha(f.ingresoOC) : "")}</div>
+            <div>VTO ART 44: ${dato(f.vtoArt44)}</div>
+            <div>VTO OC: ${dato(vtoOC ? fecha(vtoOC) : "")}</div>
+            <div>INICIO SERV: ${dato(f.inicioServicio)}</div>
+          </div>
+        </div>
+      </div>
+      <div class="vence">
+        <h2>VENCE:</h2>
+        <div class="dia">${vtoOC ? esc(dd) + " / " + esc(mm) + " / " + esc(aa) : "____ / ____ / ____"}</div>
+      </div>
+    </div></body></html>`);
+  ventana.document.close();
+  ventana.focus();
+  ventana.print();
+  ventana.onafterprint = () => ventana.close();
+  return true;
+}
+
+function BotonImprimirFicha({ onClick }) {
+  return (
+    <div className="md:col-span-2">
+      <button type="button" onClick={onClick}
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm font-medium text-slate-800 hover:bg-slate-50">
+        <Printer size={16} /> Imprimir ficha
+      </button>
+      <p className="mt-1 text-xs text-slate-500">Con el ingreso, los vencimientos y todas las órdenes de compra del expediente (N°, código y nombre del proveedor, CBU).</p>
+    </div>
+  );
+}
+
 // Pasos del circuito hechos y por hacer.
 function AvanceCircuito({ f }) {
   const { hechos } = avanceOC(f);
@@ -374,7 +460,7 @@ function Vencimiento({ e }) {
 // Alta / edición de una orden de compra, en dos solapas: los datos y el
 // circuito (con el historial). Al editar, la jefa ve todo como ficha:
 // solo cambia la prioridad (la asignación la hace el departamento).
-export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, onGuardar, onEliminar }) {
+export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, onCerrar, onGuardar, onEliminar }) {
   const [f, setF] = useState(() => aFormulario(inicial, numeroNuevo));
   const [solapa, setSolapa] = useState("datos");
   const [error, setError] = useState("");
@@ -450,6 +536,10 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
     } catch (err) {
       setAvisoVencimientos("No se pudo calcular el vencimiento de la OC" + (err.message ? ": " + err.message : "") + ". Cargalo a mano.");
     }
+  }
+
+  function imprimir() {
+    if (!imprimirFicha(f, ordenesDeLaFicha(f, inicial, ordenes))) setError("El navegador bloqueó la ventana de impresión: permití las ventanas emergentes.");
   }
 
   async function guardar() {
@@ -585,6 +675,7 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
                 <DatoFicha label="Estado" valor={f.estado} />
                 {f.informe && <DatoFicha label="Informe" valor={f.informe} />}
                 {f.fechaPublicacion && <DatoFicha label="Fecha de publicación" valor={f.fechaPublicacion} />}
+                <BotonImprimirFicha onClick={imprimir} />
               </Paso>
             </>
           ) : solapa === "datos" ? (
@@ -704,6 +795,7 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
                 <Campo pregunta="Informe (si hace falta)" ayuda="Al guardar, lo que escribas queda anotado en Observaciones e historial." ancho>
                   <textarea value={f.informe || ""} onChange={e => set("informe", e.target.value)} rows={2} className={CLASE_ENTRADA + " resize-y"} />
                 </Campo>
+                <BotonImprimirFicha onClick={imprimir} />
               </Paso>
             </>
           ) : (
@@ -1119,6 +1211,7 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
           inicial={seleccionada}
           numeroNuevo={siguienteNumeroOC(lista)}
           esJefa={esJefa}
+          ordenes={lista}
           onCerrar={() => setForm(null)}
           onGuardar={guardar}
           onEliminar={eliminar}
