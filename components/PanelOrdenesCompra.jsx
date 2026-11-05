@@ -21,7 +21,7 @@ import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
 import EtiquetasPrioridad from "./EtiquetasPrioridad";
 import PanelNotificaciones44 from "./PanelNotificaciones44";
 import { SelectRapido, FiltroColumna, DatoFicha } from "./PanelResoluciones";
-import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
+import { expParaBuscar, mismoExp, normalizarExp } from "@/lib/numeroExpediente";
 
 const norm = s => String(s || "").trim().toLowerCase();
 const fecha = f => (f ? fmtFecha(fechaISO(f)) : "-");
@@ -260,10 +260,20 @@ function ProveedoresOC({ proveedores, onChange }) {
 // departamento): ingreso y vencimientos y, por cada orden de compra, su N°,
 // el código y el nombre del proveedor y si tiene CBU. Junta todas las OC
 // del mismo expediente (en el alta, las de cada proveedor cargado).
+// Mismo expediente para la ficha: igual o con algún N° de expediente en
+// común ("13-06148/2026-LA" y "13-06148/2026").
+const numerosExp = t => normalizarExp(String(t || "")).match(/\d{2}-\d{5,6}\/\d{4}/g) || [];
+function deLaFicha(a, b) {
+  if (mismoExp(a, b)) return true;
+  const nb = numerosExp(b);
+  return numerosExp(a).some(n => nb.includes(n));
+}
+
 function ordenesDeLaFicha(f, inicial, ordenes) {
-  if (f.proveedores) return f.proveedores;
-  const otras = (ordenes || []).filter(o => o.id !== inicial?.id && mismoExp(o.exp, f.exp));
-  return [f, ...otras].sort((a, b) => compararPorNumeroOC(b, a)); // de menor a mayor
+  // Las ya guardadas del expediente y la que se está editando (o, en el
+  // alta, los proveedores que se están cargando), de menor a mayor N° de OC.
+  const guardadas = (ordenes || []).filter(o => o.id !== inicial?.id && deLaFicha(o.exp, f.exp));
+  return [...(f.proveedores || [f]), ...guardadas].sort((a, b) => compararPorNumeroOC(b, a));
 }
 
 function imprimirFicha(f, ocs) {
