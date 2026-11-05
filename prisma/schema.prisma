@@ -543,6 +543,7 @@ model OrdenCompra {
   numeroResol      String?
   fechaResol       DateTime?
   proveedor        String?
+  codigoProveedor  String?
   montoResolucion  String?
   montoAjustado    String? // total con el último ajuste para la OC
   ingresoOC        DateTime? // de acá corren los días en el departamento

@@ -1,13 +1,23 @@
 import { NextResponse } from "next/server";
 import { esFechaISO } from "@/lib/diasHabiles";
-import { vencimientosDePublicacion } from "@/lib/feriados";
+import { vencimientoOCDesdeArt44, vencimientosDePublicacion } from "@/lib/feriados";
 import { sesionOrdenesCompra } from "@/lib/ordenesCompraServidor";
 
 // Vencimientos del art. 44 y de la OC en días hábiles:
 // ?publicacion=aaaa-mm-dd[&notificacion44=aaaa-mm-dd]
+// o, con el art. 44 corregido a mano, solo la OC: ?art44=aaaa-mm-dd
 export async function GET(request) {
   if (!(await sesionOrdenesCompra())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const params = new URL(request.url).searchParams;
+  const art44 = params.get("art44");
+  if (art44 !== null) {
+    if (!esFechaISO(art44)) return NextResponse.json({ error: "Fecha inválida (aaaa-mm-dd)" }, { status: 400 });
+    try {
+      return NextResponse.json(await vencimientoOCDesdeArt44(art44));
+    } catch (err) {
+      return NextResponse.json({ error: err.message || "No se pudo calcular el vencimiento" }, { status: 503 });
+    }
+  }
   const publicacion = params.get("publicacion");
   const notificacion44 = params.get("notificacion44") || undefined;
   if (!esFechaISO(publicacion) || (notificacion44 && !esFechaISO(notificacion44))) {

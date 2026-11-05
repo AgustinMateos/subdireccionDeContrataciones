@@ -43,7 +43,7 @@ function aFormulario(n) {
 }
 
 // Alta / edición, con los campos en el orden de la hoja. La jefa ve la
-// ficha fija: solo cambia agente y prioridad.
+// ficha fija: solo cambia la prioridad (la asignación es del departamento).
 function FormularioNotificacion({ inicial, esJefa, onCerrar, onGuardar, onEliminar }) {
   const [f, setF] = useState(() => aFormulario(inicial));
   const [error, setError] = useState("");
@@ -97,8 +97,8 @@ function FormularioNotificacion({ inicial, esJefa, onCerrar, onGuardar, onElimin
               const ancho = ["objeto", "organismo", "estado"].includes(k) ? "col-span-2" : "";
               if (k === "agente") {
                 return esJefa
-                  ? <CampoOpciones key={k} label="Agente (asignación)" value={f.agente} onChange={v => set("agente", v)} opciones={AGENTES_ORDENES_COMPRA} />
-                  : <Campo_Input key={k} label="Agente (lo asigna la jefa)" value={f.agente} onChange={() => {}} disabled />;
+                  ? <Campo_Input key={k} label="Agente (lo asigna Órdenes de Compra)" value={f.agente} onChange={() => {}} disabled />
+                  : <CampoOpciones key={k} label="Agente (asignación)" value={f.agente} onChange={v => set("agente", v)} opciones={AGENTES_ORDENES_COMPRA} />;
               }
               if (fijo) return <div key={k} className={ancho}><DatoFicha label={etiqueta} valor={k === "fechaIngreso" ? fecha(f[k]) : f[k] || "-"} mono={k === "exp"} /></div>;
               return (
@@ -135,7 +135,7 @@ const SOLAPAS = [
   { id: "todas", etiqueta: "Todas", incluye: () => true },
   { id: "pendientes", etiqueta: "Sin notificar", incluye: n => !estaNotificada44(n) },
   { id: "notificadas", etiqueta: "Notificadas", incluye: estaNotificada44 },
-  { id: "sinAsignar", etiqueta: "Sin asignar", incluye: n => !String(n.agente || "").trim(), soloJefa: true },
+  { id: "sinAsignar", etiqueta: "Sin asignar", incluye: n => !String(n.agente || "").trim() },
 ];
 
 function exportarExcel(filas) {
@@ -249,7 +249,7 @@ export default function PanelNotificaciones44({ sesion, mostrarToast }) {
         </div>
       );
     }
-    if (k === "agente" && esJefa) {
+    if (k === "agente" && !esJefa) {
       return (
         <SelectRapido valor={n.agente} opciones={agentes} vacio="Sin asignar" onChange={v => cambiarRapido(n, { agente: v })} className="min-w-[110px]" />
       );
@@ -318,7 +318,7 @@ export default function PanelNotificaciones44({ sesion, mostrarToast }) {
               ) : filasPagina.map(n => (
                 <tr key={n.id} onClick={() => setForm(n.id)} className="group border-b border-slate-50 last:border-0 hover:bg-slate-50 cursor-pointer align-top text-xs text-slate-700">
                   {CAMPOS_NOTIFICACION_44.map(([k]) => (
-                    <td key={k} onClick={k === "agente" && esJefa ? ev => ev.stopPropagation() : undefined}
+                    <td key={k} onClick={k === "agente" && !esJefa ? ev => ev.stopPropagation() : undefined}
                       className={"py-2.5 px-3 " + (ANCHOS[k] || "min-w-[90px]") + (k === "exp" ? " sticky left-0 z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100" : "")}>
                       {celda(n, k)}
                     </td>

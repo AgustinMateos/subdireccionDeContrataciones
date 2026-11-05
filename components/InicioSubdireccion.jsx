@@ -91,7 +91,8 @@ export default function InicioSubdireccion({ onIr, mostrarToast }) {
   // Lista de expedientes que se abre al tocar una cifra.
   const [modal, setModal] = useState(null);
   // Ficha abierta: { area, id }. Es la misma del panel del departamento
-  // (la jefa solo cambia agente y prioridad).
+  // (la jefa solo cambia agente y prioridad; en Órdenes de Compra, solo la
+  // prioridad: ahí asigna el departamento).
   const [ficha, setFicha] = useState(null);
   const fuente = { Resoluciones: res, Licitaciones: lic, [OC]: ord };
   const expFicha = ficha && fuente[ficha.area].datos?.find(e => e.id === ficha.id);

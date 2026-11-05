@@ -36,7 +36,7 @@ function filtroVacio() {
 
 const VACIO = {
   exp: "", numeroOC: "", ampliacionOC: "", prorrogaOC: "", agente: "", organismo: "", objeto: "", tipo: "",
-  plazoEjecucion: "", inicioServicio: "", autoriza: "", numeroResol: "", fechaResol: "", proveedor: "",
+  plazoEjecucion: "", inicioServicio: "", autoriza: "", numeroResol: "", fechaResol: "", proveedor: "", codigoProveedor: "",
   montoResolucion: "", montoAjustado: "", ingresoOC: "", vtoArt44: "", vencimientoOC: "", notificacion44: "",
   cbu: "", informe: "", contabilidad: "", controlada: "", firmaSol: "", notificada: "", itemPendiente: "",
   pase: "", estado: "", fechaPublicacion: "", observaciones: "", prioritario: false,
@@ -44,7 +44,7 @@ const VACIO = {
 
 // En el alta, cada proveedor del expediente con su N° de OC y sus montos:
 // se guarda una orden por proveedor.
-const proveedorVacio = numeroOC => ({ numeroOC: numeroOC || "", proveedor: "", montoResolucion: "", seAjusta: false, montoAjustado: "", cbu: "" });
+const proveedorVacio = numeroOC => ({ numeroOC: numeroOC || "", proveedor: "", codigoProveedor: "", montoResolucion: "", seAjusta: false, montoAjustado: "", cbu: "" });
 
 function aFormulario(e, numeroNuevo) {
   if (!e) return { ...VACIO, ...partesControlYFirma(VACIO), ingresoOC: hoyLocalISO(), autoriza: "AG", proveedores: [proveedorVacio(numeroNuevo)] };
@@ -157,8 +157,9 @@ function ElegirAmpliacion({ f, set }) {
 }
 
 // Vencimientos del art. 44 y de la OC: se calculan solos (con la fecha de
-// la resolución); se pueden corregir a mano.
-function Vencimientos({ f, set, aviso, onRecalcular }) {
+// la resolución); se pueden corregir a mano. Al corregir el del art. 44,
+// el de la OC se vuelve a calcular desde ese día (y se puede corregir igual).
+function Vencimientos({ f, set, aviso, onRecalcular, onCambiarArt44 }) {
   const [corregir, setCorregir] = useState(false);
   const noLleva = /^NO\b/i.test(String(f.vtoArt44 || "").trim());
   return (
@@ -173,7 +174,7 @@ function Vencimientos({ f, set, aviso, onRecalcular }) {
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
               <p className="text-sm text-slate-600">Vence el art. 44</p>
-              {corregir ? <ElegirDiaTexto valor={f.vtoArt44} onChange={v => set("vtoArt44", v)} />
+              {corregir ? <ElegirDiaTexto valor={f.vtoArt44} onChange={onCambiarArt44} />
                 : <p className="text-lg font-semibold text-slate-900">{f.vtoArt44 || "Falta la fecha de la resolución"}</p>}
             </div>
             <div>
@@ -227,6 +228,9 @@ function ProveedoresOC({ proveedores, onChange }) {
           </Campo>
           <Campo pregunta="Proveedor">
             <Entrada valor={p.proveedor} onChange={v => cambiar(i, { proveedor: v })} ejemplo="LIMPRO SAS" />
+          </Campo>
+          <Campo pregunta="Código de proveedor">
+            <Entrada valor={p.codigoProveedor} onChange={v => cambiar(i, { codigoProveedor: v })} ejemplo="12345" />
           </Campo>
           <Campo pregunta="Monto de la resolución">
             <Entrada valor={p.montoResolucion} onChange={v => cambiar(i, { montoResolucion: v })} ejemplo="$ 49.355.142,75" />
@@ -369,7 +373,7 @@ function Vencimiento({ e }) {
 
 // Alta / edición de una orden de compra, en dos solapas: los datos y el
 // circuito (con el historial). Al editar, la jefa ve todo como ficha:
-// solo cambia agente y prioridad.
+// solo cambia la prioridad (la asignación la hace el departamento).
 export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, onGuardar, onEliminar }) {
   const [f, setF] = useState(() => aFormulario(inicial, numeroNuevo));
   const [solapa, setSolapa] = useState("datos");
@@ -381,7 +385,7 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
   const fijo = esJefa && !!inicial;
   const [avisoVencimientos, setAvisoVencimientos] = useState("");
   // Pasos abiertos: en una orden nueva, el primero; en una cargada, el
-  // seguimiento (y la jefa, también la orden, donde asigna).
+  // seguimiento (y la jefa, también la orden, donde marca la prioridad).
   const pasos = usePasos(!inicial ? { 1: true } : fijo ? { 3: true, 4: true } : { 4: true }, n => resumenPaso(n, f));
   const paso = pasos.paso;
 
@@ -424,6 +428,27 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
       setAvisoVencimientos("Vencimientos calculados en días hábiles" + (notificacion ? " (la OC, desde la notificación del art. 44)" : "") + ".");
     } catch (err) {
       setAvisoVencimientos("No se pudieron calcular los vencimientos" + (err.message ? ": " + err.message : "") + ". Cargalos a mano.");
+    }
+  }
+
+  // Vencimiento del art. 44 corregido a mano: la OC vence 10 días hábiles
+  // después. Si el art. 44 ya se notificó, la OC corre desde la
+  // notificación y no se toca.
+  async function cambiarArt44(valor) {
+    set("vtoArt44", valor);
+    const art44 = deTextoFecha(valor);
+    if (!esFechaISO(art44) || esFechaISO(deTextoFecha(f.notificacion44))) return;
+    setAvisoVencimientos("Calculando el vencimiento de la orden de compra...");
+    try {
+      const res = await fetch("/api/ordenes-compra/vencimientos?art44=" + art44);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error);
+      setF(prev => (deTextoFecha(prev.vtoArt44) === art44 && !esFechaISO(deTextoFecha(prev.notificacion44))
+        ? { ...prev, vencimientoOC: data.fechaLimiteOC }
+        : prev));
+      setAvisoVencimientos("La orden de compra se calculó desde el vencimiento del art. 44 que cargaste.");
+    } catch (err) {
+      setAvisoVencimientos("No se pudo calcular el vencimiento de la OC" + (err.message ? ": " + err.message : "") + ". Cargalo a mano.");
     }
   }
 
@@ -519,7 +544,7 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
 
           {solapa === "datos" && <AbrirTodos pasos={pasos} total={4} />}
           {solapa === "datos" && fijo ? (
-            // La jefa ve la ficha: solo cambia agente y prioridad.
+            // La jefa ve la ficha: solo cambia la prioridad.
             <>
               <Paso {...paso(1)} titulo="La resolución">
                 <DatoFicha label="N° de expediente" valor={f.exp} mono />
@@ -540,12 +565,11 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
               <Paso {...paso(3)} titulo="La orden de compra">
                 <DatoFicha label="N° de OC" valor={f.numeroOC} />
                 <DatoFicha label="Proveedor" valor={f.proveedor} />
+                <DatoFicha label="Código de proveedor" valor={f.codigoProveedor || "-"} />
                 <DatoFicha label="Monto de la resolución" valor={f.montoResolucion} />
                 <DatoFicha label="Monto para la OC" valor={(f.seAjusta ? f.montoAjustado : f.montoResolucion) || "-"} />
                 <DatoFicha label="Ingresó a OC" valor={fecha(f.ingresoOC)} />
-                <Campo pregunta="¿A quién se le asigna?">
-                  <ElegirDeLista opciones={AGENTES_ORDENES_COMPRA} valor={f.agente} onChange={v => set("agente", v)} vacio="Sin asignar" />
-                </Campo>
+                <DatoFicha label="Agente asignado" valor={f.agente || "Sin asignar"} />
                 <Campo pregunta="¿Es prioritaria?">
                   <SiNo valor={!!f.prioritario} onChange={v => set("prioritario", v)} si="Sí, prioritaria" no="No" />
                 </Campo>
@@ -577,14 +601,14 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
                 <Campo pregunta="¿Qué día salió la resolución?" ayuda="Con esta fecha se calculan solos los vencimientos.">
                   <ElegirDia valor={f.fechaResol} onChange={v => set("fechaResol", v)} />
                 </Campo>
-                <Campo pregunta="¿Quién autoriza?" ayuda="Casi siempre es AG.">
-                  <Entrada valor={f.autoriza} onChange={v => set("autoriza", v)} ejemplo="AG" />
+                <Campo pregunta="¿Quién autoriza?">
+                  <ElegirDeLista opciones={["AG", "CM"]} valor={f.autoriza} onChange={v => set("autoriza", v)} />
                 </Campo>
                 <Campo pregunta="¿Es una ampliación o una prórroga de otra orden de compra?" ancho>
                   <ElegirAmpliacion f={f} set={set} />
                 </Campo>
                 <Campo pregunta="Vencimientos" ancho>
-                  <Vencimientos f={f} set={set} aviso={avisoVencimientos} onRecalcular={recalcularVencimientos} />
+                  <Vencimientos f={f} set={set} aviso={avisoVencimientos} onRecalcular={recalcularVencimientos} onCambiarArt44={cambiarArt44} />
                 </Campo>
               </Paso>
 
@@ -603,7 +627,7 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
                 </Campo>
                 {(/SERVICIO/i.test(f.tipo) || f.inicioServicio) && (
                   <Campo pregunta="¿Cuándo empieza el servicio?">
-                    <Entrada valor={f.inicioServicio} onChange={v => set("inicioServicio", v)} ejemplo="1/4/26 X 12 MESES" />
+                    <ElegirDiaTexto valor={f.inicioServicio} onChange={v => set("inicioServicio", v)} />
                   </Campo>
                 )}
               </Paso>
@@ -616,6 +640,9 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
                     </Campo>
                     <Campo pregunta="Proveedor">
                       <Entrada valor={f.proveedor} onChange={v => set("proveedor", v)} ejemplo="LIMPRO SAS" />
+                    </Campo>
+                    <Campo pregunta="Código de proveedor">
+                      <Entrada valor={f.codigoProveedor} onChange={v => set("codigoProveedor", v)} ejemplo="12345" />
                     </Campo>
                     <Campo pregunta="Monto de la resolución">
                       <Entrada valor={f.montoResolucion} onChange={v => set("montoResolucion", v)} ejemplo="$ 49.355.142,75" />
@@ -635,9 +662,9 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, onCerrar, 
                   {inicial ? <ElegirDia valor={f.ingresoOC} onChange={v => set("ingresoOC", v)} />
                     : <p className="text-base text-slate-800 py-2">Hoy, {fecha(f.ingresoOC)} <span className="text-sm text-slate-500">(se pone solo)</span></p>}
                 </Campo>
-                <Campo pregunta="Agente asignado">
-                  {esJefa ? <ElegirDeLista opciones={AGENTES_ORDENES_COMPRA} valor={f.agente} onChange={v => set("agente", v)} vacio="Sin asignar" />
-                    : <p className="text-base text-slate-800 py-2">{f.agente || "Sin asignar"} <span className="text-sm text-slate-500">(lo asigna la jefa)</span></p>}
+                <Campo pregunta="¿A quién se le asigna?">
+                  {esJefa ? <p className="text-base text-slate-800 py-2">{f.agente || "Sin asignar"} <span className="text-sm text-slate-500">(lo asigna Órdenes de Compra)</span></p>
+                    : <ElegirDeLista opciones={AGENTES_ORDENES_COMPRA} valor={f.agente} onChange={v => set("agente", v)} vacio="Sin asignar" />}
                 </Campo>
                 {esJefa && (
                   <Campo pregunta="¿Es prioritaria?">
@@ -784,21 +811,21 @@ export const SOLAPAS = [
   { id: "porVencer", etiqueta: "Vencidas y por vencer", incluye: porVencerOC },
   { id: "prioritarios", etiqueta: "Prioritarias", incluye: e => !esCompleta(e) && esPrioritariaOC(e) },
   { id: "completas", etiqueta: "Completas", incluye: esCompleta },
-  // Para que la jefa de la Subdirección asigne lo pendiente.
-  { id: "sinAsignar", etiqueta: "Sin asignar", incluye: e => !esCompleta(e) && !String(e.agente || "").trim(), soloJefa: true },
+  // Para que el departamento asigne lo pendiente.
+  { id: "sinAsignar", etiqueta: "Sin asignar", incluye: e => !esCompleta(e) && !String(e.agente || "").trim() },
 ];
 
 function exportarExcel(filas, solapa) {
   const datos = [
     ["EXP", "AMPLIACION OC", "PRORROGA O/C N°", "AGENTE", "FECHA RESOL", "INGRESO A OC", "VTO. ART 44", "VENCIMIENTO OC",
-      "ORGANISMO", "OBJETO", "PLAZO DE EJECUCION", "PROV/SERVICIO", "AG", "N° RESOL", "OC", "PROVEEDOR", "MONTO POR RESOLUCION",
+      "ORGANISMO", "OBJETO", "PLAZO DE EJECUCION", "PROV/SERVICIO", "AG", "N° RESOL", "OC", "PROVEEDOR", "COD. PROVEEDOR", "MONTO POR RESOLUCION",
       "TOTAL CON ULTIMO AJUSTE PARA O/C", "FECHA 44/NOTIF.", "CBU", "INFORME", "CONTABILIDAD", "O/C CONTROLADA POR Y FECHA",
       "A LA FIRMA DE SOL FECHA", "FECHA DE O/C NOTIFICADA", "ITEM PENDIENTE", "PASE", "ESTADO", "INICIO SERVICIO",
       "OBSERVACIONES", "FECHA DE PUBLICACION", "ETAPA", "DIAS EN OC", "PRIORITARIA"],
     ...filas.map(e => [
       e.exp, e.ampliacionOC || "", e.prorrogaOC || "", e.agente || "", e.fechaResol ? fecha(e.fechaResol) : "", e.ingresoOC ? fecha(e.ingresoOC) : "",
       e.vtoArt44 || "", e.vencimientoOC ? fecha(e.vencimientoOC) : "", e.organismo || "", e.objeto, e.plazoEjecucion || "", e.tipo || "",
-      e.autoriza || "", e.numeroResol || "", e.numeroOC || "", e.proveedor || "", e.montoResolucion || "", e.montoAjustado || "",
+      e.autoriza || "", e.numeroResol || "", e.numeroOC || "", e.proveedor || "", e.codigoProveedor || "", e.montoResolucion || "", e.montoAjustado || "",
       e.notificacion44 || "", e.cbu || "", e.informe || "", e.contabilidad || "", e.controlada || "", e.firmaSol || "", e.notificada || "",
       e.itemPendiente || "", e.pase || "", e.estado || "", e.inicioServicio || "", e.observaciones || "", e.fechaPublicacion || "",
       avanceOC(e).etapa, diasEnOC(e) ?? "", e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
@@ -834,7 +861,7 @@ export default function PanelOrdenesCompra(props) {
 
 // La planilla de seguimiento de las órdenes de compra.
 function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
-  // La jefa de la Subdirección asigna agentes y marca prioridades.
+  // La jefa de la Subdirección marca prioridades (la asignación la hace el departamento).
   const esJefa = sesion.email === EMAIL_JEFA_SUBDIRECCION;
   const [ordenes, setOrdenes] = useState(null);
   const [f, setF] = useState(filtroVacio);
@@ -877,7 +904,7 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
   const deLaSolapa = useMemo(() => lista.filter(deSolapa.incluye), [lista, deSolapa]);
   const filas = useMemo(() => deLaSolapa.filter(e => {
     if (f.exp && !norm(e.exp + " " + (e.numeroOC || "")).includes(norm(expParaBuscar(f.exp)))) return false;
-    if (f.texto && !norm([e.objeto, e.organismo, e.proveedor, e.observaciones].join(" ")).includes(norm(f.texto))) return false;
+    if (f.texto && !norm([e.objeto, e.organismo, e.proveedor, e.codigoProveedor, e.observaciones].join(" ")).includes(norm(f.texto))) return false;
     if (f.tipo && e.tipo !== f.tipo) return false;
     if (f.agente && e.agente !== f.agente) return false;
     return true;
@@ -915,8 +942,8 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
       : data.expedientes.length > 1 ? "Se cargaron " + data.expedientes.length + " órdenes de compra" : "Orden de compra cargada");
   }
 
-  // Cambio rápido desde la tabla: estado o pase (el departamento),
-  // asignación o prioridad (la jefa). Se muestra al instante; si el
+  // Cambio rápido desde la tabla: estado, pase o asignación (el
+  // departamento), prioridad (la jefa). Se muestra al instante; si el
   // servidor lo rechaza, se vuelve atrás.
   async function cambiarRapido(e, cambios) {
     const anteriores = Object.fromEntries(Object.keys(cambios).map(k => [k, e[k]]));
@@ -962,10 +989,10 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
     { titulo: "Prórroga O/C N°", ancho: "min-w-[90px]", celda: txt("prorrogaOC") },
     { titulo: "Agente", ancho: "min-w-[100px]",
       filtro: <FiltroColumna valor={f.agente} etiqueta="Todos" opciones={opciones.agente} onChange={v => set("agente", v)} />,
-      alTocar: esJefa ? ev => ev.stopPropagation() : undefined,
-      celda: e => (esJefa ? (
+      alTocar: celdaRapida,
+      celda: e => (esJefa ? (e.agente || "-") : (
         <SelectRapido valor={e.agente} opciones={AGENTES_ORDENES_COMPRA} vacio="Sin asignar" onChange={v => cambiarRapido(e, { agente: v })} className="min-w-[110px]" />
-      ) : (e.agente || "-")) },
+      )) },
     { titulo: "Fecha resol.", ancho: "min-w-[90px] whitespace-nowrap", celda: e => fecha(e.fechaResol) },
     { titulo: "Ingreso a OC", ancho: "min-w-[100px] whitespace-nowrap", celda: e => {
       const dias = diasEnOC(e);
@@ -992,6 +1019,7 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
     { titulo: "N° resol.", ancho: "min-w-[80px] whitespace-nowrap", celda: txt("numeroResol") },
     { titulo: "OC", ancho: "min-w-[50px]", fondo: " bg-blue-950 text-white", celda: e => <span className="font-semibold tabular-nums">{e.numeroOC || "-"}</span> },
     { titulo: "Proveedor", ancho: "min-w-[170px] max-w-[220px]", celda: txt("proveedor") },
+    { titulo: "Cód. proveedor", ancho: "min-w-[90px]", celda: txt("codigoProveedor") },
     { titulo: "Por resolución", grupo: "Monto", ancho: "min-w-[130px] whitespace-nowrap tabular-nums", celda: e => e.montoResolucion || "-" },
     { titulo: "Ajuste para O/C", grupo: "Monto", ancho: "min-w-[130px] whitespace-nowrap tabular-nums", celda: e => e.montoAjustado || e.montoResolucion || "-" },
     { titulo: "Fecha 44/notif.", ancho: "min-w-[100px]", celda: txt("notificacion44") },

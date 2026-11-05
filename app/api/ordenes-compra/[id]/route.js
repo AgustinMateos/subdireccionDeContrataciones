@@ -4,8 +4,8 @@ import { EMAIL_JEFA_SUBDIRECCION } from "@/lib/resoluciones";
 import { datosOrdenCompra, sinCamposDeOrdenesCompra, soloCamposDeJefaOrdenesCompra } from "@/lib/ordenesCompra";
 import { INCLUDE_ORDEN_COMPRA, conPlanObras, registrosDeCambiosOrdenCompra, sesionOrdenesCompra } from "@/lib/ordenesCompraServidor";
 
-// Edición. Si no es la jefa, agente y prioridad quedan como estaban; la
-// jefa solo cambia agente, prioridad y observaciones.
+// Edición. Si no es la jefa, la prioridad queda como estaba; la jefa solo
+// cambia prioridad y observaciones (la asignación es del departamento).
 export async function PUT(request, { params }) {
   const { id } = await params;
   const session = await sesionOrdenesCompra();
@@ -27,20 +27,20 @@ export async function PUT(request, { params }) {
   return NextResponse.json({ expediente: await conPlanObras(prisma, orden) });
 }
 
-// Cambio rápido desde la tabla: `{ estado }` o `{ pase }` (el
-// departamento; queda en el historial); `{ agente }` o `{ prioritario }`
-// solo la jefa de la Subdirección.
+// Cambio rápido desde la tabla: `{ estado }`, `{ pase }` o `{ agente }`
+// (el departamento; queda en el historial); `{ prioritario }` solo la
+// jefa de la Subdirección.
 export async function PATCH(request, { params }) {
   const { id } = await params;
   const session = await sesionOrdenesCompra();
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const body = await request.json();
   const esJefa = session.user.email === EMAIL_JEFA_SUBDIRECCION;
-  if (esJefa && ("estado" in body || "pase" in body)) {
-    return NextResponse.json({ error: "Estado y pase los modifica Órdenes de Compra" }, { status: 403 });
+  if (esJefa && ("estado" in body || "pase" in body || "agente" in body)) {
+    return NextResponse.json({ error: "Estado, pase y asignación los modifica Órdenes de Compra" }, { status: 403 });
   }
-  if (("agente" in body || "prioritario" in body) && !esJefa) {
-    return NextResponse.json({ error: "Solo la jefa de la Subdirección puede cambiar la asignación o la prioridad" }, { status: 403 });
+  if ("prioritario" in body && !esJefa) {
+    return NextResponse.json({ error: "Solo la jefa de la Subdirección puede cambiar la prioridad" }, { status: 403 });
   }
   const existente = await prisma.ordenCompra.findUnique({ where: { id } });
   if (!existente) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
