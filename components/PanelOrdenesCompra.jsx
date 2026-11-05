@@ -285,7 +285,7 @@ function imprimirFicha(f, ocs) {
   const [dd, mm, aa] = vtoOC ? [vtoOC.slice(8, 10), vtoOC.slice(5, 7), vtoOC.slice(0, 4)] : ["", "", ""];
   const bloque = o => `
     <div class="oc">
-      <div>OC N° ${dato(o.numeroOC)} &nbsp; N° ${dato(o.codigoProveedor)} &nbsp; CBU: <b>${cbuCargado(o) ? "SI" : "NO"}</b></div>
+      <div>OC N° ${dato(o.numeroOC)} &nbsp; Nro. prov. ${dato(o.codigoProveedor)} &nbsp; CBU: <b>${cbuCargado(o) ? "SI" : "NO"}</b></div>
       <div>Nom. ${dato(o.proveedor)}</div>
     </div>`;
   // Como en el papel: hasta 6 OC a la izquierda; el resto, arriba a la derecha.
@@ -302,7 +302,8 @@ function imprimirFicha(f, ocs) {
       .col { padding: 8px 10px; }
       .col + .col { border-left: 1px solid #000; }
       .cabecera { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 6px; }
-      .oc { margin-bottom: 14px; line-height: 1.7; }
+      .oc { padding: 6px 0; line-height: 1.7; border-bottom: 1px solid #000; }
+      .oc:last-child { border-bottom: 0; }
       .fechas { border-top: 1px solid #000; margin-top: 8px; padding-top: 8px; line-height: 2; }
       .linea { display: inline-block; min-width: 90px; border-bottom: 1px dotted #000; }
       b { font-weight: bold; }
@@ -316,10 +317,10 @@ function imprimirFicha(f, ocs) {
       <div class="cuerpo">
         <div class="col">
           <div class="cabecera"><span>AÑO: ${anio}</span><span>(CBU)</span></div>
-          ${izquierda.map(bloque).join("")}
+          <div>${izquierda.map(bloque).join("")}</div>
         </div>
         <div class="col">
-          ${derecha.map(bloque).join("")}
+          ${derecha.length ? "<div>" + derecha.map(bloque).join("") + "</div>" : ""}
           <div class="fechas"${derecha.length ? "" : ' style="border-top:0;margin-top:0;padding-top:0"'}>
             <div>INGRESO: ${dato(f.ingresoOC ? fecha(f.ingresoOC) : "")}</div>
             <div>VTO ART 44: ${dato(f.vtoArt44)}</div>
