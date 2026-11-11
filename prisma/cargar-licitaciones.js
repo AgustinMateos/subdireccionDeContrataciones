@@ -116,9 +116,11 @@ const COLUMNAS = {
   paseFirma: c => c.startsWith("PASE A LA FIRMA"),
 };
 
-function leerPlanilla(ruta) {
+// `hoja`: el nombre de la hoja; sin él, la primera con los encabezados.
+function leerPlanilla(ruta, hoja) {
   const libro = XLSX.readFile(ruta);
-  for (const nombre of libro.SheetNames) {
+  if (hoja && !libro.Sheets[hoja]) throw new Error("No está la hoja «" + hoja + "» en " + ruta);
+  for (const nombre of hoja ? [hoja] : libro.SheetNames) {
     const filas = XLSX.utils.sheet_to_json(libro.Sheets[nombre], { header: 1, raw: true, defval: "" });
     const iEnc = filas.findIndex(f => norm(f[0]) === "EXP" && f.some(c => norm(c) === "JURISDICCION"));
     if (iEnc < 0) continue;
@@ -198,6 +200,10 @@ async function main() {
   if (sinPase.length) console.log("Pase a la firma ilegible, quedó vacío (" + sinPase.length + "): " + sinPase.join(", "));
 }
 
-main()
-  .catch(err => { console.error(err); process.exitCode = 1; })
-  .finally(() => prisma.$disconnect());
+module.exports = { leerPlanilla };
+
+if (require.main === module) {
+  main()
+    .catch(err => { console.error(err); process.exitCode = 1; })
+    .finally(() => prisma.$disconnect());
+}
