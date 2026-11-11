@@ -361,23 +361,25 @@ export const SOLAPAS = [
   { id: "sinAsignar", etiqueta: "Sin asignar", incluye: e => !esTerminada(e) && !String(e.agente || "").trim(), soloJefa: true },
 ];
 
-// `resoluciones`: { [id]: para qué está o estuvo en Resoluciones }; sin
-// él (no se pudo consultar), esa columna queda vacía.
-function exportarExcel(filas, solapa, resoluciones) {
+// `resoluciones`: { [id]: para qué está o estuvo en Resoluciones } y
+// `contrataciones`: { [id]: sus N° de contratación allá }; sin ellos (no
+// se pudo consultar), esas columnas quedan vacías.
+function exportarExcel(filas, solapa, resoluciones, contrataciones) {
   const datos = [
     ["EXP", "JURISDICCION", "ORGANISMO", "DOMICILIO", "RUBRO", "PARTIDA (INCISO 4)", "OBJETO", "MONTO", "PLAZO DE EJECUCION (DH)", "ENCUADRE",
       "ULTIMO MOVIMIENTO", "DIAS EN EL SECTOR", "SECTOR", "ESTADO INTERNO", "ESTADO CONVOCATORIA", "OBSERVACIONES", "AGENTE",
-      "PASE A LA FIRMA", "PRIORITARIO", "TIPO DE RESOLUCION (EN RESOLUCIONES)"],
+      "PASE A LA FIRMA", "PRIORITARIO", "TIPO DE RESOLUCION (EN RESOLUCIONES)", "N° DE CONTRATACION (RESOLUCIONES)"],
     ...filas.map(e => [
       e.exp, e.jurisdiccion || "", e.organismo || "", e.domicilio || "", e.rubro || "", etiquetaPartida(partidaDe(e)), e.objeto, e.monto || "", e.plazoEjecucion || "",
       e.encuadre || "", fecha(e.fechaUltimoMov), diasEnSectorLicitacion(e) ?? "", e.sector || "", e.estadoInterno || "",
       e.estadoConvocatoria || "", e.observaciones || "", e.agente || "", e.paseFirma ? fecha(e.paseFirma) : "",
       e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
       resoluciones ? resoluciones[e.id] || "No pasó por Resoluciones" : "",
+      contrataciones?.[e.id] || "",
     ]),
   ];
   const ws = XLSX.utils.aoa_to_sheet(datos);
-  ws["!cols"] = [16, 30, 30, 30, 16, 26, 50, 18, 16, 14, 12, 8, 14, 12, 22, 50, 10, 12, 12, 60].map(wch => ({ wch }));
+  ws["!cols"] = [16, 30, 30, 30, 16, 26, 50, 18, 16, 14, 12, 8, 14, 12, 22, 50, 10, 12, 12, 60, 30].map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Licitaciones");
   XLSX.writeFile(wb, "licitaciones-" + (solapa === "general" ? "" : solapa + "-") + hoyLocalISO() + ".xlsx");
@@ -456,7 +458,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
       const res = await fetch("/api/licitaciones/resoluciones");
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error);
-      exportarExcel(filas, solapa, data.resoluciones);
+      exportarExcel(filas, solapa, data.resoluciones, data.contrataciones);
     } catch {
       mostrarToast("No se pudo traer lo de Resoluciones: el Excel sale sin esa columna completa");
       exportarExcel(filas, solapa);

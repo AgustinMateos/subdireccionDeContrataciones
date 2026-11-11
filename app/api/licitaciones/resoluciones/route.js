@@ -5,7 +5,9 @@ import { sesionLicitaciones } from "@/lib/licitacionesServidor";
 // Para el Excel de Licitaciones: por cada expediente, para qué está o
 // estuvo en Resoluciones (tipo de resolución de cada paso por el sector,
 // con la contratación y el ingreso). Se busca por N° de expediente
-// (cualquier N° NN-NNNNN/AAAA en común). → { [idLicitacion]: "texto" }
+// (cualquier N° NN-NNNNN/AAAA en común).
+// → { resoluciones: { [idLicitacion]: "texto" }, contrataciones: { [idLicitacion]: "L.PRIVADA 362/26, ..." } }
+// (en Fracasa / Autoriza, también la contratación que se autoriza).
 const numeros = t => String(t || "").match(/\d{2}-\d{4,6}\/\d{4}/g) || [];
 const dia = f => (f ? new Date(f).toISOString().slice(0, 10).split("-").reverse().join("/") : "");
 
@@ -17,6 +19,7 @@ export async function GET() {
       where: { esEscrito: false },
       select: {
         exp: true, tipoResolucion: true, situacion: true, tipoContratacion: true, numero: true, fechaIngreso: true,
+        autorizaTipo: true, autorizaNumero: true,
         movimientos: { where: { campo: "Tipo de resolución" }, select: { sectorAnterior: true }, orderBy: { fecha: "asc" } },
       },
       orderBy: { fechaIngreso: "asc" },
@@ -38,10 +41,14 @@ export async function GET() {
       (antes.length ? " (antes para " + antes.join(", ") + ")" : "") + (detalle ? " [" + detalle + "]" : "");
   };
 
-  const resultado = {};
+  const contratacion = (tipo, numero) => (numero ? [tipo, numero].filter(Boolean).join(" ").trim() : "");
+  const resultado = {}, contrataciones = {};
   for (const l of licitaciones) {
     const encontradas = [...new Set(numeros(l.exp).flatMap(n => porNumero.get(n) || []))];
-    if (encontradas.length) resultado[l.id] = encontradas.map(texto).join(" | ");
+    if (!encontradas.length) continue;
+    resultado[l.id] = encontradas.map(texto).join(" | ");
+    const nums = [...new Set(encontradas.flatMap(r => [contratacion(r.tipoContratacion, r.numero), contratacion(r.autorizaTipo, r.autorizaNumero)]).filter(Boolean))];
+    if (nums.length) contrataciones[l.id] = nums.join(", ");
   }
-  return NextResponse.json({ resoluciones: resultado });
+  return NextResponse.json({ resoluciones: resultado, contrataciones });
 }
