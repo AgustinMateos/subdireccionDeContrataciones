@@ -9,7 +9,7 @@ import { fmtFecha } from "@/lib/utils";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
 import { EMAIL_JEFA_SUBDIRECCION, fechaISO } from "@/lib/resoluciones";
 import {
-  JURISDICCIONES_LICITACIONES, RUBROS_LICITACIONES, ENCUADRES_LICITACIONES, SECTORES_LICITACIONES,
+  JURISDICCIONES_LICITACIONES, RUBROS_LICITACIONES, ENCUADRES_LICITACIONES, SECTORES_LICITACIONES, FILTRO_BIENES_DE_USO, esBienDeUso,
   ESTADOS_INTERNOS_LICITACIONES, ESTADOS_CONVOCATORIA_LICITACIONES, AGENTES_LICITACIONES, AGENTE_POR_JURISDICCION,
   agentePorJurisdiccion, compararLicitaciones, diasEnSectorLicitacion, esPrioritarioLicitacion, esTerminada, estaEnLicitaciones,
 } from "@/lib/licitaciones";
@@ -410,7 +410,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
     const de = (campo, base) => [...new Set([...base, ...lista.map(e => e[campo]).filter(Boolean)])].sort((a, b) => a.localeCompare(b));
     return {
       jurisdiccion: de("jurisdiccion", []),
-      rubro: de("rubro", RUBROS_LICITACIONES),
+      rubro: [FILTRO_BIENES_DE_USO, ...de("rubro", RUBROS_LICITACIONES)],
       encuadre: de("encuadre", ENCUADRES_LICITACIONES),
       sector: de("sector", SECTORES_LICITACIONES),
       estadoInterno: de("estadoInterno", ESTADOS_INTERNOS_LICITACIONES),
@@ -426,7 +426,8 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
   const filas = useMemo(() => deLaSolapa.filter(e => {
     if (f.exp && !norm(e.exp).includes(norm(expParaBuscar(f.exp)))) return false;
     if (f.objeto && !norm(e.objeto + " " + (e.organismo || "") + " " + (e.observaciones || "")).includes(norm(f.objeto))) return false;
-    for (const campo of ["jurisdiccion", "rubro", "encuadre", "sector", "estadoInterno", "estadoConvocatoria", "agente"]) {
+    if (f.rubro === FILTRO_BIENES_DE_USO ? !esBienDeUso(e) : f.rubro && e.rubro !== f.rubro) return false;
+    for (const campo of ["jurisdiccion", "encuadre", "sector", "estadoInterno", "estadoConvocatoria", "agente"]) {
       if (f[campo] && e[campo] !== f[campo]) return false;
     }
     return true;
