@@ -1,0 +1,47 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { sesionLicitaciones } from "@/lib/licitacionesServidor";
+
+// Para el Excel de Licitaciones: por cada expediente, para qué está o
+// estuvo en Resoluciones (tipo de resolución de cada paso por el sector,
+// con la contratación y el ingreso). Se busca por N° de expediente
+// (cualquier N° NN-NNNNN/AAAA en común). → { [idLicitacion]: "texto" }
+const numeros = t => String(t || "").match(/\d{2}-\d{4,6}\/\d{4}/g) || [];
+const dia = f => (f ? new Date(f).toISOString().slice(0, 10).split("-").reverse().join("/") : "");
+
+export async function GET() {
+  if (!(await sesionLicitaciones())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const [licitaciones, resoluciones] = await Promise.all([
+    prisma.expedienteLicitacion.findMany({ select: { id: true, exp: true } }),
+    prisma.expedienteResolucion.findMany({
+      where: { esEscrito: false },
+      select: {
+        exp: true, tipoResolucion: true, situacion: true, tipoContratacion: true, numero: true, fechaIngreso: true,
+        movimientos: { where: { campo: "Tipo de resolución" }, select: { sectorAnterior: true }, orderBy: { fecha: "asc" } },
+      },
+      orderBy: { fechaIngreso: "asc" },
+    }),
+  ]);
+
+  const porNumero = new Map();
+  for (const r of resoluciones) for (const n of new Set(numeros(r.exp))) {
+    if (!porNumero.has(n)) porNumero.set(n, []);
+    porNumero.get(n).push(r);
+  }
+
+  const texto = r => {
+    const tipo = String(r.tipoResolucion || "").trim();
+    const verbo = r.situacion === "FINALIZADO" ? "Estuvo" : "Está";
+    const antes = [...new Set(r.movimientos.map(m => String(m.sectorAnterior || "").trim()).filter(t => t && t !== "-" && t !== tipo))];
+    const detalle = [[r.tipoContratacion, r.numero].filter(Boolean).join(" "), r.fechaIngreso && "ingresó " + dia(r.fechaIngreso)].filter(Boolean).join(", ");
+    return (tipo ? verbo + " para " + tipo : verbo + " en Resoluciones (sin tipo)") +
+      (antes.length ? " (antes para " + antes.join(", ") + ")" : "") + (detalle ? " [" + detalle + "]" : "");
+  };
+
+  const resultado = {};
+  for (const l of licitaciones) {
+    const encontradas = [...new Set(numeros(l.exp).flatMap(n => porNumero.get(n) || []))];
+    if (encontradas.length) resultado[l.id] = encontradas.map(texto).join(" | ");
+  }
+  return NextResponse.json({ resoluciones: resultado });
+}
