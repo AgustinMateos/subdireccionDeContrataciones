@@ -30,7 +30,7 @@ const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300
 const ETIQUETA_CAMPO = { sector: "Sector", estadoInterno: "Estado interno", estadoConvocatoria: "Estado convocatoria" };
 
 function filtroVacio() {
-  return { exp: "", anio: "", objeto: "", jurisdiccion: "", rubro: "", encuadre: "", sector: "", estadoInterno: "", estadoConvocatoria: "", agente: "" };
+  return { exp: "", anio: "", anioMov: "", objeto: "", jurisdiccion: "", rubro: "", encuadre: "", sector: "", estadoInterno: "", estadoConvocatoria: "", agente: "" };
 }
 
 const VACIO = {
@@ -415,6 +415,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
       jurisdiccion: de("jurisdiccion", []),
       rubro: [FILTRO_BIENES_DE_USO, ...de("rubro", RUBROS_LICITACIONES)],
       anio: [...new Set(lista.map(anioExpediente).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
+      anioMov: [...new Set(lista.map(e => fechaISO(e.fechaUltimoMov).slice(0, 4)).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
       encuadre: de("encuadre", ENCUADRES_LICITACIONES),
       sector: de("sector", SECTORES_LICITACIONES),
       estadoInterno: de("estadoInterno", ESTADOS_INTERNOS_LICITACIONES),
@@ -431,6 +432,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
     if (f.exp && !norm(e.exp).includes(norm(expParaBuscar(f.exp)))) return false;
     if (f.objeto && !norm(e.objeto + " " + (e.organismo || "") + " " + (e.observaciones || "")).includes(norm(f.objeto))) return false;
     if (f.anio && anioExpediente(e) !== f.anio) return false;
+    if (f.anioMov && fechaISO(e.fechaUltimoMov).slice(0, 4) !== f.anioMov) return false;
     if (f.rubro === FILTRO_BIENES_DE_USO ? !esBienDeUso(e) : f.rubro && e.rubro !== f.rubro) return false;
     for (const campo of ["jurisdiccion", "encuadre", "sector", "estadoInterno", "estadoConvocatoria", "agente"]) {
       if (f[campo] && e[campo] !== f[campo]) return false;
@@ -564,7 +566,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
               <th className="py-2 px-3 align-top w-[150px]"><FiltroColumna valor={f.sector} etiqueta="Todos" opciones={opciones.sector} onChange={v => set("sector", v)} /></th>
               <th className="py-2 px-3 align-top w-[130px]"><FiltroColumna valor={f.estadoInterno} etiqueta="Todos" opciones={opciones.estadoInterno} onChange={v => set("estadoInterno", v)} /></th>
               <th className="py-2 px-3 align-top w-[190px]"><FiltroColumna valor={f.estadoConvocatoria} etiqueta="Todos" opciones={opciones.estadoConvocatoria} onChange={v => set("estadoConvocatoria", v)} /></th>
-              <th className="py-2 px-3" />
+              <th className="py-2 px-3 align-top w-[110px]"><FiltroColumna valor={f.anioMov} etiqueta="Todos los años" opciones={opciones.anioMov} onChange={v => set("anioMov", v)} /></th>
               <th className="py-2 px-3 align-top w-[110px]"><FiltroColumna valor={f.agente} etiqueta="Todos" opciones={opciones.agente} onChange={v => set("agente", v)} /></th>
               <th className="py-2 px-3" />
             </tr>
