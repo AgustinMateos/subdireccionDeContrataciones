@@ -490,6 +490,7 @@ model ExpedienteLicitacion {
   monto              String?
   plazoEjecucion     String? // en días hábiles, a veces por renglón
   encuadre           String? // L.PRIVADA | C.DIRECTA | C.DESCENT....
+  partida            String? // Inciso 4 (bienes de uso): "4.1".."4.8", o "NO"; vacío: según el rubro
   fechaUltimoMov     DateTime? // de acá corren los días en el sector
   sector             String?
   estadoInterno      String?

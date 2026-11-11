@@ -10,6 +10,7 @@ import { hoyLocalISO } from "@/lib/mesaEntradas";
 import { EMAIL_JEFA_SUBDIRECCION, fechaISO } from "@/lib/resoluciones";
 import {
   JURISDICCIONES_LICITACIONES, RUBROS_LICITACIONES, ENCUADRES_LICITACIONES, SECTORES_LICITACIONES, FILTRO_BIENES_DE_USO, esBienDeUso, anioExpediente,
+  PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, partidaDe, partidaSegunRubro, etiquetaPartida, esAnticipo,
   ESTADOS_INTERNOS_LICITACIONES, ESTADOS_CONVOCATORIA_LICITACIONES, AGENTES_LICITACIONES, AGENTE_POR_JURISDICCION,
   agentePorJurisdiccion, compararLicitaciones, diasEnSectorLicitacion, esPrioritarioLicitacion, esTerminada, estaEnLicitaciones,
 } from "@/lib/licitaciones";
@@ -17,7 +18,7 @@ import BotonAccion from "./BotonAccion";
 import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
 import EstrellaPrioridad from "./EstrellaPrioridad";
 import EtiquetasPrioridad from "./EtiquetasPrioridad";
-import { Campo_Input } from "./CamposFormulario";
+import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import CampoOpciones from "./CampoOpciones";
 import { SelectRapido, FiltroColumna, Seccion, DatoFicha } from "./PanelResoluciones";
 import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
@@ -30,12 +31,12 @@ const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300
 const ETIQUETA_CAMPO = { sector: "Sector", estadoInterno: "Estado interno", estadoConvocatoria: "Estado convocatoria" };
 
 function filtroVacio() {
-  return { exp: "", anio: "", anioMov: "", objeto: "", jurisdiccion: "", rubro: "", encuadre: "", sector: "", estadoInterno: "", estadoConvocatoria: "", agente: "" };
+  return { exp: "", anio: "", anioMov: "", objeto: "", jurisdiccion: "", rubro: "", partida: "", encuadre: "", sector: "", estadoInterno: "", estadoConvocatoria: "", agente: "" };
 }
 
 const VACIO = {
   exp: "", jurisdiccion: "", organismo: "", domicilio: "", rubro: "", objeto: "", monto: "", plazoEjecucion: "",
-  encuadre: "", fechaUltimoMov: "", sector: "", estadoInterno: "", estadoConvocatoria: "", observaciones: "",
+  encuadre: "", partida: "", fechaUltimoMov: "", sector: "", estadoInterno: "", estadoConvocatoria: "", observaciones: "",
   agente: "", paseFirma: "", prioritario: false,
 };
 
@@ -182,7 +183,8 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                 <div className="col-span-2 md:col-span-4"><DatoFicha label="Objeto" valor={f.objeto} /></div>
                 <div className="col-span-2"><DatoFicha label="Organismo" valor={f.organismo} /></div>
                 <div className="col-span-2"><DatoFicha label="Domicilio" valor={f.domicilio} /></div>
-                <DatoFicha label="Rubro" valor={f.rubro ? f.rubro + (esBienDeUso(f) ? " · Bien de uso" : "") : f.rubro} />
+                <DatoFicha label="Rubro" valor={f.rubro} />
+                <div className="col-span-2"><DatoFicha label="Partida (Inciso 4)" valor={etiquetaPartida(partidaDe(f)) + (f.partida ? "" : " (según el rubro)")} /></div>
                 <DatoFicha label="Encuadre" valor={f.encuadre} />
                 <div className="col-span-2"><DatoFicha label="Monto" valor={f.monto} /></div>
                 <div className="col-span-2 md:col-span-3"><DatoFicha label="Plazo de ejecución (DH)" valor={f.plazoEjecucion} /></div>
@@ -219,9 +221,12 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                 <div className="col-span-2 md:col-span-4"><Campo_Input label="Objeto *" value={f.objeto} onChange={v => set("objeto", v)} /></div>
                 <div className="col-span-2"><Campo_Input label="Organismo" value={f.organismo} onChange={v => set("organismo", v)} /></div>
                 <div className="col-span-2"><Campo_Input label="Domicilio" value={f.domicilio} onChange={v => set("domicilio", v)} /></div>
-                <div>
-                  <CampoOpciones label="Rubro" value={f.rubro} onChange={v => set("rubro", v)} opciones={RUBROS_LICITACIONES} />
-                  {f.rubro && <p className={"mt-1 text-[11px] " + (esBienDeUso(f) ? "text-emerald-700" : "text-slate-500")}>{esBienDeUso(f) ? "Es bien de uso" : "No es bien de uso"}</p>}
+                <CampoOpciones label="Rubro" value={f.rubro} onChange={v => set("rubro", v)} opciones={RUBROS_LICITACIONES} />
+                <div className="col-span-2">
+                  <Campo_Select label="Partida (Inciso 4 · bienes de uso)" value={f.partida} onChange={v => set("partida", v)}
+                    opciones={["", ...Object.keys(PARTIDAS_INCISO_4), NO_ES_BIEN_DE_USO]}
+                    labels={{ "": "Según el rubro: " + etiquetaPartida(partidaSegunRubro(f.rubro)), ...Object.fromEntries([...Object.keys(PARTIDAS_INCISO_4), NO_ES_BIEN_DE_USO].map(p => [p, etiquetaPartida(p)])) }} />
+                  {esAnticipo(f) && <p className="mt-1 text-[11px] text-slate-500">Es un anticipo de fondos: no cuenta como bien de uso.</p>}
                 </div>
                 <CampoOpciones label="Encuadre" value={f.encuadre} onChange={v => set("encuadre", v)} opciones={ENCUADRES_LICITACIONES} />
                 <div className="col-span-2"><Campo_Input label="Monto" value={f.monto} onChange={v => set("monto", v)} placeholder="$ 61.096.888,00" /></div>
@@ -360,11 +365,11 @@ export const SOLAPAS = [
 // él (no se pudo consultar), esa columna queda vacía.
 function exportarExcel(filas, solapa, resoluciones) {
   const datos = [
-    ["EXP", "JURISDICCION", "ORGANISMO", "DOMICILIO", "RUBRO", "OBJETO", "MONTO", "PLAZO DE EJECUCION (DH)", "ENCUADRE",
+    ["EXP", "JURISDICCION", "ORGANISMO", "DOMICILIO", "RUBRO", "PARTIDA (INCISO 4)", "OBJETO", "MONTO", "PLAZO DE EJECUCION (DH)", "ENCUADRE",
       "ULTIMO MOVIMIENTO", "DIAS EN EL SECTOR", "SECTOR", "ESTADO INTERNO", "ESTADO CONVOCATORIA", "OBSERVACIONES", "AGENTE",
       "PASE A LA FIRMA", "PRIORITARIO", "TIPO DE RESOLUCION (EN RESOLUCIONES)"],
     ...filas.map(e => [
-      e.exp, e.jurisdiccion || "", e.organismo || "", e.domicilio || "", e.rubro || "", e.objeto, e.monto || "", e.plazoEjecucion || "",
+      e.exp, e.jurisdiccion || "", e.organismo || "", e.domicilio || "", e.rubro || "", etiquetaPartida(partidaDe(e)), e.objeto, e.monto || "", e.plazoEjecucion || "",
       e.encuadre || "", fecha(e.fechaUltimoMov), diasEnSectorLicitacion(e) ?? "", e.sector || "", e.estadoInterno || "",
       e.estadoConvocatoria || "", e.observaciones || "", e.agente || "", e.paseFirma ? fecha(e.paseFirma) : "",
       e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
@@ -372,7 +377,7 @@ function exportarExcel(filas, solapa, resoluciones) {
     ]),
   ];
   const ws = XLSX.utils.aoa_to_sheet(datos);
-  ws["!cols"] = [16, 30, 30, 30, 16, 50, 18, 16, 14, 12, 8, 14, 12, 22, 50, 10, 12, 12, 60].map(wch => ({ wch }));
+  ws["!cols"] = [16, 30, 30, 30, 16, 26, 50, 18, 16, 14, 12, 8, 14, 12, 22, 50, 10, 12, 12, 60].map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Licitaciones");
   XLSX.writeFile(wb, "licitaciones-" + (solapa === "general" ? "" : solapa + "-") + hoyLocalISO() + ".xlsx");
@@ -416,7 +421,8 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
     const de = (campo, base) => [...new Set([...base, ...lista.map(e => e[campo]).filter(Boolean)])].sort((a, b) => a.localeCompare(b));
     return {
       jurisdiccion: de("jurisdiccion", []),
-      rubro: [FILTRO_BIENES_DE_USO, ...de("rubro", RUBROS_LICITACIONES)],
+      rubro: de("rubro", RUBROS_LICITACIONES),
+      partida: [FILTRO_BIENES_DE_USO, ...Object.keys(PARTIDAS_INCISO_4).map(etiquetaPartida), etiquetaPartida(NO_ES_BIEN_DE_USO)],
       anio: [...new Set(lista.map(anioExpediente).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
       anioMov: [...new Set(lista.map(e => fechaISO(e.fechaUltimoMov).slice(0, 4)).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
       encuadre: de("encuadre", ENCUADRES_LICITACIONES),
@@ -436,7 +442,8 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
     if (f.objeto && !norm(e.objeto + " " + (e.organismo || "") + " " + (e.observaciones || "")).includes(norm(f.objeto))) return false;
     if (f.anio && anioExpediente(e) !== f.anio) return false;
     if (f.anioMov && fechaISO(e.fechaUltimoMov).slice(0, 4) !== f.anioMov) return false;
-    if (f.rubro === FILTRO_BIENES_DE_USO ? !esBienDeUso(e) : f.rubro && e.rubro !== f.rubro) return false;
+    if (f.rubro && e.rubro !== f.rubro) return false;
+    if (f.partida === FILTRO_BIENES_DE_USO ? !esBienDeUso(e) : f.partida && etiquetaPartida(partidaDe(e)) !== f.partida) return false;
     for (const campo of ["jurisdiccion", "encuadre", "sector", "estadoInterno", "estadoConvocatoria", "agente"]) {
       if (f[campo] && e[campo] !== f[campo]) return false;
     }
@@ -575,7 +582,10 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
               </th>
               <th className="py-2 px-3 align-top w-[200px]"><FiltroColumna valor={f.jurisdiccion} etiqueta="Todas" opciones={opciones.jurisdiccion} onChange={v => set("jurisdiccion", v)} /></th>
               <th className="py-2 px-3" />
-              <th className="py-2 px-3 align-top w-[150px]"><FiltroColumna valor={f.rubro} etiqueta="Todos" opciones={opciones.rubro} onChange={v => set("rubro", v)} /></th>
+              <th className="py-2 px-3 align-top w-[150px] space-y-1.5">
+                <FiltroColumna valor={f.rubro} etiqueta="Todos" opciones={opciones.rubro} onChange={v => set("rubro", v)} />
+                <FiltroColumna valor={f.partida} etiqueta="Todas las partidas" opciones={opciones.partida} onChange={v => set("partida", v)} />
+              </th>
               <th className="py-2 px-3 align-top w-[240px]"><input value={f.objeto} onChange={e => set("objeto", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} /></th>
               <th className="py-2 px-3 align-top w-[130px]"><FiltroColumna valor={f.encuadre} etiqueta="Todos" opciones={opciones.encuadre} onChange={v => set("encuadre", v)} /></th>
               {!enTerminados && <th className="py-2 px-3" />}
@@ -605,7 +615,11 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
                   <td className="py-2.5 px-3"><span className="line-clamp-2" title={e.organismo || ""}>{e.organismo || "-"}</span></td>
                   <td className="py-2.5 px-3 whitespace-nowrap">
                     {e.rubro || "-"}
-                    {esBienDeUso(e) && <span className="block mt-1 w-fit text-[10px] font-semibold px-1.5 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-800">Bien de uso</span>}
+                    {esBienDeUso(e) && (
+                      <span title={etiquetaPartida(partidaDe(e))} className="block mt-1 w-fit text-[10px] font-semibold px-1.5 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-800">
+                        {partidaDe(e)} · Bien de uso
+                      </span>
+                    )}
                   </td>
                   <td className="py-2.5 px-3"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{e.encuadre || "-"}</td>
