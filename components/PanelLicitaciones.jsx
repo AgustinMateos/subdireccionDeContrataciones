@@ -364,11 +364,16 @@ export const SOLAPAS = [
 // `resoluciones`: { [id]: para qué está o estuvo en Resoluciones } y
 // `contrataciones`: { [id]: sus N° de contratación allá }; sin ellos (no
 // se pudo consultar), esas columnas quedan vacías.
-function exportarExcel(filas, solapa, resoluciones, contrataciones) {
+// `actas`: { [id]: ["333/2026", ...] }: un link a las actas de apertura
+// por cada N° de contratación, en columnas ACTA DE APERTURA 1, 2...
+const URL_ACTAS_APERTURA = "https://srpcm.pjn.gov.ar/actas_apertura?filters[search]=";
+function exportarExcel(filas, solapa, resoluciones, contrataciones, actas = {}) {
+  const maxActas = Math.max(0, ...filas.map(e => actas[e.id]?.length || 0));
+  const columnasActas = Array.from({ length: maxActas }, (_, i) => "ACTA DE APERTURA" + (maxActas > 1 ? " " + (i + 1) : ""));
   const datos = [
     ["EXP", "JURISDICCION", "ORGANISMO", "DOMICILIO", "RUBRO", "PARTIDA (INCISO 4)", "OBJETO", "MONTO", "PLAZO DE EJECUCION (DH)", "ENCUADRE",
       "ULTIMO MOVIMIENTO", "DIAS EN EL SECTOR", "SECTOR", "ESTADO INTERNO", "ESTADO CONVOCATORIA", "OBSERVACIONES", "AGENTE",
-      "PASE A LA FIRMA", "PRIORITARIO", "TIPO DE RESOLUCION (EN RESOLUCIONES)", "N° DE CONTRATACION (RESOLUCIONES)"],
+      "PASE A LA FIRMA", "PRIORITARIO", "TIPO DE RESOLUCION (EN RESOLUCIONES)", "N° DE CONTRATACION (RESOLUCIONES)", ...columnasActas],
     ...filas.map(e => [
       e.exp, e.jurisdiccion || "", e.organismo || "", e.domicilio || "", e.rubro || "", etiquetaPartida(partidaDe(e)), e.objeto, e.monto || "", e.plazoEjecucion || "",
       e.encuadre || "", fecha(e.fechaUltimoMov), diasEnSectorLicitacion(e) ?? "", e.sector || "", e.estadoInterno || "",
@@ -376,10 +381,18 @@ function exportarExcel(filas, solapa, resoluciones, contrataciones) {
       e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
       resoluciones ? resoluciones[e.id] || "No pasó por Resoluciones" : "",
       contrataciones?.[e.id] || "",
+      ...columnasActas.map((_, i) => (actas[e.id]?.[i] ? URL_ACTAS_APERTURA + encodeURIComponent(actas[e.id][i]) : "")),
     ]),
   ];
   const ws = XLSX.utils.aoa_to_sheet(datos);
-  ws["!cols"] = [16, 30, 30, 30, 16, 26, 50, 18, 16, 14, 12, 8, 14, 12, 22, 50, 10, 12, 12, 60, 30].map(wch => ({ wch }));
+  // Los links, clickeables.
+  const primeraActa = datos[0].length - maxActas;
+  datos.slice(1).forEach((fila, i) => columnasActas.forEach((_, j) => {
+    const url = fila[primeraActa + j];
+    const celda = ws[XLSX.utils.encode_cell({ r: i + 1, c: primeraActa + j })];
+    if (url && celda) celda.l = { Target: url, Tooltip: "Acta de apertura " + actas[filas[i].id][j] };
+  }));
+  ws["!cols"] = [16, 30, 30, 30, 16, 26, 50, 18, 16, 14, 12, 8, 14, 12, 22, 50, 10, 12, 12, 60, 30, ...columnasActas.map(() => 60)].map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Licitaciones");
   XLSX.writeFile(wb, "licitaciones-" + (solapa === "general" ? "" : solapa + "-") + hoyLocalISO() + ".xlsx");
@@ -458,7 +471,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
       const res = await fetch("/api/licitaciones/resoluciones");
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error);
-      exportarExcel(filas, solapa, data.resoluciones, data.contrataciones);
+      exportarExcel(filas, solapa, data.resoluciones, data.contrataciones, data.actas);
     } catch {
       mostrarToast("No se pudo traer lo de Resoluciones: el Excel sale sin esa columna completa");
       exportarExcel(filas, solapa);

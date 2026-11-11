@@ -7,7 +7,9 @@ import { sesionLicitaciones } from "@/lib/licitacionesServidor";
 // con la contratación y el ingreso). Se busca por N° de expediente
 // (cualquier N° NN-NNNNN/AAAA en común).
 // → { resoluciones: { [idLicitacion]: "texto" }, contrataciones: { [idLicitacion]: "L.PRIVADA 362/26, ..." } }
-// (en Fracasa / Autoriza, también la contratación que se autoriza).
+// (en Fracasa / Autoriza, también la contratación que se autoriza),
+// `actas`: { [idLicitacion]: ["333/2026", ...] } para el link a las actas de
+// apertura (cada N°/año que se entiende; el año, con 4 dígitos).
 const numeros = t => String(t || "").match(/\d{2}-\d{4,6}\/\d{4}/g) || [];
 const dia = f => (f ? new Date(f).toISOString().slice(0, 10).split("-").reverse().join("/") : "");
 
@@ -42,13 +44,19 @@ export async function GET() {
   };
 
   const contratacion = (tipo, numero) => (numero ? [tipo, numero].filter(Boolean).join(" ").trim() : "");
-  const resultado = {}, contrataciones = {};
+  const numerosConAnio = t => [...String(t || "").matchAll(/(\d{1,5})\s*\/\s*(\d{4}|\d{2})(?!\d)/g)]
+    .map(([, n, a]) => [Number(n), a.length === 2 ? "20" + a : a])
+    .filter(([n, a]) => n > 0 && a >= "2000" && a <= "2099")
+    .map(([n, a]) => n + "/" + a);
+  const resultado = {}, contrataciones = {}, actas = {};
   for (const l of licitaciones) {
     const encontradas = [...new Set(numeros(l.exp).flatMap(n => porNumero.get(n) || []))];
     if (!encontradas.length) continue;
     resultado[l.id] = encontradas.map(texto).join(" | ");
     const nums = [...new Set(encontradas.flatMap(r => [contratacion(r.tipoContratacion, r.numero), contratacion(r.autorizaTipo, r.autorizaNumero)]).filter(Boolean))];
     if (nums.length) contrataciones[l.id] = nums.join(", ");
+    const conAnio = [...new Set(encontradas.flatMap(r => [...numerosConAnio(r.numero), ...numerosConAnio(r.autorizaNumero)]))];
+    if (conAnio.length) actas[l.id] = conAnio;
   }
-  return NextResponse.json({ resoluciones: resultado, contrataciones });
+  return NextResponse.json({ resoluciones: resultado, contrataciones, actas });
 }
