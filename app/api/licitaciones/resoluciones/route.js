@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sesionLicitaciones } from "@/lib/licitacionesServidor";
+import { resultadosDeTexto, RESULTADOS_LICITACION } from "@/lib/licitaciones";
 
 // Para el Excel de Licitaciones: por cada expediente, para qué está o
 // estuvo en Resoluciones (tipo de resolución de cada paso por el sector,
@@ -10,17 +11,22 @@ import { sesionLicitaciones } from "@/lib/licitacionesServidor";
 // (en Fracasa / Autoriza, también la contratación que se autoriza),
 // `actas`: { [idLicitacion]: ["333/2026", ...] } para el link a las actas de
 // apertura (cada N°/año que se entiende; el año, con 4 dígitos).
+// `resultados`: { [idLicitacion]: { tipos: ["Fracasada", "Desierta", ...], detalle } }
+// para los expedientes con fracasos, desiertas, revocaciones o adjudicaciones
+// parciales, según el tipo de resolución y las observaciones de Resoluciones
+// (también de los escritos) y las observaciones del propio expediente.
 const numeros = t => String(t || "").match(/\d{2}-\d{4,6}\/\d{4}/g) || [];
 const dia = f => (f ? new Date(f).toISOString().slice(0, 10).split("-").reverse().join("/") : "");
 
 export async function GET() {
   if (!(await sesionLicitaciones())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const [licitaciones, resoluciones] = await Promise.all([
-    prisma.expedienteLicitacion.findMany({ select: { id: true, exp: true } }),
+    prisma.expedienteLicitacion.findMany({
+      select: { id: true, exp: true, observaciones: true, movimientos: { where: { campo: "Observaciones" }, select: { valor: true } } },
+    }),
     prisma.expedienteResolucion.findMany({
-      where: { esEscrito: false },
       select: {
-        exp: true, tipoResolucion: true, situacion: true, tipoContratacion: true, numero: true, fechaIngreso: true,
+        exp: true, esEscrito: true, escritoMotivo: true, observaciones: true, tipoResolucion: true, situacion: true, tipoContratacion: true, numero: true, fechaIngreso: true,
         autorizaTipo: true, autorizaNumero: true,
         movimientos: { where: { campo: "Tipo de resolución" }, select: { sectorAnterior: true }, orderBy: { fecha: "asc" } },
       },
@@ -48,9 +54,28 @@ export async function GET() {
     .map(([, n, a]) => [Number(n), a.length === 2 ? "20" + a : a])
     .filter(([n, a]) => n > 0 && a >= "2000" && a <= "2099")
     .map(([n, a]) => n + "/" + a);
-  const resultado = {}, contrataciones = {}, actas = {};
+  const corto = t => { const x = String(t || "").replace(/\s+/g, " ").trim(); return x.length > 160 ? x.slice(0, 157) + "..." : x; };
+  const resultado = {}, contrataciones = {}, actas = {}, resultados = {};
   for (const l of licitaciones) {
-    const encontradas = [...new Set(numeros(l.exp).flatMap(n => porNumero.get(n) || []))];
+    const todas = [...new Set(numeros(l.exp).flatMap(n => porNumero.get(n) || []))];
+
+    const tipos = new Set(), detalle = [];
+    for (const r of todas) {
+      const t = resultadosDeTexto([r.tipoResolucion, r.observaciones, r.escritoMotivo].filter(Boolean).join(" // "));
+      if (!t.size) continue;
+      t.forEach(x => tipos.add(x));
+      detalle.push("Resoluciones" + (r.esEscrito ? " (escrito)" : "") + ": " +
+        [r.tipoResolucion, [r.tipoContratacion, r.numero].filter(Boolean).join(" "), corto(r.observaciones || r.escritoMotivo)].filter(Boolean).join(" · "));
+    }
+    for (const obs of new Set([l.observaciones, ...l.movimientos.map(m => m.valor)].filter(Boolean))) {
+      const t = resultadosDeTexto(obs);
+      if (!t.size) continue;
+      t.forEach(x => tipos.add(x));
+      detalle.push("Licitaciones: " + corto(obs));
+    }
+    if (tipos.size) resultados[l.id] = { tipos: RESULTADOS_LICITACION.filter(x => tipos.has(x)), detalle: detalle.join(" | ") };
+
+    const encontradas = todas.filter(r => !r.esEscrito);
     if (!encontradas.length) continue;
     resultado[l.id] = encontradas.map(texto).join(" | ");
     const nums = [...new Set(encontradas.flatMap(r => [contratacion(r.tipoContratacion, r.numero), contratacion(r.autorizaTipo, r.autorizaNumero)]).filter(Boolean))];
@@ -58,5 +83,5 @@ export async function GET() {
     const conAnio = [...new Set(encontradas.flatMap(r => [...numerosConAnio(r.numero), ...numerosConAnio(r.autorizaNumero)]))];
     if (conAnio.length) actas[l.id] = conAnio;
   }
-  return NextResponse.json({ resoluciones: resultado, contrataciones, actas });
+  return NextResponse.json({ resoluciones: resultado, contrataciones, actas, resultados });
 }

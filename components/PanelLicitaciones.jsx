@@ -11,6 +11,7 @@ import { EMAIL_JEFA_SUBDIRECCION, fechaISO } from "@/lib/resoluciones";
 import {
   JURISDICCIONES_LICITACIONES, RUBROS_LICITACIONES, ENCUADRES_LICITACIONES, SECTORES_LICITACIONES, FILTRO_BIENES_DE_USO, esBienDeUso, anioExpediente,
   PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, partidaDe, partidaSegunRubro, etiquetaPartida, esAnticipo,
+  RESULTADOS_LICITACION, FILTRO_CUALQUIER_RESULTADO,
   ESTADOS_INTERNOS_LICITACIONES, ESTADOS_CONVOCATORIA_LICITACIONES, AGENTES_LICITACIONES, AGENTE_POR_JURISDICCION,
   agentePorJurisdiccion, compararLicitaciones, diasEnSectorLicitacion, esPrioritarioLicitacion, esTerminada, estaEnLicitaciones,
 } from "@/lib/licitaciones";
@@ -31,7 +32,7 @@ const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300
 const ETIQUETA_CAMPO = { sector: "Sector", estadoInterno: "Estado interno", estadoConvocatoria: "Estado convocatoria" };
 
 function filtroVacio() {
-  return { exp: "", anio: "", anioMov: "", objeto: "", jurisdiccion: "", rubro: "", partida: "", encuadre: "", sector: "", estadoInterno: "", estadoConvocatoria: "", agente: "" };
+  return { exp: "", anio: "", anioMov: "", objeto: "", jurisdiccion: "", rubro: "", partida: "", resultado: "", encuadre: "", sector: "", estadoInterno: "", estadoConvocatoria: "", agente: "" };
 }
 
 const VACIO = {
@@ -366,14 +367,17 @@ export const SOLAPAS = [
 // se pudo consultar), esas columnas quedan vacías.
 // `actas`: { [id]: ["333/2026", ...] }: un link a las actas de apertura
 // por cada N° de contratación, en columnas ACTA DE APERTURA 1, 2...
+// `resultados`: { [id]: { tipos, detalle } } fracasos, desiertas, revocadas,
+// parciales (de Resoluciones y de las observaciones).
 const URL_ACTAS_APERTURA = "https://srpcm.pjn.gov.ar/actas_apertura?filters[search]=";
-function exportarExcel(filas, solapa, resoluciones, contrataciones, actas = {}) {
+function exportarExcel(filas, solapa, resoluciones, contrataciones, actas = {}, resultados) {
   const maxActas = Math.max(0, ...filas.map(e => actas[e.id]?.length || 0));
   const columnasActas = Array.from({ length: maxActas }, (_, i) => "ACTA DE APERTURA" + (maxActas > 1 ? " " + (i + 1) : ""));
   const datos = [
     ["EXP", "JURISDICCION", "ORGANISMO", "DOMICILIO", "RUBRO", "PARTIDA (INCISO 4)", "OBJETO", "MONTO", "PLAZO DE EJECUCION (DH)", "ENCUADRE",
       "ULTIMO MOVIMIENTO", "DIAS EN EL SECTOR", "SECTOR", "ESTADO INTERNO", "ESTADO CONVOCATORIA", "OBSERVACIONES", "AGENTE",
-      "PASE A LA FIRMA", "PRIORITARIO", "TIPO DE RESOLUCION (EN RESOLUCIONES)", "N° DE CONTRATACION (RESOLUCIONES)", ...columnasActas],
+      "PASE A LA FIRMA", "PRIORITARIO", "TIPO DE RESOLUCION (EN RESOLUCIONES)", "N° DE CONTRATACION (RESOLUCIONES)",
+      "FRACASOS / DESIERTAS / REVOCADAS / PARCIALES", "DONDE FIGURA", ...columnasActas],
     ...filas.map(e => [
       e.exp, e.jurisdiccion || "", e.organismo || "", e.domicilio || "", e.rubro || "", etiquetaPartida(partidaDe(e)), e.objeto, e.monto || "", e.plazoEjecucion || "",
       e.encuadre || "", fecha(e.fechaUltimoMov), diasEnSectorLicitacion(e) ?? "", e.sector || "", e.estadoInterno || "",
@@ -381,6 +385,7 @@ function exportarExcel(filas, solapa, resoluciones, contrataciones, actas = {}) 
       e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
       resoluciones ? resoluciones[e.id] || "No pasó por Resoluciones" : "",
       contrataciones?.[e.id] || "",
+      resultados?.[e.id]?.tipos.join(", ") || "", resultados?.[e.id]?.detalle || "",
       ...columnasActas.map((_, i) => (actas[e.id]?.[i] ? URL_ACTAS_APERTURA + encodeURIComponent(actas[e.id][i]) : "")),
     ]),
   ];
@@ -392,7 +397,7 @@ function exportarExcel(filas, solapa, resoluciones, contrataciones, actas = {}) 
     const celda = ws[XLSX.utils.encode_cell({ r: i + 1, c: primeraActa + j })];
     if (url && celda) celda.l = { Target: url, Tooltip: "Acta de apertura " + actas[filas[i].id][j] };
   }));
-  ws["!cols"] = [16, 30, 30, 30, 16, 26, 50, 18, 16, 14, 12, 8, 14, 12, 22, 50, 10, 12, 12, 60, 30, ...columnasActas.map(() => 60)].map(wch => ({ wch }));
+  ws["!cols"] = [16, 30, 30, 30, 16, 26, 50, 18, 16, 14, 12, 8, 14, 12, 22, 50, 10, 12, 12, 60, 30, 30, 80, ...columnasActas.map(() => 60)].map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Licitaciones");
   XLSX.writeFile(wb, "licitaciones-" + (solapa === "general" ? "" : solapa + "-") + hoyLocalISO() + ".xlsx");
@@ -404,6 +409,9 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
   // La jefa de la Subdirección asigna agentes y marca prioridades.
   const esJefa = sesion.email === EMAIL_JEFA_SUBDIRECCION;
   const [expedientes, setExpedientes] = useState(null);
+  // Lo que viene de Resoluciones (para el Excel y el filtro de resultados):
+  // null mientras se consulta; false si no se pudo.
+  const [cruce, setCruce] = useState(null);
   const [f, setF] = useState(filtroVacio);
   const [solapa, setSolapa] = useState(solapaInicial || "general");
   const [form, setForm] = useState(null); // null | "nuevo" | id del expediente
@@ -425,6 +433,16 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
         if (activo) { setExpedientes([]); mostrarToast(err.message || "No se pudieron cargar los expedientes"); }
       }
     })();
+    (async () => {
+      try {
+        const res = await fetch("/api/licitaciones/resoluciones");
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error();
+        if (activo) setCruce(data);
+      } catch {
+        if (activo) setCruce(false);
+      }
+    })();
     return () => { activo = false; };
     // Solo al montar: mostrarToast del Dashboard cambia en cada render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -437,6 +455,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
     return {
       jurisdiccion: de("jurisdiccion", []),
       rubro: de("rubro", RUBROS_LICITACIONES),
+      resultado: [FILTRO_CUALQUIER_RESULTADO, ...RESULTADOS_LICITACION],
       partida: [FILTRO_BIENES_DE_USO, ...Object.keys(PARTIDAS_INCISO_4).map(etiquetaPartida), etiquetaPartida(NO_ES_BIEN_DE_USO)],
       anio: [...new Set(lista.map(anioExpediente).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
       anioMov: [...new Set(lista.map(e => fechaISO(e.fechaUltimoMov).slice(0, 4)).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
@@ -459,19 +478,27 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
     if (f.anioMov && fechaISO(e.fechaUltimoMov).slice(0, 4) !== f.anioMov) return false;
     if (f.rubro && e.rubro !== f.rubro) return false;
     if (f.partida === FILTRO_BIENES_DE_USO ? !esBienDeUso(e) : f.partida && etiquetaPartida(partidaDe(e)) !== f.partida) return false;
+    if (f.resultado) {
+      const tipos = cruce?.resultados?.[e.id]?.tipos || [];
+      if (f.resultado === FILTRO_CUALQUIER_RESULTADO ? !tipos.length : !tipos.includes(f.resultado)) return false;
+    }
     for (const campo of ["jurisdiccion", "encuadre", "sector", "estadoInterno", "estadoConvocatoria", "agente"]) {
       if (f[campo] && e[campo] !== f[campo]) return false;
     }
     return true;
-  }).sort(compararLicitaciones), [deLaSolapa, f]);
+  }).sort(compararLicitaciones), [deLaSolapa, f, cruce]);
 
   // El Excel suma, de Resoluciones, para qué está o estuvo cada expediente.
   async function exportar() {
     try {
-      const res = await fetch("/api/licitaciones/resoluciones");
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error);
-      exportarExcel(filas, solapa, data.resoluciones, data.contrataciones, data.actas);
+      let data = cruce;
+      if (!data) {
+        const res = await fetch("/api/licitaciones/resoluciones");
+        data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error);
+        setCruce(data);
+      }
+      exportarExcel(filas, solapa, data.resoluciones, data.contrataciones, data.actas, data.resultados);
     } catch {
       mostrarToast("No se pudo traer lo de Resoluciones: el Excel sale sin esa columna completa");
       exportarExcel(filas, solapa);
@@ -601,7 +628,11 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
                 <FiltroColumna valor={f.rubro} etiqueta="Todos" opciones={opciones.rubro} onChange={v => set("rubro", v)} />
                 <FiltroColumna valor={f.partida} etiqueta="Todas las partidas" opciones={opciones.partida} onChange={v => set("partida", v)} />
               </th>
-              <th className="py-2 px-3 align-top w-[240px]"><input value={f.objeto} onChange={e => set("objeto", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} /></th>
+              <th className="py-2 px-3 align-top w-[240px] space-y-1.5">
+                <input value={f.objeto} onChange={e => set("objeto", e.target.value)} placeholder="Buscar" className={CLASE_INPUT} />
+                <FiltroColumna valor={f.resultado} etiqueta={cruce === null ? "Fracasos... (cargando)" : cruce === false ? "Fracasos... (no disponible)" : "Fracasos, desiertas..."}
+                  opciones={cruce ? opciones.resultado : []} onChange={v => set("resultado", v)} />
+              </th>
               <th className="py-2 px-3 align-top w-[130px]"><FiltroColumna valor={f.encuadre} etiqueta="Todos" opciones={opciones.encuadre} onChange={v => set("encuadre", v)} /></th>
               {!enTerminados && <th className="py-2 px-3" />}
               <th className="py-2 px-3 align-top w-[150px]"><FiltroColumna valor={f.sector} etiqueta="Todos" opciones={opciones.sector} onChange={v => set("sector", v)} /></th>
@@ -625,6 +656,11 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
                       <span className="font-mono font-semibold text-slate-900 max-w-[190px] whitespace-normal break-words" title={e.exp}>{e.exp}</span>
                     </div>
                     <EtiquetasPrioridad expediente={e} />
+                    {cruce?.resultados?.[e.id] && (
+                      <span title={cruce.resultados[e.id].detalle} className="block mt-1 w-fit max-w-[190px] whitespace-normal text-[10px] font-semibold px-1.5 py-0.5 rounded border border-rose-300 bg-rose-50 text-rose-800">
+                        {cruce.resultados[e.id].tipos.join(" · ")}
+                      </span>
+                    )}
                   </td>
                   <td className="py-2.5 px-3"><span className="line-clamp-2" title={e.jurisdiccion || ""}>{e.jurisdiccion || "-"}</span></td>
                   <td className="py-2.5 px-3"><span className="line-clamp-2" title={e.organismo || ""}>{e.organismo || "-"}</span></td>
