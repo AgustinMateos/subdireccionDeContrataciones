@@ -11,7 +11,9 @@ import { resultadosDeTexto, RESULTADOS_LICITACION } from "@/lib/licitaciones";
 // (en Fracasa / Autoriza, también la contratación que se autoriza),
 // `actas`: { [idLicitacion]: ["333/2026", ...] } para el link a las actas de
 // apertura (cada N°/año que se entiende; el año, con 4 dígitos).
-// `resultados`: { [idLicitacion]: { tipos: ["Fracasada", "Desierta", ...], detalle } }
+// `resultados`: { [idLicitacion]: { tipos: ["Fracasada", "Desierta", ...], detalle, deResoluciones } }
+// (`deResoluciones`: solo lo que sale de Resoluciones, con sus tipos, para
+// mostrarlo en las observaciones del expediente)
 // para los expedientes con fracasos, desiertas, revocaciones o adjudicaciones
 // parciales, según el tipo de resolución y las observaciones de Resoluciones
 // (también de los escritos) y las observaciones del propio expediente.
@@ -59,13 +61,15 @@ export async function GET() {
   for (const l of licitaciones) {
     const todas = [...new Set(numeros(l.exp).flatMap(n => porNumero.get(n) || []))];
 
-    const tipos = new Set(), detalle = [];
+    const tipos = new Set(), detalle = [], tiposRes = new Set(), detalleRes = [];
     for (const r of todas) {
       const t = resultadosDeTexto([r.tipoResolucion, r.observaciones, r.escritoMotivo].filter(Boolean).join(" // "));
       if (!t.size) continue;
-      t.forEach(x => tipos.add(x));
-      detalle.push("Resoluciones" + (r.esEscrito ? " (escrito)" : "") + ": " +
-        [r.tipoResolucion, [r.tipoContratacion, r.numero].filter(Boolean).join(" "), corto(r.observaciones || r.escritoMotivo)].filter(Boolean).join(" · "));
+      t.forEach(x => { tipos.add(x); tiposRes.add(x); });
+      const texto = (r.esEscrito ? "(escrito) " : "") +
+        [r.tipoResolucion, [r.tipoContratacion, r.numero].filter(Boolean).join(" "), corto(r.observaciones || r.escritoMotivo)].filter(Boolean).join(" · ");
+      detalle.push("Resoluciones: " + texto);
+      detalleRes.push(texto);
     }
     for (const obs of new Set([l.observaciones, ...l.movimientos.map(m => m.valor)].filter(Boolean))) {
       const t = resultadosDeTexto(obs);
@@ -73,7 +77,11 @@ export async function GET() {
       t.forEach(x => tipos.add(x));
       detalle.push("Licitaciones: " + corto(obs));
     }
-    if (tipos.size) resultados[l.id] = { tipos: RESULTADOS_LICITACION.filter(x => tipos.has(x)), detalle: detalle.join(" | ") };
+    if (tipos.size) resultados[l.id] = {
+      tipos: RESULTADOS_LICITACION.filter(x => tipos.has(x)),
+      detalle: detalle.join(" | "),
+      deResoluciones: detalleRes.length ? "Según Resoluciones (" + RESULTADOS_LICITACION.filter(x => tiposRes.has(x)).join(", ") + "): " + detalleRes.join(" | ") : "",
+    };
 
     const encontradas = todas.filter(r => !r.esEscrito);
     if (!encontradas.length) continue;

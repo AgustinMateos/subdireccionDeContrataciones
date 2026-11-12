@@ -58,7 +58,9 @@ const tituloJurisdiccion = s => s.toLowerCase().replace(/(^|\s)\S/g, l => l.toUp
 // Alta / edición de un expediente, en dos solapas: los datos y sus
 // movimientos y estados (con el historial). Al editar, la jefa ve los
 // datos como ficha: solo cambia agente y prioridad.
-export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onEliminar }) {
+// `resultado`: lo de fracasos / desiertas / revocadas / parciales que sale
+// de Resoluciones (si lo hay, se muestra junto a las observaciones).
+export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onEliminar, resultado }) {
   const [f, setF] = useState(() => aFormulario(inicial));
   const [solapa, setSolapa] = useState("datos");
   const [error, setError] = useState("");
@@ -245,6 +247,11 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
               </Seccion>
 
               <Seccion titulo={inicial ? "Nueva observación" : "Observaciones"}>
+                {resultado?.deResoluciones && (
+                  <p className="col-span-2 md:col-span-4 text-sm text-rose-900 bg-rose-50 border border-rose-200 rounded-md px-3 py-2 whitespace-pre-line">
+                    {resultado.deResoluciones}
+                  </p>
+                )}
                 <div className="col-span-2 md:col-span-4">
                   <textarea value={f.observaciones} onChange={e => set("observaciones", e.target.value)} rows={3}
                     placeholder={inicial ? "Agregar una observación (queda en el historial)..." : ""}
@@ -381,7 +388,7 @@ function exportarExcel(filas, solapa, resoluciones, contrataciones, actas = {}, 
     ...filas.map(e => [
       e.exp, e.jurisdiccion || "", e.organismo || "", e.domicilio || "", e.rubro || "", etiquetaPartida(partidaDe(e)), e.objeto, e.monto || "", e.plazoEjecucion || "",
       e.encuadre || "", fecha(e.fechaUltimoMov), diasEnSectorLicitacion(e) ?? "", e.sector || "", e.estadoInterno || "",
-      e.estadoConvocatoria || "", e.observaciones || "", e.agente || "", e.paseFirma ? fecha(e.paseFirma) : "",
+      e.estadoConvocatoria || "", [e.observaciones, resultados?.[e.id]?.deResoluciones].filter(Boolean).join(" // "), e.agente || "", e.paseFirma ? fecha(e.paseFirma) : "",
       e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
       resoluciones ? resoluciones[e.id] || "No pasó por Resoluciones" : "",
       contrataciones?.[e.id] || "",
@@ -713,6 +720,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
         <FormularioLicitacion
           key={form}
           inicial={seleccionado}
+          resultado={seleccionado && cruce ? cruce.resultados?.[seleccionado.id] : undefined}
           esJefa={esJefa}
           onCerrar={() => setForm(null)}
           onGuardar={guardar}
