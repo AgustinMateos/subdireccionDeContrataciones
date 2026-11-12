@@ -16,6 +16,7 @@ import { FiltroColumna, Seccion } from "./PanelResoluciones";
 import { expParaBuscar } from "@/lib/numeroExpediente";
 import { PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, FILTRO_BIENES_DE_USO, etiquetaPartida } from "@/lib/inciso4";
 import { Campo_Select } from "./CamposFormulario";
+import EtiquetaResolucion from "./EtiquetaResolucion";
 
 const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
 const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-900 hover:border-slate-500 transition-colors focus:outline-none focus:border-slate-500 placeholder:text-slate-400";
@@ -30,23 +31,6 @@ const CON_DIAS = ["cInicio", "rInicio"];
 
 // Opciones del filtro de partida (como en Licitaciones).
 const OPCIONES_PARTIDA = [FILTRO_BIENES_DE_USO, ...Object.keys(PARTIDAS_INCISO_4).map(etiquetaPartida), etiquetaPartida(NO_ES_BIEN_DE_USO)];
-
-// Color de la etiqueta de cada resolución de la convocatoria.
-const ESTILO_RESOLUCION = {
-  "Adjudicada": "border-emerald-300 bg-emerald-50 text-emerald-800",
-  "Adjudicación parcial": "border-amber-300 bg-amber-50 text-amber-800",
-  "Sin efecto": "border-slate-300 bg-slate-100 text-slate-700",
-  "Desierta": "border-orange-300 bg-orange-50 text-orange-800",
-  "Fracasada": "border-rose-300 bg-rose-50 text-rose-800",
-};
-function EtiquetaResolucion({ valor }) {
-  if (!valor) return null;
-  return (
-    <span className={"block mt-1 w-fit text-[10px] font-semibold px-1.5 py-0.5 rounded border whitespace-nowrap " + (ESTILO_RESOLUCION[valor] || ESTILO_RESOLUCION["Sin efecto"])}>
-      {valor}
-    </span>
-  );
-}
 
 const filtroVacio = () => ({ resolucion: "", partida: "", texto: "", grupo: "", tipoServicio: "", agente: "", sector: "", estado: "", situacion: "", anioMov: "" });
 

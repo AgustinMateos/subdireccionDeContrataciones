@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { EMAIL_JEFA_SUBDIRECCION } from "@/lib/resoluciones";
+import { resolucionConvValida } from "@/lib/resolucionConv";
 import { CAMPOS_DE_LICITACIONES, datosLicitacion, sinCamposDeLicitaciones, soloCamposDeJefaLicitaciones } from "@/lib/licitaciones";
 import { INCLUDE_LICITACION, conPlanObras, registrosDeCambiosLicitacion, sesionLicitaciones } from "@/lib/licitacionesServidor";
 
@@ -47,7 +48,7 @@ export async function PATCH(request, { params }) {
 
   const data = {};
   for (const k of [...CAMPOS_DE_LICITACIONES, "agente"]) {
-    if (k in body) data[k] = String(body[k] || "").trim() || null;
+    if (k in body) data[k] = k === "resolucionConv" ? resolucionConvValida(body[k]) : String(body[k] || "").trim() || null;
   }
   if ("prioritario" in body) data.prioritario = body.prioritario === true;
   const cambios = registrosDeCambiosLicitacion(existente, data, session.user.name);

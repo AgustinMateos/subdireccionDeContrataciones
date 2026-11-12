@@ -21,6 +21,8 @@ import EstrellaPrioridad from "./EstrellaPrioridad";
 import EtiquetasPrioridad from "./EtiquetasPrioridad";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import CampoOpciones from "./CampoOpciones";
+import EtiquetaResolucion from "./EtiquetaResolucion";
+import { RESOLUCIONES_CONV } from "@/lib/resolucionConv";
 import { SelectRapido, FiltroColumna, Seccion, DatoFicha } from "./PanelResoluciones";
 import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 
@@ -29,15 +31,15 @@ const fecha = f => (f ? fmtFecha(fechaISO(f)) : "-");
 const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-900 hover:border-slate-500 transition-colors focus:outline-none focus:border-slate-500 placeholder:text-slate-400";
 
 
-const ETIQUETA_CAMPO = { sector: "Sector", estadoInterno: "Estado interno", estadoConvocatoria: "Estado convocatoria" };
+const ETIQUETA_CAMPO = { sector: "Sector", estadoInterno: "Estado interno", estadoConvocatoria: "Estado convocatoria", resolucionConv: "Resolución conv." };
 
 function filtroVacio() {
-  return { exp: "", anio: "", anioMov: "", objeto: "", jurisdiccion: "", rubro: "", partida: "", resultado: "", encuadre: "", sector: "", estadoInterno: "", estadoConvocatoria: "", agente: "" };
+  return { exp: "", anio: "", anioMov: "", objeto: "", jurisdiccion: "", rubro: "", partida: "", resultado: "", encuadre: "", sector: "", estadoInterno: "", estadoConvocatoria: "", resolucionConv: "", agente: "" };
 }
 
 const VACIO = {
   exp: "", jurisdiccion: "", organismo: "", domicilio: "", rubro: "", objeto: "", monto: "", plazoEjecucion: "",
-  encuadre: "", partida: "", fechaUltimoMov: "", sector: "", estadoInterno: "", estadoConvocatoria: "", observaciones: "",
+  encuadre: "", partida: "", fechaUltimoMov: "", sector: "", estadoInterno: "", estadoConvocatoria: "", resolucionConv: "", observaciones: "",
   agente: "", paseFirma: "", prioritario: false,
 };
 
@@ -122,6 +124,7 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                   {dias != null && (
                     <span className={"mt-1 text-[11px] font-medium px-2 py-0.5 rounded border " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""} en sector</span>
                   )}
+                  <EtiquetaResolucion valor={inicial.resolucionConv} />
                 </div>
               )}
             </div>
@@ -243,6 +246,8 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                 <CampoOpciones label="Sector" value={f.sector} onChange={v => set("sector", v)} opciones={SECTORES_LICITACIONES} disabled={fijo} />
                 <CampoOpciones label="Estado interno" value={f.estadoInterno} onChange={v => set("estadoInterno", v)} opciones={ESTADOS_INTERNOS_LICITACIONES} disabled={fijo} />
                 <CampoOpciones label="Estado convocatoria" value={f.estadoConvocatoria} onChange={v => set("estadoConvocatoria", v)} opciones={ESTADOS_CONVOCATORIA_LICITACIONES} disabled={fijo} />
+                <Campo_Select label="Resolución conv." value={f.resolucionConv || ""} onChange={v => set("resolucionConv", v)} disabled={fijo}
+                  opciones={["", ...RESOLUCIONES_CONV]} labels={{ "": "Sin definir" }} />
                 <Campo_Input label="Último movimiento" type="date" max="9999-12-31" value={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
               </Seccion>
 
@@ -382,13 +387,13 @@ function exportarExcel(filas, solapa, resoluciones, contrataciones, actas = {}, 
   const columnasActas = Array.from({ length: maxActas }, (_, i) => "ACTA DE APERTURA" + (maxActas > 1 ? " " + (i + 1) : ""));
   const datos = [
     ["EXP", "JURISDICCION", "ORGANISMO", "DOMICILIO", "RUBRO", "PARTIDA (INCISO 4)", "OBJETO", "MONTO", "PLAZO DE EJECUCION (DH)", "ENCUADRE",
-      "ULTIMO MOVIMIENTO", "DIAS EN EL SECTOR", "SECTOR", "ESTADO INTERNO", "ESTADO CONVOCATORIA", "OBSERVACIONES", "AGENTE",
+      "ULTIMO MOVIMIENTO", "DIAS EN EL SECTOR", "SECTOR", "ESTADO INTERNO", "ESTADO CONVOCATORIA", "RESOLUCION CONV.", "OBSERVACIONES", "AGENTE",
       "PASE A LA FIRMA", "PRIORITARIO", "TIPO DE RESOLUCION (EN RESOLUCIONES)", "N° DE CONTRATACION (RESOLUCIONES)",
       "FRACASOS / DESIERTAS / REVOCADAS / PARCIALES", "DONDE FIGURA", ...columnasActas],
     ...filas.map(e => [
       e.exp, e.jurisdiccion || "", e.organismo || "", e.domicilio || "", e.rubro || "", etiquetaPartida(partidaDe(e)), e.objeto, e.monto || "", e.plazoEjecucion || "",
       e.encuadre || "", fecha(e.fechaUltimoMov), diasEnSectorLicitacion(e) ?? "", e.sector || "", e.estadoInterno || "",
-      e.estadoConvocatoria || "", [e.observaciones, resultados?.[e.id]?.deResoluciones].filter(Boolean).join(" // "), e.agente || "", e.paseFirma ? fecha(e.paseFirma) : "",
+      e.estadoConvocatoria || "", e.resolucionConv || "", [e.observaciones, resultados?.[e.id]?.deResoluciones].filter(Boolean).join(" // "), e.agente || "", e.paseFirma ? fecha(e.paseFirma) : "",
       e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
       resoluciones ? resoluciones[e.id] || "No pasó por Resoluciones" : "",
       contrataciones?.[e.id] || "",
@@ -404,7 +409,7 @@ function exportarExcel(filas, solapa, resoluciones, contrataciones, actas = {}, 
     const celda = ws[XLSX.utils.encode_cell({ r: i + 1, c: primeraActa + j })];
     if (url && celda) celda.l = { Target: url, Tooltip: "Acta de apertura " + actas[filas[i].id][j] };
   }));
-  ws["!cols"] = [16, 30, 30, 30, 16, 26, 50, 18, 16, 14, 12, 8, 14, 12, 22, 50, 10, 12, 12, 60, 30, 30, 80, ...columnasActas.map(() => 60)].map(wch => ({ wch }));
+  ws["!cols"] = [16, 30, 30, 30, 16, 26, 50, 18, 16, 14, 12, 8, 14, 12, 22, 18, 50, 10, 12, 12, 60, 30, 30, 80, ...columnasActas.map(() => 60)].map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Licitaciones");
   XLSX.writeFile(wb, "licitaciones-" + (solapa === "general" ? "" : solapa + "-") + hoyLocalISO() + ".xlsx");
@@ -489,6 +494,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
       const tipos = cruce?.resultados?.[e.id]?.tipos || [];
       if (f.resultado === FILTRO_CUALQUIER_RESULTADO ? !tipos.length : !tipos.includes(f.resultado)) return false;
     }
+    if (f.resolucionConv && e.resolucionConv !== f.resolucionConv) return false;
     for (const campo of ["jurisdiccion", "encuadre", "sector", "estadoInterno", "estadoConvocatoria", "agente"]) {
       if (f[campo] && e[campo] !== f[campo]) return false;
     }
@@ -644,7 +650,10 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
               {!enTerminados && <th className="py-2 px-3" />}
               <th className="py-2 px-3 align-top w-[150px]"><FiltroColumna valor={f.sector} etiqueta="Todos" opciones={opciones.sector} onChange={v => set("sector", v)} /></th>
               <th className="py-2 px-3 align-top w-[130px]"><FiltroColumna valor={f.estadoInterno} etiqueta="Todos" opciones={opciones.estadoInterno} onChange={v => set("estadoInterno", v)} /></th>
-              <th className="py-2 px-3 align-top w-[190px]"><FiltroColumna valor={f.estadoConvocatoria} etiqueta="Todos" opciones={opciones.estadoConvocatoria} onChange={v => set("estadoConvocatoria", v)} /></th>
+              <th className="py-2 px-3 align-top w-[190px] space-y-1.5">
+                <FiltroColumna valor={f.estadoConvocatoria} etiqueta="Todos" opciones={opciones.estadoConvocatoria} onChange={v => set("estadoConvocatoria", v)} />
+                <FiltroColumna valor={f.resolucionConv} etiqueta="Resolución conv.: todas" opciones={RESOLUCIONES_CONV} onChange={v => set("resolucionConv", v)} />
+              </th>
               <th className="py-2 px-3 align-top w-[110px]"><FiltroColumna valor={f.anioMov} etiqueta="Todos los años" opciones={opciones.anioMov} onChange={v => set("anioMov", v)} /></th>
               <th className="py-2 px-3 align-top w-[110px]"><FiltroColumna valor={f.agente} etiqueta="Todos" opciones={opciones.agente} onChange={v => set("agente", v)} /></th>
               <th className="py-2 px-3" />
@@ -663,6 +672,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
                       <span className="font-mono font-semibold text-slate-900 max-w-[190px] whitespace-normal break-words" title={e.exp}>{e.exp}</span>
                     </div>
                     <EtiquetasPrioridad expediente={e} />
+                    <EtiquetaResolucion valor={e.resolucionConv} />
                     {cruce?.resultados?.[e.id] && (
                       <span title={cruce.resultados[e.id].detalle} className="block mt-1 w-fit max-w-[190px] whitespace-normal text-[10px] font-semibold px-1.5 py-0.5 rounded border border-rose-300 bg-rose-50 text-rose-800">
                         {cruce.resultados[e.id].tipos.join(" · ")}
@@ -698,6 +708,10 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
                   </td>
                   <td className="py-2.5 px-3" onClick={celdaRapida}>
                     {esJefa ? (e.estadoConvocatoria || "-") : <SelectRapido valor={e.estadoConvocatoria} opciones={ESTADOS_CONVOCATORIA_LICITACIONES} onChange={v => cambiarRapido(e, { estadoConvocatoria: v })} />}
+                    {!esJefa && (
+                      <SelectRapido valor={e.resolucionConv} opciones={RESOLUCIONES_CONV} vacio="Resolución conv.: -" className="mt-1.5"
+                        onChange={v => cambiarRapido(e, { resolucionConv: v })} />
+                    )}
                   </td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{fecha(e.fechaUltimoMov)}</td>
                   <td className="py-2.5 px-3" onClick={esJefa ? ev => ev.stopPropagation() : undefined}>
