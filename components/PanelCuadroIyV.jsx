@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Plus, Download, Trash2, ArrowRight, Archive, Search } from "lucide-react";
+import { X, Plus, Download, Trash2, ArrowRight, ArrowUp, Archive, Search } from "lucide-react";
 import * as XLSX from "xlsx";
 import { fmtFecha } from "@/lib/utils";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
 import {
   HOJAS_IYV, ORDEN_HOJAS_IYV, TIPOS_IYV, AGENTES_IYV, SITUACIONES_IYV, camposDeHoja, campoIyV, diasHasta, ultimoMovIyV,
-  sectoresIyV, estadosIyV, puedeEditarIyV, puedeEliminarIyV,
+  sectoresIyV, estadosIyV, puedeEditarIyV, puedeEliminarIyV, bloqueVacioIyV, expDeBloqueIyV, siguienteSubidaIyV, TITULO_BLOQUE_IYV,
 } from "@/lib/cuadroIyV";
 import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
 import CampoOpciones from "./CampoOpciones";
@@ -149,12 +149,15 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
     mostrarToast(seleccionada ? "Cambios guardados" : "Fila cargada en " + def.etiqueta);
   }
 
-  async function pasarAAntecedentes() {
-    const data = await enviar("/api/cuadro-iyv/" + seleccionada.id, "PATCH", { hoja: "antecedentes" });
+  // Archivar el vigente o subir un bloque (ver la API): la ficha sigue
+  // abierta con la fila actualizada; lo archivado se suma a Antecedentes.
+  async function accionFila(body) {
+    const data = await enviar("/api/cuadro-iyv/" + seleccionada.id, "POST", body);
     if (data.error) return data;
-    setFilas(prev => prev.map(x => (x.id === data.fila.id ? data.fila : x)));
-    setFicha(null);
-    mostrarToast("Pasó a Antecedentes");
+    setFilas(prev => [...prev.map(x => (x.id === data.fila.id ? data.fila : x)), ...(data.antecedente ? [data.antecedente] : [])]);
+    mostrarToast(body.accion === "archivarVigente" ? "Vigente archivado en Antecedentes"
+      : "Pasó de " + TITULO_BLOQUE_IYV[body.desde] + " a " + TITULO_BLOQUE_IYV[body.hacia]);
+    return data;
   }
 
   async function eliminar() {
@@ -287,7 +290,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
           onCerrar={() => setFicha(null)}
           onGuardar={guardar}
           onEliminar={eliminar}
-          onAntecedentes={seleccionada?.hoja === "servicios" ? pasarAAntecedentes : null}
+          onAccion={seleccionada?.hoja === "servicios" ? accionFila : null}
         />
       )}
     </div>
@@ -296,13 +299,18 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
 
 // Ficha de una fila: sus campos por bloque (editables para el
 // departamento) y el historial de cambios.
-function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuardar, onEliminar, onAntecedentes }) {
+function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuardar, onEliminar, onAccion }) {
   const def = HOJAS_IYV[hoja];
   const [d, setD] = useState(() => ({ ...(inicial?.datos || {}) }));
   const [solapa, setSolapa] = useState("datos");
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
-  const [confirmar, setConfirmar] = useState(null); // null | "eliminar" | "antecedentes"
+  // null | "eliminar" | "archivar" | { desde, hacia } (subir un bloque)
+  const [confirmar, setConfirmar] = useState(null);
+  // Adjudicatario del vigente recién archivado (para una prórroga que sube).
+  const [adjudicatarioArchivado, setAdjudicatarioArchivado] = useState("");
+  // Tras archivar o subir un bloque, la fila cambia: se muestra como quedó.
+  useEffect(() => { if (inicial) setD({ ...(inicial.datos || {}) }); }, [inicial?.actualizadoEn]); // eslint-disable-line react-hooks/exhaustive-deps
   const historial = [...(inicial?.movimientos || [])].reverse();
   const hoy = hoyLocalISO();
   const set = (k, v) => setD(prev => ({ ...prev, [k]: v }));
@@ -320,6 +328,27 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
     if (inicial && !Object.keys(cambios).length) { onCerrar(); return; }
     correr(() => onGuardar(inicial ? cambios : d));
   }
+
+  const hayCambios = !!inicial && camposDeHoja(hoja).some(c => (d[c.k] || "") !== (inicial.datos?.[c.k] || ""));
+  const subida = inicial && onAccion && puedeEditar ? siguienteSubidaIyV(inicial.datos || {}) : null;
+  // Archivar o subir: con cambios sin guardar, primero hay que guardarlos.
+  // Después de cada paso se propone el siguiente (continuidad → vigente,
+  // renovación → continuidad...).
+  function pedir(paso) {
+    if (hayCambios) { setError("Guardá o cancelá los cambios antes de archivar o pasar bloques"); return; }
+    setError(""); setConfirmar(paso);
+  }
+  async function hacer(body) {
+    setGuardando(true); setError("");
+    const r = await onAccion(body);
+    setGuardando(false);
+    if (r?.error) { setError(r.error); return; }
+    if (r.antecedente) setAdjudicatarioArchivado(r.antecedente.datos?.adjudicatario || "");
+    setConfirmar(siguienteSubidaIyV(r.fila.datos || {}));
+  }
+  const textoConfirmar = confirmar === "eliminar" ? "¿Eliminar esta fila y su historial? No se puede deshacer."
+    : confirmar === "archivar" ? "¿Archivar el vigente (" + (expDeBloqueIyV(inicial?.datos, "vigente") || "sin N°") + ") en Antecedentes? Pasa con los datos del servicio; acá el vigente queda vacío."
+      : confirmar ? "¿Pasar el exp. de " + TITULO_BLOQUE_IYV[confirmar.desde] + " (" + (expDeBloqueIyV(inicial?.datos, confirmar.desde) || "sin N°") + ") a " + TITULO_BLOQUE_IYV[confirmar.hacia] + "?" : "";
 
   const titulo = inicial ? (d.exp || d.rExp || d.cExp || "Sin N° de expediente") : "Cargar fila en " + def.etiqueta;
 
@@ -351,21 +380,6 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
             </div>
           )}
         </div>
-
-        {confirmar && (
-          <div className="mx-6 mt-4 flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-md px-3 py-2">
-            <p className="text-xs text-red-800">
-              {confirmar === "eliminar" ? "¿Eliminar esta fila y su historial? No se puede deshacer." : "¿Pasar esta fila a Antecedentes? Deja de verse en Servicios."}
-            </p>
-            <div className="flex gap-2 shrink-0">
-              <button onClick={() => setConfirmar(null)} disabled={guardando} className="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-xs font-medium">Cancelar</button>
-              <button onClick={() => correr(confirmar === "eliminar" ? onEliminar : onAntecedentes)} disabled={guardando}
-                className="px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50">
-                {confirmar === "eliminar" ? "Eliminar" : "Pasar a Antecedentes"}
-              </button>
-            </div>
-          </div>
-        )}
 
         <div className="px-6 py-5 space-y-6">
           {solapa === "datos" ? def.bloques.map(b => (
@@ -428,16 +442,46 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
           )}
         </div>
 
-        {error && <p className="mx-6 mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>}
+        <div className="sticky bottom-0 bg-white rounded-b-xl">
+                {confirmar && (
+          <div className={"mx-6 mt-3 flex items-center justify-between gap-3 rounded-md px-3 py-2 border " +
+            (confirmar === "eliminar" ? "bg-red-50 border-red-200" : "bg-sky-50 border-sky-200")}>
+            <p className={"text-xs " + (confirmar === "eliminar" ? "text-red-800" : "text-sky-900")}>{textoConfirmar}</p>
+            <div className="flex gap-2 shrink-0">
+              <button onClick={() => setConfirmar(null)} disabled={guardando} className="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-xs font-medium">
+                {typeof confirmar === "object" ? "No" : "Cancelar"}
+              </button>
+              <button disabled={guardando}
+                onClick={() => (confirmar === "eliminar" ? correr(onEliminar)
+                  : confirmar === "archivar" ? hacer({ accion: "archivarVigente" })
+                    : hacer({ accion: "subirBloque", desde: confirmar.desde, hacia: confirmar.hacia, adjudicatario: adjudicatarioArchivado }))}
+                className={"px-3 py-1.5 rounded-md text-white text-xs font-medium disabled:opacity-50 " +
+                  (confirmar === "eliminar" ? "bg-red-600 hover:bg-red-700" : "bg-slate-900 hover:bg-slate-800")}>
+                {guardando ? "..." : confirmar === "eliminar" ? "Eliminar" : confirmar === "archivar" ? "Archivar vigente" : "Sí, pasar"}
+              </button>
+            </div>
+          </div>
+        )}
+        {error && <p className="mx-6 mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>}
 
         {solapa === "datos" && (
           <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
             <div>
-              {inicial && puedeEditar && onAntecedentes && (
-                <button onClick={() => setConfirmar("antecedentes")} disabled={guardando}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-slate-300 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50">
-                  <Archive size={13} /> Pasar a Antecedentes
-                </button>
+              {inicial && puedeEditar && onAccion && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {!bloqueVacioIyV(inicial.datos, "vigente") && (
+                    <button onClick={() => pedir("archivar")} disabled={guardando}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-slate-300 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      <Archive size={13} /> Archivar vigente
+                    </button>
+                  )}
+                  {subida && (
+                    <button onClick={() => pedir(subida)} disabled={guardando}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-slate-300 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      <ArrowUp size={13} /> Pasar {TITULO_BLOQUE_IYV[subida.desde]} a {TITULO_BLOQUE_IYV[subida.hacia]}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -452,6 +496,7 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
