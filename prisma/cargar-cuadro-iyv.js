@@ -33,10 +33,11 @@ const COLUMNAS = {
     claves: ["tipoServicio", "agente", "exp", "fuero", "objeto", "destinatario", "montoPesos", "montoUsd", "encuadre", "oc",
       "ultimoMov", SALTEAR, "sector", "etapa", "observaciones", "salida", "estado"],
   },
+  // Los servicios temporales van a Provisiones (después de las provisiones).
   " Servicios Temporales": {
-    hoja: "temporales", desde: 2,
-    claves: ["tipoServicio", "agente", "fuero", "organismo", "domicilio", "objeto", "exp", "inicio", "vencimiento", "encuadre",
-      "ocResol", "sector", "estadoConvocatoria", "entrada", "salida", "estado", "observaciones", "adjudicatario", "monto", "prorroga"],
+    hoja: "provisiones", desde: 2, ordenDesde: 100000,
+    claves: ["tipoServicio", "agente", "fuero", "destinatario", "domicilio", "objeto", "exp", "inicio", "vencimiento", "encuadre",
+      "oc", "sector", "etapa", "entrada", "salida", "estado", "observaciones", "adjudicatario", "montoPesos", "prorroga"],
   },
   // Sin encabezado y con dos columnas menos que Servicios (no tiene estado
   // de convocatoria en el vigente ni prórroga en la renovación); lo que
@@ -86,7 +87,7 @@ function leerCuadro(ruta) {
         d[k] = d[k] ? d[k] + " // " + v : v;
       });
       if (!CLAVES_QUE_CUENTAN.some(k => d[k])) return;
-      filas.push({ hoja: def.hoja, orden: i, datos: d });
+      filas.push({ hoja: def.hoja, orden: (def.ordenDesde || 0) + i, datos: d });
     });
   }
   return { filas, faltan };

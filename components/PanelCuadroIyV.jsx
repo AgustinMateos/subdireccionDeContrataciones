@@ -214,7 +214,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-slate-900">Cuadro de Informática y Varios</h2>
-        <p className="text-xs text-slate-500">Servicios, provisiones, servicios temporales y antecedentes del departamento.</p>
+        <p className="text-xs text-slate-500">Servicios, provisiones (con los servicios temporales) y antecedentes del departamento.</p>
       </div>
 
       <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
