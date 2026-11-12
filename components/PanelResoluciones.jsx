@@ -10,7 +10,7 @@ import { hoyLocalISO } from "@/lib/mesaEntradas";
 import { sumarDiasHabiles } from "@/lib/diasHabiles";
 import {
   FUEROS_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, SECTORES_RESOLUCIONES,
-  ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta, esFinalizado, ESTADOS_GENERALES, ETIQUETA_ESTADO_GENERAL, estadoGeneral, esParaAdjudicar, esPrioritario,
+  ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta, esFinalizado, ESTADOS_GENERALES, ETIQUETA_ESTADO_GENERAL, estadoGeneral, esParaAdjudicar, TIPOS_PARA_ADJUDICAR, esPrioritario,
   estaFueraDeResoluciones, faltaDelDictamen, faltaDelEscrito, fechaISO, EVENTO_CAMBIOS_RESOLUCIONES, FRACASA_AUTORIZA, esFracasaAutoriza, textoAutoriza,
 } from "@/lib/resoluciones";
 import FiltroDesplegable from "./FiltroDesplegable";
@@ -691,7 +691,7 @@ function RegistroEditable({ m, esObs, onCambiar }) {
 // (estrella o Plan de Obras) se cuentan aparte. Se despliega tocando el
 // título; tocar una fila asigna a ese agente.
 const GRUPOS_CARGA = [
-  { titulo: "Para adjudicar en Resoluciones", es: t => t === "ADJUDICAR" || t === "FRACASA / AUTORIZA" },
+  { titulo: "Para adjudicar en Resoluciones", es: t => TIPOS_PARA_ADJUDICAR.includes(t) },
   { titulo: "Fracasar, desierta, sin efecto o revocar en Resoluciones", es: t => ["FRACASAR", "DESIERTA", "SIN EFECTO", "REVOCAR"].includes(t) },
 ];
 const tipoCarga = e => String(e.tipoResolucion || "").trim().toUpperCase();
