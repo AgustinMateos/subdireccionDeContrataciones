@@ -667,3 +667,19 @@ model MovimientoCuadroIyV {
 
   @@index([filaId])
 }
+
+// Observaciones del Cuadro de Informática y Varios, por N° de expediente:
+// `clave` es el N° (normalizado) del bloque donde se cargó, así el
+// historial sigue al expediente de un bloque a otro (o a Antecedentes). Si
+// el bloque no tiene N°, la clave es "fila:<id>:<campo>" (ver
+// lib/cuadroIyV.js).
+model ObservacionIyV {
+  id       String   @id @default(cuid())
+  clave    String
+  texto    String
+  usuario  String
+  fecha    DateTime @default(now())
+  creadoEn DateTime @default(now())
+
+  @@index([clave])
+}

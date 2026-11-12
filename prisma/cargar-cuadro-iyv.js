@@ -12,6 +12,7 @@
 const { randomUUID } = require("crypto");
 const XLSX = require("xlsx");
 const { PrismaClient } = require("@prisma/client");
+const { observacionesDeFila, USUARIO } = require("./migrar-observaciones-iyv.js");
 
 const SALTEAR = null;
 const VIGENTE = ["exp", "contratacion", "montoPesos", "montoUsd", "inicio", "vencimiento", "ocResol", "caratularRenovacion", "caratularProrroga", "adjudicatario", "prorrogaMeses"];
@@ -97,10 +98,23 @@ async function main() {
   const confirmar = args.includes("--confirmar");
   if (!ruta) throw new Error("Falta la ruta de la planilla");
 
-  const { datosFilaIyV, ORDEN_HOJAS_IYV } = await import("../lib/cuadroIyV.js");
+  const lib = await import("../lib/cuadroIyV.js");
+  const { datosFilaIyV, ORDEN_HOJAS_IYV } = lib;
   const { filas: leidas, faltan } = leerCuadro(ruta);
   // Mismo filtro que el sistema: solo claves de la hoja, N° normalizados.
-  const filas = leidas.map(f => ({ id: randomUUID(), hoja: f.hoja, orden: f.orden, datos: datosFilaIyV(f.hoja, f.datos) }));
+  // Las observaciones van al historial por N° de expediente.
+  const observaciones = [];
+  const vistas = new Set();
+  const filas = leidas.map(f => {
+    const id = randomUUID();
+    const conExp = { ...f.datos, ...datosFilaIyV(f.hoja, f.datos) };
+    for (const o of observacionesDeFila(lib, { id, hoja: f.hoja }, conExp)) {
+      if (vistas.has(o.clave + "\n" + o.texto)) continue;
+      vistas.add(o.clave + "\n" + o.texto);
+      observaciones.push({ ...o, usuario: USUARIO });
+    }
+    return { id, hoja: f.hoja, orden: f.orden, datos: datosFilaIyV(f.hoja, f.datos) };
+  });
 
   const prisma = new PrismaClient();
   try {
@@ -108,9 +122,11 @@ async function main() {
     console.log("Base:", url.hostname + url.pathname);
     if (faltan.length) console.log("No están estas hojas (no se cargan):", faltan.join(", "));
     for (const h of ORDEN_HOJAS_IYV) console.log("  " + h + ": " + filas.filter(f => f.hoja === h).length + " filas");
+    console.log("  observaciones: " + observaciones.length);
     const antes = await prisma.filaCuadroIyV.count();
     const movAntes = await prisma.movimientoCuadroIyV.count();
-    console.log("En la base ahora: " + antes + " filas y " + movAntes + " registros de historial (se borran todos)");
+    const obsAntes = await prisma.observacionIyV.count().catch(() => 0);
+    console.log("En la base ahora: " + antes + " filas, " + movAntes + " registros de historial y " + obsAntes + " observaciones (se borran todos)");
     if (!confirmar) {
       console.log("\nEjemplo (primera fila de cada hoja):");
       for (const h of ORDEN_HOJAS_IYV) console.log(" ", h, JSON.stringify(filas.find(f => f.hoja === h)?.datos).slice(0, 300));
@@ -118,9 +134,11 @@ async function main() {
       return;
     }
     await prisma.$transaction([
+      prisma.observacionIyV.deleteMany({}),
       prisma.movimientoCuadroIyV.deleteMany({}),
       prisma.filaCuadroIyV.deleteMany({}),
       prisma.filaCuadroIyV.createMany({ data: filas }),
+      prisma.observacionIyV.createMany({ data: observaciones }),
     ]);
     console.log("Listo: " + (await prisma.filaCuadroIyV.count()) + " filas cargadas.");
   } finally {

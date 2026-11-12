@@ -6,8 +6,11 @@ import { INCLUDE_FILA_IYV, puedeEditar, registrosDeCambiosIyV, sesionCuadroIyV }
 // Todas las filas del cuadro (las cuatro solapas), en el orden de la planilla.
 export async function GET() {
   if (!(await sesionCuadroIyV())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  const filas = await prisma.filaCuadroIyV.findMany({ include: INCLUDE_FILA_IYV, orderBy: [{ hoja: "asc" }, { orden: "asc" }, { creadoEn: "asc" }] });
-  return NextResponse.json({ filas });
+  const [filas, observaciones] = await Promise.all([
+    prisma.filaCuadroIyV.findMany({ include: INCLUDE_FILA_IYV, orderBy: [{ hoja: "asc" }, { orden: "asc" }, { creadoEn: "asc" }] }),
+    prisma.observacionIyV.findMany({ orderBy: [{ fecha: "asc" }, { creadoEn: "asc" }] }),
+  ]);
+  return NextResponse.json({ filas, observaciones });
 }
 
 // Alta de una fila al final de su solapa.

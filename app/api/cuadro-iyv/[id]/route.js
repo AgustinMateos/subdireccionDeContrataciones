@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
-  HOJAS_IYV, ORDEN_BLOQUES_IYV, TITULO_BLOQUE_IYV, bloqueVacioIyV, datosFilaIyV, datosVigenteParaArchivo, expDeBloqueIyV,
-  sinVigente, subirBloqueIyV,
+  HOJAS_IYV, ORDEN_BLOQUES_IYV, TITULO_BLOQUE_IYV, OBS_DE_BLOQUE_IYV, bloqueVacioIyV, datosFilaIyV, datosVigenteParaArchivo, expDeBloqueIyV,
+  sinVigente, subirBloqueIyV, camposObsIyV, claveObsIyV, claveFilaObsIyV,
 } from "@/lib/cuadroIyV";
 import { INCLUDE_FILA_IYV, puedeEditar, puedeEliminar, registrosDeCambiosIyV, sesionCuadroIyV } from "@/lib/cuadroIyVServidor";
 
@@ -42,19 +42,29 @@ export async function PATCH(request, { params }) {
     const ultima = await prisma.filaCuadroIyV.findFirst({ where: { hoja }, orderBy: { orden: "desc" }, select: { orden: true } });
     orden = (ultima?.orden ?? -1) + 1;
   }
-  const fila = await prisma.filaCuadroIyV.update({
-    where: { id },
-    data: { hoja, orden, datos, movimientos: { create: registros } },
-    include: INCLUDE_FILA_IYV,
-  });
-  return NextResponse.json({ fila });
+  // Las observaciones de un bloque que no tenía N° pasan al N° que se cargó.
+  const pases = camposObsIyV(hoja)
+    .filter(c => !anteriores[c.historial] && datos[c.historial])
+    .map(c => prisma.observacionIyV.updateMany({ where: { clave: claveFilaObsIyV(id, c.k) }, data: { clave: claveObsIyV(datos, id, c) } }));
+  const [fila] = await prisma.$transaction([
+    prisma.filaCuadroIyV.update({
+      where: { id },
+      data: { hoja, orden, datos, movimientos: { create: registros } },
+      include: INCLUDE_FILA_IYV,
+    }),
+    ...pases,
+  ]);
+  return NextResponse.json({ fila, observaciones: pases.length ? await prisma.observacionIyV.findMany({ orderBy: [{ fecha: "asc" }, { creadoEn: "asc" }] }) : undefined });
 }
 
 export async function DELETE(request, { params }) {
   const session = await sesionCuadroIyV();
   if (!session || !puedeEliminar(session)) return NextResponse.json({ error: "Solo el jefe de departamento o Soporte pueden eliminar" }, { status: 403 });
   const { id } = await params;
-  await prisma.filaCuadroIyV.delete({ where: { id } }).catch(() => null);
+  await prisma.$transaction([
+    prisma.observacionIyV.deleteMany({ where: { clave: { startsWith: claveFilaObsIyV(id, "") } } }),
+    prisma.filaCuadroIyV.deleteMany({ where: { id } }),
+  ]);
   return NextResponse.json({ ok: true });
 }
 
@@ -80,21 +90,24 @@ export async function POST(request, { params }) {
     const archivo = datosVigenteParaArchivo(d);
     const exp = expDeBloqueIyV(d, "vigente") || "sin N°";
     const ultima = await prisma.filaCuadroIyV.findFirst({ where: { hoja: "antecedentes" }, orderBy: { orden: "desc" }, select: { orden: true } });
-    const [antecedente, fila] = await prisma.$transaction([
-      prisma.filaCuadroIyV.create({
+    const { antecedente, fila } = await prisma.$transaction(async tx => {
+      const antecedente = await tx.filaCuadroIyV.create({
         data: {
           hoja: "antecedentes", orden: (ultima?.orden ?? -1) + 1, datos: archivo,
           movimientos: { create: [{ campo: "Alta", valor: "Vigente archivado desde Servicios", usuario }] },
         },
         include: INCLUDE_FILA_IYV,
-      }),
-      prisma.filaCuadroIyV.update({
+      });
+      // Las observaciones del vigente sin N° (atadas a la fila) van con él.
+      await tx.observacionIyV.updateMany({ where: { clave: claveFilaObsIyV(id, "observaciones") }, data: { clave: claveFilaObsIyV(antecedente.id, "observaciones") } });
+      const fila = await tx.filaCuadroIyV.update({
         where: { id },
         data: { datos: sinVigente(d), movimientos: { create: [{ campo: "Vigente archivado", anterior: exp, valor: "Pasó a Antecedentes", usuario }] } },
         include: INCLUDE_FILA_IYV,
-      }),
-    ]);
-    return NextResponse.json({ fila, antecedente });
+      });
+      return { antecedente, fila };
+    });
+    return NextResponse.json({ fila, antecedente, observaciones: await prisma.observacionIyV.findMany({ orderBy: [{ fecha: "asc" }, { creadoEn: "asc" }] }) });
   }
 
   if (accion === "subirBloque") {
@@ -103,21 +116,30 @@ export async function POST(request, { params }) {
     if (!bloqueVacioIyV(d, hacia)) return NextResponse.json({ error: "El bloque " + TITULO_BLOQUE_IYV[hacia] + " no está vacío" }, { status: 400 });
     if (bloqueVacioIyV(d, desde)) return NextResponse.json({ error: "El bloque " + TITULO_BLOQUE_IYV[desde] + " está vacío" }, { status: 400 });
     const exp = expDeBloqueIyV(d, desde) || "sin N°";
-    const nuevos = subirBloqueIyV(d, desde, hacia);
+    const { datos: nuevos, notas } = subirBloqueIyV(d, desde, hacia);
     // Una prórroga que pasa a vigente sigue con el mismo proveedor: el
     // adjudicatario del vigente que se acaba de archivar (lo manda la ficha).
     if (desde === "continuidad" && hacia === "vigente" && adjudicatario && !nuevos.adjudicatario && /pr[oó]rroga/i.test(d.cContratacion || "")) {
       nuevos.adjudicatario = String(adjudicatario);
     }
-    const fila = await prisma.filaCuadroIyV.update({
-      where: { id },
-      data: {
-        datos: datosFilaIyV("servicios", nuevos),
-        movimientos: { create: [{ campo: "Pasó de " + TITULO_BLOQUE_IYV[desde] + " a " + TITULO_BLOQUE_IYV[hacia], anterior: null, valor: exp, usuario }] },
-      },
-      include: INCLUDE_FILA_IYV,
-    });
-    return NextResponse.json({ fila });
+    const datos = datosFilaIyV("servicios", nuevos);
+    const campoHacia = camposObsIyV("servicios").find(c => c.k === OBS_DE_BLOQUE_IYV[hacia]);
+    const claveHacia = claveObsIyV(datos, id, campoHacia);
+    const [fila] = await prisma.$transaction([
+      prisma.filaCuadroIyV.update({
+        where: { id },
+        data: {
+          datos,
+          movimientos: { create: [{ campo: "Pasó de " + TITULO_BLOQUE_IYV[desde] + " a " + TITULO_BLOQUE_IYV[hacia], anterior: null, valor: exp, usuario }] },
+        },
+        include: INCLUDE_FILA_IYV,
+      }),
+      // Sin N°, las observaciones estaban atadas al bloque: pasan al nuevo.
+      prisma.observacionIyV.updateMany({ where: { clave: claveFilaObsIyV(id, OBS_DE_BLOQUE_IYV[desde]) }, data: { clave: claveHacia } }),
+      // Lo que no tiene columna en el destino queda como observación.
+      ...(notas.length ? [prisma.observacionIyV.create({ data: { clave: claveHacia, texto: notas.join("\n"), usuario } })] : []),
+    ]);
+    return NextResponse.json({ fila, observaciones: await prisma.observacionIyV.findMany({ orderBy: [{ fecha: "asc" }, { creadoEn: "asc" }] }) });
   }
 
   return NextResponse.json({ error: "Acción desconocida" }, { status: 400 });

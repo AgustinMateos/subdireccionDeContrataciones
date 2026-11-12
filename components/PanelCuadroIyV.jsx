@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Plus, Download, Trash2, ArrowRight, ArrowUp, Archive, Search } from "lucide-react";
+import { X, Plus, Download, Trash2, ArrowRight, ArrowUp, Archive, Search, MessageSquare } from "lucide-react";
 import * as XLSX from "xlsx";
 import { fmtFecha } from "@/lib/utils";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
 import {
   HOJAS_IYV, ORDEN_HOJAS_IYV, TIPOS_IYV, AGENTES_IYV, SITUACIONES_IYV, camposDeHoja, campoIyV, diasHasta, ultimoMovIyV,
-  sectoresIyV, estadosIyV, puedeEditarIyV, puedeEliminarIyV, bloqueVacioIyV, expDeBloqueIyV, siguienteSubidaIyV, TITULO_BLOQUE_IYV,
+  sectoresIyV, estadosIyV, puedeEditarIyV, puedeEliminarIyV, bloqueVacioIyV, camposObsIyV, claveObsIyV, expDeBloqueIyV, siguienteSubidaIyV, TITULO_BLOQUE_IYV,
 } from "@/lib/cuadroIyV";
 import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
 import CampoOpciones from "./CampoOpciones";
@@ -41,14 +41,19 @@ function EtiquetaDias({ dias }) {
   );
 }
 
-// Excel de lo que se ve (la solapa con sus filtros), con todas las columnas.
-function exportarExcel(hoja, filas) {
+// Las observaciones de un historial, en texto ("12/11/2026 Ana: ...").
+const textoObs = lista => (lista || []).map(o => fmtFecha(String(o.fecha).slice(0, 10)) + " " + o.usuario + ": " + o.texto).join("\n");
+
+// Excel de lo que se ve (la solapa con sus filtros), con todas las
+// columnas; las observaciones, con su historial por N° de expediente.
+function exportarExcel(hoja, filas, obsPorClave) {
   const def = HOJAS_IYV[hoja];
   const campos = def.bloques.flatMap(b => b.campos.map(campo => ({ ...campo, bloque: b })));
   const titulo = campo => (campo.bloque === def.bloques[0] ? campo.label : campo.bloque.titulo + " - " + campo.label).toUpperCase();
-  const datos = [campos.map(titulo), ...filas.map(f => campos.map(campo => f.datos?.[campo.k] || ""))];
+  const valor = (f, campo) => (campo.historial ? textoObs(obsPorClave.get(claveObsIyV(f.datos, f.id, campo))) : f.datos?.[campo.k] || "");
+  const datos = [campos.map(titulo), ...filas.map(f => campos.map(campo => valor(f, campo)))];
   const ws = XLSX.utils.aoa_to_sheet(datos);
-  ws["!cols"] = campos.map(campo => ({ wch: campo.largo ? 50 : campo.exp ? 16 : 18 }));
+  ws["!cols"] = campos.map(campo => ({ wch: campo.largo || campo.historial ? 50 : campo.exp ? 16 : 18 }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, def.etiqueta.slice(0, 31));
   XLSX.writeFile(wb, "informatica-y-varios-" + hoja + "-" + hoyLocalISO() + ".xlsx");
@@ -59,6 +64,7 @@ function exportarExcel(hoja, filas) {
 export default function PanelCuadroIyV({ sesion, mostrarToast }) {
   const puedeEditar = puedeEditarIyV(sesion);
   const [filas, setFilas] = useState(null);
+  const [observaciones, setObservaciones] = useState([]);
   const [hoja, setHoja] = useState("servicios");
   const [f, setF] = useState(filtroVacio);
   const [pagina, setPagina] = useState(0);
@@ -73,7 +79,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
         const res = await fetch("/api/cuadro-iyv");
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Error del servidor (" + res.status + ")");
-        if (activo) setFilas(data.filas || []);
+        if (activo) { setFilas(data.filas || []); setObservaciones(data.observaciones || []); }
       } catch (err) {
         if (activo) { setFilas([]); mostrarToast(err.message || "No se pudo cargar el cuadro"); }
       }
@@ -84,6 +90,12 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
   }, []);
 
   const lista = filas || [];
+  // Observaciones por clave (N° de expediente o bloque sin N°).
+  const obsPorClave = useMemo(() => {
+    const m = new Map();
+    for (const o of observaciones) { if (!m.has(o.clave)) m.set(o.clave, []); m.get(o.clave).push(o); }
+    return m;
+  }, [observaciones]);
   const deLaHoja = useMemo(() => lista.filter(x => x.hoja === hoja), [lista, hoja]);
   const def = HOJAS_IYV[hoja];
   const tieneGrupo = !!campoIyV(hoja, "grupo");
@@ -110,7 +122,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
     const q = norm(expParaBuscar(f.texto));
     return deLaHoja.filter(x => {
       const d = x.datos;
-      if (q && !norm(Object.values(d).join(" ")).includes(q)) return false;
+      if (q && !norm(Object.values(d).join(" ") + " " + camposObsIyV(hoja).flatMap(c => (obsPorClave.get(claveObsIyV(d, x.id, c)) || []).map(o => o.texto)).join(" ")).includes(q)) return false;
       if (f.grupo && d.grupo !== f.grupo) return false;
       if (f.tipoServicio && d.tipoServicio !== f.tipoServicio) return false;
       if (f.agente && d.agente !== f.agente) return false;
@@ -120,7 +132,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
       if (f.anioMov && ultimoMovIyV(d).slice(0, 4) !== f.anioMov) return false;
       return true;
     });
-  }, [deLaHoja, f]);
+  }, [deLaHoja, f, obsPorClave, hoja]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtradas.length / porPagina));
   const paginaActual = Math.min(pagina, totalPaginas - 1);
@@ -145,6 +157,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
       : await enviar("/api/cuadro-iyv", "POST", { hoja, datos });
     if (data.error) return data;
     setFilas(prev => (seleccionada ? prev.map(x => (x.id === data.fila.id ? data.fila : x)) : [...prev, data.fila]));
+    if (data.observaciones) setObservaciones(data.observaciones);
     setFicha(null);
     mostrarToast(seleccionada ? "Cambios guardados" : "Fila cargada en " + def.etiqueta);
   }
@@ -155,9 +168,25 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
     const data = await enviar("/api/cuadro-iyv/" + seleccionada.id, "POST", body);
     if (data.error) return data;
     setFilas(prev => [...prev.map(x => (x.id === data.fila.id ? data.fila : x)), ...(data.antecedente ? [data.antecedente] : [])]);
+    if (data.observaciones) setObservaciones(data.observaciones);
     mostrarToast(body.accion === "archivarVigente" ? "Vigente archivado en Antecedentes"
       : "Pasó de " + TITULO_BLOQUE_IYV[body.desde] + " a " + TITULO_BLOQUE_IYV[body.hacia]);
     return data;
+  }
+
+  // Observaciones: se guardan al toque (no con "Guardar cambios").
+  async function agregarObs(clave, texto) {
+    const data = await enviar("/api/cuadro-iyv/observaciones", "POST", { clave, texto });
+    if (data.error) return data;
+    setObservaciones(prev => [...prev, data.observacion]);
+    mostrarToast("Observación agregada");
+    return data;
+  }
+  async function borrarObs(id) {
+    const data = await enviar("/api/cuadro-iyv/observaciones?id=" + encodeURIComponent(id), "DELETE");
+    if (data.error) { mostrarToast(data.error); return; }
+    setObservaciones(prev => prev.filter(o => o.id !== id));
+    mostrarToast("Observación borrada");
   }
 
   async function eliminar() {
@@ -205,7 +234,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
                 <X size={12} /> Limpiar filtros
               </button>
             )}
-            <button type="button" onClick={() => exportarExcel(hoja, filtradas)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50">
+            <button type="button" onClick={() => exportarExcel(hoja, filtradas, obsPorClave)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50">
               <Download size={14} /> Exportar a Excel
             </button>
             {puedeEditar && (
@@ -291,6 +320,9 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
           onGuardar={guardar}
           onEliminar={eliminar}
           onAccion={seleccionada?.hoja === "servicios" ? accionFila : null}
+          obsPorClave={obsPorClave}
+          onAgregarObs={agregarObs}
+          onBorrarObs={borrarObs}
         />
       )}
     </div>
@@ -299,7 +331,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
 
 // Ficha de una fila: sus campos por bloque (editables para el
 // departamento) y el historial de cambios.
-function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuardar, onEliminar, onAccion }) {
+function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuardar, onEliminar, onAccion, obsPorClave, onAgregarObs, onBorrarObs }) {
   const def = HOJAS_IYV[hoja];
   const [d, setD] = useState(() => ({ ...(inicial?.datos || {}) }));
   const [solapa, setSolapa] = useState("datos");
@@ -387,6 +419,20 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
               <Seccion titulo={b.titulo}>
                 {b.campos.map(campo => {
                   const ancho = campo.largo ? "col-span-2 md:col-span-4" : "";
+                  if (campo.historial) {
+                    return (
+                      <div key={campo.k} className="col-span-2 md:col-span-4">
+                        <HistorialObs
+                          exp={inicial?.datos?.[campo.historial] || ""}
+                          clave={inicial ? claveObsIyV(inicial.datos, inicial.id, campo) : null}
+                          expCambiado={!!inicial && (d[campo.historial] || "") !== (inicial.datos?.[campo.historial] || "")}
+                          lista={inicial ? obsPorClave.get(claveObsIyV(inicial.datos, inicial.id, campo)) || [] : []}
+                          puedeEditar={puedeEditar} puedeEliminar={puedeEliminar}
+                          onAgregar={onAgregarObs} onBorrar={onBorrarObs}
+                        />
+                      </div>
+                    );
+                  }
                   if (!puedeEditar) {
                     return (
                       <div key={campo.k} className={"min-w-0 " + ancho}>
@@ -498,6 +544,67 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
         )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Historial de observaciones de un bloque: las de su N° de expediente (las
+// mismas en cualquier bloque o solapa donde esté ese N°), y un cuadro para
+// agregar una.
+function HistorialObs({ exp, clave, expCambiado, lista, puedeEditar, puedeEliminar, onAgregar, onBorrar }) {
+  const [texto, setTexto] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState("");
+  const ordenadas = [...lista].reverse();
+
+  async function agregar() {
+    if (!texto.trim()) return;
+    setEnviando(true); setError("");
+    const r = await onAgregar(clave, texto);
+    setEnviando(false);
+    if (r?.error) setError(r.error); else setTexto("");
+  }
+
+  return (
+    <div className="bg-white/70 border border-slate-200 rounded-md p-3 space-y-2.5">
+      <p className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
+        <MessageSquare size={13} /> Observaciones {exp ? <>del <span className="font-mono">{exp}</span></> : <span className="text-slate-400">(este bloque todavía no tiene N° de expediente)</span>}
+        <span className="text-slate-400">· {lista.length}</span>
+      </p>
+      {!clave ? (
+        <p className="text-xs text-slate-500">Cargá la fila para agregar observaciones.</p>
+      ) : (
+        <>
+          {ordenadas.length > 0 && (
+            <ol className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+              {ordenadas.map(o => (
+                <li key={o.id} className="text-sm bg-slate-50 border border-slate-100 rounded-md px-3 py-2">
+                  <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                    <span className="font-medium text-slate-700">{fmtFecha(String(o.fecha).slice(0, 10))}</span>
+                    <span>{o.usuario}</span>
+                    {puedeEliminar && (
+                      <button type="button" onClick={() => onBorrar(o.id)} title="Borrar observación" className="ml-auto text-slate-300 hover:text-red-600"><Trash2 size={12} /></button>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-slate-800 whitespace-pre-line break-words">{o.texto}</p>
+                </li>
+              ))}
+            </ol>
+          )}
+          {puedeEditar && (
+            <div className="flex items-start gap-2">
+              <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={2} placeholder={"Nueva observación" + (exp ? " del " + exp : "") + "..."}
+                className="flex-1 text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800 resize-y bg-white" />
+              <button type="button" onClick={agregar} disabled={enviando || !texto.trim()}
+                className="px-3 py-2 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 disabled:opacity-40">
+                {enviando ? "..." : "Agregar"}
+              </button>
+            </div>
+          )}
+          {expCambiado && <p className="text-[11px] text-amber-700">Cambiaste el N° de expediente: guardá los cambios para ver las observaciones del N° nuevo.</p>}
+          {error && <p className="text-xs text-red-700">{error}</p>}
+        </>
+      )}
     </div>
   );
 }
