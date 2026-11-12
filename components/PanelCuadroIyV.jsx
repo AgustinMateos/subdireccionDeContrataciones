@@ -7,12 +7,15 @@ import { fmtFecha } from "@/lib/utils";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
 import {
   HOJAS_IYV, ORDEN_HOJAS_IYV, TIPOS_IYV, AGENTES_IYV, SITUACIONES_IYV, camposDeHoja, campoIyV, diasHasta, ultimoMovIyV,
-  sectoresIyV, estadosIyV, puedeEditarIyV, puedeEliminarIyV, bloqueVacioIyV, camposObsIyV, claveObsIyV, expDeBloqueIyV, siguienteSubidaIyV, TITULO_BLOQUE_IYV,
+  sectoresIyV, estadosIyV, puedeEditarIyV, puedeEliminarIyV, bloqueVacioIyV, camposObsIyV, claveObsIyV,
+  partidaIyV, partidaSegunObjetoIyV, esBienDeUsoIyV, esAnticipoIyV, expDeBloqueIyV, siguienteSubidaIyV, TITULO_BLOQUE_IYV,
 } from "@/lib/cuadroIyV";
 import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
 import CampoOpciones from "./CampoOpciones";
 import { FiltroColumna, Seccion } from "./PanelResoluciones";
 import { expParaBuscar } from "@/lib/numeroExpediente";
+import { PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, FILTRO_BIENES_DE_USO, etiquetaPartida } from "@/lib/inciso4";
+import { Campo_Select } from "./CamposFormulario";
 
 const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
 const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-900 hover:border-slate-500 transition-colors focus:outline-none focus:border-slate-500 placeholder:text-slate-400";
@@ -25,7 +28,10 @@ const COLOR_BLOQUE = {
 // Columnas de inicio que muestran cuántos días faltan.
 const CON_DIAS = ["cInicio", "rInicio"];
 
-const filtroVacio = () => ({ texto: "", grupo: "", tipoServicio: "", agente: "", sector: "", estado: "", situacion: "", anioMov: "" });
+// Opciones del filtro de partida (como en Licitaciones).
+const OPCIONES_PARTIDA = [FILTRO_BIENES_DE_USO, ...Object.keys(PARTIDAS_INCISO_4).map(etiquetaPartida), etiquetaPartida(NO_ES_BIEN_DE_USO)];
+
+const filtroVacio = () => ({ partida: "", texto: "", grupo: "", tipoServicio: "", agente: "", sector: "", estado: "", situacion: "", anioMov: "" });
 
 // Días que faltan para una fecha (o hace cuántos pasó), como etiqueta.
 function EtiquetaDias({ dias }) {
@@ -50,7 +56,8 @@ function exportarExcel(hoja, filas, obsPorClave) {
   const def = HOJAS_IYV[hoja];
   const campos = def.bloques.flatMap(b => b.campos.map(campo => ({ ...campo, bloque: b })));
   const titulo = campo => (campo.bloque === def.bloques[0] ? campo.label : campo.bloque.titulo + " - " + campo.label).toUpperCase();
-  const valor = (f, campo) => (campo.historial ? textoObs(obsPorClave.get(claveObsIyV(f.datos, f.id, campo))) : f.datos?.[campo.k] || "");
+  const valor = (f, campo) => (campo.historial ? textoObs(obsPorClave.get(claveObsIyV(f.datos, f.id, campo)))
+    : campo.partida ? etiquetaPartida(partidaIyV(f.datos)) : f.datos?.[campo.k] || "");
   const datos = [campos.map(titulo), ...filas.map(f => campos.map(campo => valor(f, campo)))];
   const ws = XLSX.utils.aoa_to_sheet(datos);
   ws["!cols"] = campos.map(campo => ({ wch: campo.largo || campo.historial ? 50 : campo.exp ? 16 : 18 }));
@@ -130,6 +137,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
       if (f.estado && !estadosIyV(d).includes(f.estado)) return false;
       if (f.situacion && d.estado !== f.situacion) return false;
       if (f.anioMov && ultimoMovIyV(d).slice(0, 4) !== f.anioMov) return false;
+      if (f.partida === FILTRO_BIENES_DE_USO ? !esBienDeUsoIyV(d) : f.partida && etiquetaPartida(partidaIyV(d)) !== f.partida) return false;
       return true;
     });
   }, [deLaHoja, f, obsPorClave, hoja]);
@@ -257,6 +265,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
           <FiltroColumna valor={f.estado} etiqueta="Todos los estados" opciones={opciones.estado} onChange={v => set("estado", v)} />
           {tieneSituacion && <FiltroColumna valor={f.situacion} etiqueta="Tramitando y finalizados" opciones={opciones.situacion} onChange={v => set("situacion", v)} />}
           <FiltroColumna valor={f.anioMov} etiqueta="Último mov.: todos" opciones={opciones.anioMov} onChange={v => set("anioMov", v)} />
+          <FiltroColumna valor={f.partida} etiqueta="Todas las partidas" opciones={OPCIONES_PARTIDA} onChange={v => set("partida", v)} />
         </div>
 
         <div className="overflow-x-auto">
@@ -295,6 +304,11 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
                             {valor || "-"}
                           </span>
                           {CON_DIAS.includes(k) && <EtiquetaDias dias={diasHasta(valor, hoy)} />}
+                          {k === "objeto" && esBienDeUsoIyV(d) && (
+                            <span title={etiquetaPartida(partidaIyV(d))} className="block mt-1 w-fit text-[10px] font-semibold px-1.5 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-800">
+                              {partidaIyV(d)} · Bien de uso
+                            </span>
+                          )}
                         </td>
                       );
                     }))}
@@ -419,6 +433,27 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
               <Seccion titulo={b.titulo}>
                 {b.campos.map(campo => {
                   const ancho = campo.largo ? "col-span-2 md:col-span-4" : "";
+                  if (campo.partida) {
+                    const segun = "Según el objeto: " + etiquetaPartida(partidaSegunObjetoIyV(d.objeto));
+                    const nota = esAnticipoIyV(d) ? "Anticipo de fondos: nunca cuenta como bien de uso." : null;
+                    if (!puedeEditar) {
+                      return (
+                        <div key={campo.k} className="col-span-2 min-w-0">
+                          <p className="text-xs font-medium text-slate-500 mb-1">{campo.label}</p>
+                          <p className="text-sm text-slate-900">{etiquetaPartida(partidaIyV(d)) + (d.partida ? "" : " (según el objeto)")}</p>
+                          {nota && <p className="text-[11px] text-slate-500 mt-0.5">{nota}</p>}
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={campo.k} className="col-span-2">
+                        <Campo_Select label="Partida (Inciso 4 · bienes de uso)" value={d.partida || ""} onChange={v => set("partida", v)}
+                          opciones={["", ...Object.keys(PARTIDAS_INCISO_4), NO_ES_BIEN_DE_USO]}
+                          labels={{ "": segun, ...Object.fromEntries([...Object.keys(PARTIDAS_INCISO_4), NO_ES_BIEN_DE_USO].map(p => [p, etiquetaPartida(p)])) }} />
+                        {nota && <p className="text-[11px] text-slate-500 mt-1">{nota}</p>}
+                      </div>
+                    );
+                  }
                   if (campo.historial) {
                     return (
                       <div key={campo.k} className="col-span-2 md:col-span-4">
