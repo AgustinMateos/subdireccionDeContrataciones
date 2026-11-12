@@ -8,7 +8,7 @@ import { hoyLocalISO } from "@/lib/mesaEntradas";
 import {
   HOJAS_IYV, ORDEN_HOJAS_IYV, TIPOS_IYV, AGENTES_IYV, SITUACIONES_IYV, camposDeHoja, campoIyV, diasHasta, ultimoMovIyV,
   sectoresIyV, estadosIyV, puedeEditarIyV, puedeEliminarIyV, bloqueVacioIyV, camposObsIyV, claveObsIyV,
-  partidaIyV, partidaSegunObjetoIyV, esBienDeUsoIyV, esAnticipoIyV, expDeBloqueIyV, siguienteSubidaIyV, TITULO_BLOQUE_IYV,
+  partidaIyV, partidaSegunObjetoIyV, esBienDeUsoIyV, esAnticipoIyV, RESOLUCIONES_CONV_IYV, RESOLUCION_DE_EXP_IYV, resolucionesIyV, expDeBloqueIyV, siguienteSubidaIyV, TITULO_BLOQUE_IYV,
 } from "@/lib/cuadroIyV";
 import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
 import CampoOpciones from "./CampoOpciones";
@@ -31,7 +31,24 @@ const CON_DIAS = ["cInicio", "rInicio"];
 // Opciones del filtro de partida (como en Licitaciones).
 const OPCIONES_PARTIDA = [FILTRO_BIENES_DE_USO, ...Object.keys(PARTIDAS_INCISO_4).map(etiquetaPartida), etiquetaPartida(NO_ES_BIEN_DE_USO)];
 
-const filtroVacio = () => ({ partida: "", texto: "", grupo: "", tipoServicio: "", agente: "", sector: "", estado: "", situacion: "", anioMov: "" });
+// Color de la etiqueta de cada resolución de la convocatoria.
+const ESTILO_RESOLUCION = {
+  "Adjudicada": "border-emerald-300 bg-emerald-50 text-emerald-800",
+  "Adjudicación parcial": "border-amber-300 bg-amber-50 text-amber-800",
+  "Sin efecto": "border-slate-300 bg-slate-100 text-slate-700",
+  "Desierta": "border-orange-300 bg-orange-50 text-orange-800",
+  "Fracasada": "border-rose-300 bg-rose-50 text-rose-800",
+};
+function EtiquetaResolucion({ valor }) {
+  if (!valor) return null;
+  return (
+    <span className={"block mt-1 w-fit text-[10px] font-semibold px-1.5 py-0.5 rounded border whitespace-nowrap " + (ESTILO_RESOLUCION[valor] || ESTILO_RESOLUCION["Sin efecto"])}>
+      {valor}
+    </span>
+  );
+}
+
+const filtroVacio = () => ({ resolucion: "", partida: "", texto: "", grupo: "", tipoServicio: "", agente: "", sector: "", estado: "", situacion: "", anioMov: "" });
 
 // Días que faltan para una fecha (o hace cuántos pasó), como etiqueta.
 function EtiquetaDias({ dias }) {
@@ -136,6 +153,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
       if (f.sector && !sectoresIyV(d).includes(f.sector)) return false;
       if (f.estado && !estadosIyV(d).includes(f.estado)) return false;
       if (f.situacion && d.estado !== f.situacion) return false;
+      if (f.resolucion && !resolucionesIyV(d).includes(f.resolucion)) return false;
       if (f.anioMov && ultimoMovIyV(d).slice(0, 4) !== f.anioMov) return false;
       if (f.partida === FILTRO_BIENES_DE_USO ? !esBienDeUsoIyV(d) : f.partida && etiquetaPartida(partidaIyV(d)) !== f.partida) return false;
       return true;
@@ -263,6 +281,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
           <FiltroColumna valor={f.agente} etiqueta="Todos los agentes" opciones={opciones.agente} onChange={v => set("agente", v)} />
           <FiltroColumna valor={f.sector} etiqueta="Todos los sectores" opciones={opciones.sector} onChange={v => set("sector", v)} />
           <FiltroColumna valor={f.estado} etiqueta="Todos los estados" opciones={opciones.estado} onChange={v => set("estado", v)} />
+          <FiltroColumna valor={f.resolucion} etiqueta="Resolución conv.: todas" opciones={RESOLUCIONES_CONV_IYV} onChange={v => set("resolucion", v)} />
           {tieneSituacion && <FiltroColumna valor={f.situacion} etiqueta="Tramitando y finalizados" opciones={opciones.situacion} onChange={v => set("situacion", v)} />}
           <FiltroColumna valor={f.anioMov} etiqueta="Último mov.: todos" opciones={opciones.anioMov} onChange={v => set("anioMov", v)} />
           <FiltroColumna valor={f.partida} etiqueta="Todas las partidas" opciones={OPCIONES_PARTIDA} onChange={v => set("partida", v)} />
@@ -304,6 +323,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
                             {valor || "-"}
                           </span>
                           {CON_DIAS.includes(k) && <EtiquetaDias dias={diasHasta(valor, hoy)} />}
+                          {RESOLUCION_DE_EXP_IYV[k] && <EtiquetaResolucion valor={d[RESOLUCION_DE_EXP_IYV[k]]} />}
                           {k === "objeto" && esBienDeUsoIyV(d) && (
                             <span title={etiquetaPartida(partidaIyV(d))} className="block mt-1 w-fit text-[10px] font-semibold px-1.5 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-800">
                               {partidaIyV(d)} · Bien de uso
@@ -487,6 +507,15 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
                     );
                   }
                   if (campo.opciones) {
+                    if (campo.resolucion) {
+                      return (
+                        <div key={campo.k}>
+                          <Campo_Select label={campo.label} value={d[campo.k] || ""} onChange={v => set(campo.k, v)}
+                            opciones={["", ...campo.opciones, ...(d[campo.k] && !campo.opciones.includes(d[campo.k]) ? [d[campo.k]] : [])]} labels={{ "": "Sin definir" }} />
+                          <EtiquetaResolucion valor={d[campo.k]} />
+                        </div>
+                      );
+                    }
                     return <div key={campo.k}><CampoOpciones label={campo.label} value={d[campo.k] || ""} onChange={v => set(campo.k, v)} opciones={campo.opciones} /></div>;
                   }
                   return (
