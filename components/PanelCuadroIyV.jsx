@@ -104,6 +104,13 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Error del servidor (" + res.status + ")");
         if (activo) { setFilas(data.filas || []); setObservaciones(data.observaciones || []); }
+        // Después, los últimos movimientos que haya de más en Resoluciones.
+        const sinc = await fetch("/api/cuadro-iyv/sincronizar", { method: "POST" }).then(r => (r.ok ? r.json() : null)).catch(() => null);
+        if (activo && sinc?.filas?.length) {
+          const porId = new Map(sinc.filas.map(x => [x.id, x]));
+          setFilas(prev => prev.map(x => porId.get(x.id) || x));
+          mostrarToast(sinc.filas.length === 1 ? "Se completó 1 último movimiento desde Resoluciones" : "Se completaron " + sinc.filas.length + " últimos movimientos desde Resoluciones");
+        }
       } catch (err) {
         if (activo) { setFilas([]); mostrarToast(err.message || "No se pudo cargar el cuadro"); }
       }
