@@ -202,12 +202,22 @@ export default function TopBar({ sesion, onLogout, busqueda, setBusqueda, vista,
 
       {!soloSuPanel && (
       <div className="px-4 sm:px-6 lg:px-8 flex items-center gap-1 h-11 border-t border-slate-100 relative">
+        {esInformaticaYVarios && (
+          <button
+            onClick={() => { setVista("cuadroIyV"); setVariosAbierto(false); }}
+            className={"h-full px-3 text-xs font-medium border-b-2 transition-colors " +
+              (vista === "cuadroIyV" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}
+          >
+            Cuadro
+          </button>
+        )}
         <button
           onClick={() => { setVista("expedientes"); setVariosAbierto(false); }}
+          title={esInformaticaYVarios ? "El panel de expedientes anterior (tarjetas)" : undefined}
           className={"h-full px-3 text-xs font-medium border-b-2 transition-colors " +
             (vista === "expedientes" ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}
         >
-          Expedientes
+          {esInformaticaYVarios ? "Panel anterior" : "Expedientes"}
         </button>
         <button
           onClick={() => { setVista("valorModular"); setVariosAbierto(false); }}

@@ -635,3 +635,35 @@ model RegistroAuditoria {
   @@index([creadoEn])
   @@index([panel])
 }
+
+// ---------- Cuadro de Informática y Varios ----------
+// La planilla del departamento ("EXPEDIENTES INFORMATICA Y VARIOS"): una
+// fila por renglón, en cuatro solapas (`hoja`): servicios (con los bloques
+// vigente / continuidad / renovación), provisiones, temporales y
+// antecedentes. Los campos de cada hoja van en `datos` (ver
+// lib/cuadroIyV.js); `orden` es la posición en la planilla.
+model FilaCuadroIyV {
+  id            String                 @id @default(cuid())
+  hoja          String
+  orden         Int                    @default(0)
+  datos         Json
+  movimientos   MovimientoCuadroIyV[]
+  creadoEn      DateTime               @default(now())
+  actualizadoEn DateTime               @updatedAt
+
+  @@index([hoja])
+}
+
+// Historial de una fila: qué campo cambió, de qué a qué y quién.
+model MovimientoCuadroIyV {
+  id       String        @id @default(cuid())
+  filaId   String
+  fila     FilaCuadroIyV @relation(fields: [filaId], references: [id], onDelete: Cascade)
+  fecha    DateTime      @default(now())
+  campo    String
+  anterior String?
+  valor    String
+  usuario  String
+
+  @@index([filaId])
+}

@@ -74,6 +74,7 @@ import MesaDeEntradas from "./MesaDeEntradas";
 import PanelControlServicios from "./PanelControlServicios";
 import PanelResoluciones from "./PanelResoluciones";
 import PanelLicitaciones from "./PanelLicitaciones";
+import PanelCuadroIyV from "./PanelCuadroIyV";
 import PanelOrdenesCompra from "./PanelOrdenesCompra";
 import CuadroCronologico from "./CuadroCronologico";
 import GraficosSubdireccion from "./GraficosSubdireccion";
@@ -111,7 +112,7 @@ import { mismoExp } from "@/lib/numeroExpediente";
 
 const VISTAS_EXCLUSIVAS_INFORMATICA_Y_VARIOS = [
   "cotizadorTaquigrafico", "cotizadorPolicia", "cotizadorAvisos",
-  "informePoliciaAdicional", "informeOrganismos",
+  "informePoliciaAdicional", "informeOrganismos", "cuadroIyV",
 ];
 
 const VISTAS_EXCLUIDAS_MESA_DE_ENTRADAS = ["aperturas", "informeServicios", "expedienteDetalle"];
@@ -145,6 +146,15 @@ export default function App() {
     setInicioListo(true);
     setVista("inicio");
   }, [esJefaSubdireccion, inicioListo]);
+  // Informática y Varios entra a su cuadro (la planilla del departamento);
+  // el panel anterior de expedientes sigue en el menú ("Panel anterior").
+  const esIyV = sesion?.departamentoSlug === "informatica-y-varios";
+  const [cuadroListo, setCuadroListo] = useState(false);
+  useEffect(() => {
+    if (!esIyV || cuadroListo) return;
+    setCuadroListo(true);
+    setVista("cuadroIyV");
+  }, [esIyV, cuadroListo]);
   function irA(v, solapa) {
     setSolapaPedida(solapa ? { vista: v, solapa, n: Date.now() } : null);
     setVista(v);
@@ -859,6 +869,8 @@ export default function App() {
           )
         ) : esControlServicios ? (
           <PanelControlServicios mostrarToast={mostrarToast} />
+        ) : vistaEfectiva === "cuadroIyV" ? (
+          <PanelCuadroIyV sesion={sesion} mostrarToast={mostrarToast} />
         ) : vistaEfectiva === "valorModular" ? (
           <ValorModular
             moduloValor={moduloValor}
