@@ -22,7 +22,7 @@ import EtiquetasPrioridad from "./EtiquetasPrioridad";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import CampoOpciones from "./CampoOpciones";
 import EtiquetaResolucion from "./EtiquetaResolucion";
-import { RESOLUCIONES_CONV } from "@/lib/resolucionConv";
+import { RESOLUCIONES_CONV_LICITACIONES as RESOLUCIONES_CONV } from "@/lib/resolucionConv";
 import { SelectRapido, FiltroColumna, Seccion, DatoFicha } from "./PanelResoluciones";
 import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 
