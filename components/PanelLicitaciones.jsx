@@ -9,7 +9,7 @@ import { fmtFecha } from "@/lib/utils";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
 import { EMAIL_JEFA_SUBDIRECCION, fechaISO } from "@/lib/resoluciones";
 import {
-  JURISDICCIONES_LICITACIONES, RUBROS_LICITACIONES, ENCUADRES_LICITACIONES, SECTORES_LICITACIONES, FILTRO_BIENES_DE_USO, esBienDeUso, anioExpediente,
+  SLUG_LICITACIONES, JURISDICCIONES_LICITACIONES, RUBROS_LICITACIONES, ENCUADRES_LICITACIONES, SECTORES_LICITACIONES, FILTRO_BIENES_DE_USO, esBienDeUso, anioExpediente,
   PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, partidaDe, partidaSegunRubro, etiquetaPartida, esAnticipo,
   RESULTADOS_LICITACION, FILTRO_CUALQUIER_RESULTADO,
   ESTADOS_INTERNOS_LICITACIONES, ESTADOS_CONVOCATORIA_LICITACIONES, AGENTES_LICITACIONES, AGENTE_POR_JURISDICCION,
@@ -22,7 +22,8 @@ import EtiquetasPrioridad from "./EtiquetasPrioridad";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import CampoOpciones from "./CampoOpciones";
 import EtiquetaResolucion from "./EtiquetaResolucion";
-import { RESOLUCIONES_CONV_LICITACIONES as RESOLUCIONES_CONV } from "@/lib/resolucionConv";
+import { RESOLUCIONES_CONV_LICITACIONES as RESOLUCIONES_CONV, MOTIVOS_NO_ADJUDICACION, pideMotivo } from "@/lib/resolucionConv";
+import AnalisisLicitaciones from "./AnalisisLicitaciones";
 import { SelectRapido, FiltroColumna, Seccion, DatoFicha } from "./PanelResoluciones";
 import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 
@@ -31,7 +32,7 @@ const fecha = f => (f ? fmtFecha(fechaISO(f)) : "-");
 const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-900 hover:border-slate-500 transition-colors focus:outline-none focus:border-slate-500 placeholder:text-slate-400";
 
 
-const ETIQUETA_CAMPO = { sector: "Sector", estadoInterno: "Estado interno", estadoConvocatoria: "Estado convocatoria", resolucionConv: "Resolución conv." };
+const ETIQUETA_CAMPO = { sector: "Sector", estadoInterno: "Estado interno", estadoConvocatoria: "Estado convocatoria", resolucionConv: "Resolución conv.", motivoResolucion: "Motivo" };
 
 function filtroVacio() {
   return { exp: "", anio: "", anioMov: "", objeto: "", jurisdiccion: "", rubro: "", partida: "", resultado: "", encuadre: "", sector: "", estadoInterno: "", estadoConvocatoria: "", resolucionConv: "", agente: "" };
@@ -39,7 +40,7 @@ function filtroVacio() {
 
 const VACIO = {
   exp: "", jurisdiccion: "", organismo: "", domicilio: "", rubro: "", objeto: "", monto: "", plazoEjecucion: "",
-  encuadre: "", partida: "", fechaUltimoMov: "", sector: "", estadoInterno: "", estadoConvocatoria: "", resolucionConv: "", observaciones: "",
+  encuadre: "", partida: "", fechaUltimoMov: "", sector: "", estadoInterno: "", estadoConvocatoria: "", resolucionConv: "", motivoResolucion: "", motivoDetalle: "", observaciones: "",
   agente: "", paseFirma: "", prioritario: false,
 };
 
@@ -249,6 +250,18 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                 <Campo_Select label="Resolución conv." value={f.resolucionConv || ""} onChange={v => set("resolucionConv", v)} disabled={fijo}
                   opciones={["", ...RESOLUCIONES_CONV]} labels={{ "": "Sin definir" }} />
                 <Campo_Input label="Último movimiento" type="date" max="9999-12-31" value={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
+                {pideMotivo(f.resolucionConv) && (
+                  <>
+                    <div className="col-span-2">
+                      <Campo_Select label={"Motivo (" + f.resolucionConv.toLowerCase() + ")"} value={f.motivoResolucion || ""} onChange={v => set("motivoResolucion", v)} disabled={fijo}
+                        opciones={["", ...MOTIVOS_NO_ADJUDICACION]} labels={{ "": "Sin cargar" }} />
+                    </div>
+                    <div className="col-span-2">
+                      <Campo_Input label="Detalle del motivo" value={f.motivoDetalle || ""} onChange={v => set("motivoDetalle", v)} disabled={fijo}
+                        placeholder="Ej.: renglones 2 y 3 sin ofertas" />
+                    </div>
+                  </>
+                )}
               </Seccion>
 
               <Seccion titulo={inicial ? "Nueva observación" : "Observaciones"}>
@@ -373,6 +386,8 @@ export const SOLAPAS = [
   // Para que la jefa de la Subdirección asigne lo pendiente.
   { id: "sinAsignar", etiqueta: "Sin asignar", incluye: e => !esTerminada(e) && !String(e.agente || "").trim(), soloJefa: true },
 ];
+// Solo para la jefa y el jefe del departamento; no lista expedientes.
+const SOLAPA_ANALISIS = { id: "analisis", etiqueta: "Análisis", incluye: () => true };
 
 // `resoluciones`: { [id]: para qué está o estuvo en Resoluciones } y
 // `contrataciones`: { [id]: sus N° de contratación allá }; sin ellos (no
@@ -387,13 +402,13 @@ function exportarExcel(filas, solapa, resoluciones, contrataciones, actas = {}, 
   const columnasActas = Array.from({ length: maxActas }, (_, i) => "ACTA DE APERTURA" + (maxActas > 1 ? " " + (i + 1) : ""));
   const datos = [
     ["EXP", "JURISDICCION", "ORGANISMO", "DOMICILIO", "RUBRO", "PARTIDA (INCISO 4)", "OBJETO", "MONTO", "PLAZO DE EJECUCION (DH)", "ENCUADRE",
-      "ULTIMO MOVIMIENTO", "DIAS EN EL SECTOR", "SECTOR", "ESTADO INTERNO", "ESTADO CONVOCATORIA", "RESOLUCION CONV.", "OBSERVACIONES", "AGENTE",
+      "ULTIMO MOVIMIENTO", "DIAS EN EL SECTOR", "SECTOR", "ESTADO INTERNO", "ESTADO CONVOCATORIA", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO", "OBSERVACIONES", "AGENTE",
       "PASE A LA FIRMA", "PRIORITARIO", "TIPO DE RESOLUCION (EN RESOLUCIONES)", "N° DE CONTRATACION (RESOLUCIONES)",
       "FRACASOS / DESIERTAS / REVOCADAS / PARCIALES", "DONDE FIGURA", ...columnasActas],
     ...filas.map(e => [
       e.exp, e.jurisdiccion || "", e.organismo || "", e.domicilio || "", e.rubro || "", etiquetaPartida(partidaDe(e)), e.objeto, e.monto || "", e.plazoEjecucion || "",
       e.encuadre || "", fecha(e.fechaUltimoMov), diasEnSectorLicitacion(e) ?? "", e.sector || "", e.estadoInterno || "",
-      e.estadoConvocatoria || "", e.resolucionConv || "", [e.observaciones, resultados?.[e.id]?.deResoluciones].filter(Boolean).join(" // "), e.agente || "", e.paseFirma ? fecha(e.paseFirma) : "",
+      e.estadoConvocatoria || "", e.resolucionConv || "", e.motivoResolucion || "", e.motivoDetalle || "", [e.observaciones, resultados?.[e.id]?.deResoluciones].filter(Boolean).join(" // "), e.agente || "", e.paseFirma ? fecha(e.paseFirma) : "",
       e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
       resoluciones ? resoluciones[e.id] || "No pasó por Resoluciones" : "",
       contrataciones?.[e.id] || "",
@@ -409,7 +424,7 @@ function exportarExcel(filas, solapa, resoluciones, contrataciones, actas = {}, 
     const celda = ws[XLSX.utils.encode_cell({ r: i + 1, c: primeraActa + j })];
     if (url && celda) celda.l = { Target: url, Tooltip: "Acta de apertura " + actas[filas[i].id][j] };
   }));
-  ws["!cols"] = [16, 30, 30, 30, 16, 26, 50, 18, 16, 14, 12, 8, 14, 12, 22, 18, 50, 10, 12, 12, 60, 30, 30, 80, ...columnasActas.map(() => 60)].map(wch => ({ wch }));
+  ws["!cols"] = [16, 30, 30, 30, 16, 26, 50, 18, 16, 14, 12, 8, 14, 12, 22, 18, 36, 40, 50, 10, 12, 12, 60, 30, 30, 80, ...columnasActas.map(() => 60)].map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Licitaciones");
   XLSX.writeFile(wb, "licitaciones-" + (solapa === "general" ? "" : solapa + "-") + hoyLocalISO() + ".xlsx");
@@ -420,6 +435,8 @@ function exportarExcel(filas, solapa, resoluciones, contrataciones, actas = {}, 
 export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial }) {
   // La jefa de la Subdirección asigna agentes y marca prioridades.
   const esJefa = sesion.email === EMAIL_JEFA_SUBDIRECCION;
+  // El análisis lo ven la jefa y el jefe del departamento (rol admin).
+  const esJefe = esJefa || (sesion.departamentoSlug === SLUG_LICITACIONES && sesion.rol === "admin");
   const [expedientes, setExpedientes] = useState(null);
   // Lo que viene de Resoluciones (para el Excel y el filtro de resultados):
   // null mientras se consulta; false si no se pudo.
@@ -479,8 +496,9 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
     };
   }, [lista]);
 
-  const solapas = SOLAPAS.filter(s => !s.soloJefa || esJefa);
-  const deLaSolapa = useMemo(() => lista.filter(SOLAPAS.find(s => s.id === solapa).incluye), [lista, solapa]);
+  const solapas = [...SOLAPAS.filter(s => !s.soloJefa || esJefa), ...(esJefe ? [SOLAPA_ANALISIS] : [])];
+  const enAnalisis = solapa === SOLAPA_ANALISIS.id && esJefe;
+  const deLaSolapa = useMemo(() => lista.filter((SOLAPAS.find(s => s.id === solapa) || SOLAPAS[0]).incluye), [lista, solapa]);
   // En Concluidos y archivados no se cuentan días en el sector.
   const enTerminados = solapa === "terminados";
   const filas = useMemo(() => deLaSolapa.filter(e => {
@@ -597,16 +615,21 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
             (solapa === s.id ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}
         >
           {s.etiqueta}
-          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 tabular-nums">
-            {lista.filter(s.incluye).length}
-          </span>
+          {s !== SOLAPA_ANALISIS && (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 tabular-nums">
+              {lista.filter(s.incluye).length}
+            </span>
+          )}
         </button>
       ))}
     </div>
+    {enAnalisis ? (
+      <AnalisisLicitaciones lista={lista} onAbrir={setForm} />
+    ) : (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-b border-slate-100 bg-slate-50/60">
         <div>
-          <h3 className="text-sm font-semibold text-slate-900">{SOLAPAS.find(s => s.id === solapa).etiqueta}</h3>
+          <h3 className="text-sm font-semibold text-slate-900">{(SOLAPAS.find(s => s.id === solapa) || SOLAPAS[0]).etiqueta}</h3>
           <span className="text-[11px] text-slate-500">{filas.length} de {deLaSolapa.length} expediente{deLaSolapa.length !== 1 ? "s" : ""}</span>
         </div>
         <div className="flex items-center gap-3">
@@ -712,6 +735,11 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
                       <SelectRapido valor={e.resolucionConv} opciones={RESOLUCIONES_CONV} vacio="Resolución conv.: -" className="mt-1.5"
                         onChange={v => cambiarRapido(e, { resolucionConv: v })} />
                     )}
+                    {pideMotivo(e.resolucionConv) && (e.motivoResolucion ? (
+                      <span className="block mt-1 max-w-[190px] text-[10px] text-slate-500" title={e.motivoDetalle || ""}>Motivo: {e.motivoResolucion}</span>
+                    ) : (
+                      <span className="block mt-1 w-fit text-[10px] font-medium px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800">Falta el motivo</span>
+                    ))}
                   </td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{fecha(e.fechaUltimoMov)}</td>
                   <td className="py-2.5 px-3" onClick={esJefa ? ev => ev.stopPropagation() : undefined}>
@@ -729,6 +757,8 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
 
       <Paginacion total={filas.length} pagina={paginaActual} porPagina={porPagina}
         onPagina={setPagina} onPorPagina={n => { setPorPagina(n); setPagina(0); }} />
+    </div>
+    )}
 
       {form && (
         <FormularioLicitacion
@@ -741,7 +771,6 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
           onEliminar={eliminar}
         />
       )}
-    </div>
     </div>
   );
 }

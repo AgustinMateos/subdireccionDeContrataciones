@@ -496,6 +496,8 @@ model ExpedienteLicitacion {
   estadoInterno      String?
   estadoConvocatoria String?
   resolucionConv     String? // cómo terminó la convocatoria: Adjudicada | Adjudicación parcial | Sin efecto | Desierta | Fracasada | Fracasa / Autoriza | Fracasa / Desierta | No pasó por Resoluciones
+  motivoResolucion   String? // por qué no se adjudicó (lista MOTIVOS_NO_ADJUDICACION); solo si resolucionConv no es Adjudicada / No pasó
+  motivoDetalle      String? // detalle libre del motivo
   observaciones      String?
   agente             String? // lo asigna la jefa; en un alta, por jurisdicción
   paseFirma          DateTime?

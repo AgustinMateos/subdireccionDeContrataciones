@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { EMAIL_JEFA_SUBDIRECCION } from "@/lib/resoluciones";
-import { resolucionConvValida } from "@/lib/resolucionConv";
+import { resolucionConvValida, motivoValido, pideMotivo } from "@/lib/resolucionConv";
 import { CAMPOS_DE_LICITACIONES, datosLicitacion, sinCamposDeLicitaciones, soloCamposDeJefaLicitaciones } from "@/lib/licitaciones";
 import { INCLUDE_LICITACION, conPlanObras, registrosDeCambiosLicitacion, sesionLicitaciones } from "@/lib/licitacionesServidor";
 
@@ -50,6 +50,10 @@ export async function PATCH(request, { params }) {
   for (const k of [...CAMPOS_DE_LICITACIONES, "agente"]) {
     if (k in body) data[k] = k === "resolucionConv" ? resolucionConvValida(body[k]) : String(body[k] || "").trim() || null;
   }
+  // El motivo va con la resolución: si ya no lo pide, se borra.
+  const resolucion = "resolucionConv" in data ? data.resolucionConv : existente.resolucionConv;
+  if ("motivoResolucion" in data) data.motivoResolucion = motivoValido(resolucion, data.motivoResolucion);
+  if (!pideMotivo(resolucion)) { data.motivoResolucion = null; data.motivoDetalle = null; }
   if ("prioritario" in body) data.prioritario = body.prioritario === true;
   const cambios = registrosDeCambiosLicitacion(existente, data, session.user.name);
   const expediente = await prisma.expedienteLicitacion.update({
