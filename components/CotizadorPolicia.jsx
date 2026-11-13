@@ -7,6 +7,12 @@ import { FUERZAS_SEGURIDAD, PERIODICIDADES_POLICIA, FERIADOS_2026, NOMBRES_MES }
 import { calcularDiasServicio, diasServicioPorMes, fmtMoneda, fmtFecha } from "@/lib/utils";
 import { armarPase } from "@/lib/paseContaduria";
 import { mismoExp, normalizarExp } from "@/lib/numeroExpediente";
+import { inhabilesJudicialesDe } from "@/lib/diasHabiles";
+
+// Feriados nacionales más los inhábiles judiciales (16/11, 24/12 y 31/12) que
+// caen de lunes a viernes: esos días tampoco hay servicio "hábil".
+const conInhabilesJudiciales = (feriados, anios) =>
+  [...new Set([...feriados, ...inhabilesJudicialesDe(anios)])].sort().join(", ");
 export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarYVincular }) {
   const [fuerza, setFuerza] = useState("PFA");
   const [periodicidad, setPeriodicidad] = useState("lv_habiles");
@@ -20,7 +26,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
   const [modulosPorMes, setModulosPorMes] = useState({}); // modalidad discontinua: { "2026-09": "120", ... }
   const [expNro, setExpNro] = useState("");
   const [objeto, setObjeto] = useState("");
-  const [feriadosTexto, setFeriadosTexto] = useState(FERIADOS_2026.join(", "));
+  const [feriadosTexto, setFeriadosTexto] = useState(() => conInhabilesJudiciales(FERIADOS_2026, [2026]));
   // Pase a Contaduría: lo que no sale de la cotización.
   const [ejercicio, setEjercicio] = useState("");
   const [fojasPresupuesto, setFojasPresupuesto] = useState("");
@@ -46,7 +52,7 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
       .then(r => (r.ok ? r.json() : Promise.reject(new Error())))
       .then(d => {
         if (!activo) return;
-        setFeriadosTexto((d.feriados || []).join(", "));
+        setFeriadosTexto(conInhabilesJudiciales(d.feriados || [], aniosServicio.split(",").map(Number)));
         setEstadoFeriados("ok");
       })
       .catch(() => { if (activo) setEstadoFeriados("error"); });
@@ -379,8 +385,9 @@ export default function CotizadorPolicia({ mostrarToast, expedientes, onAprobarY
           />
           <p className="text-[11px] text-slate-400 mt-1">
             Fechas en formato AAAA-MM-DD separadas por coma. Se usan para "lunes a viernes hábiles" (se excluyen) y
-            "sábados, domingos y feriados" (se incluyen). Se traen solas según los años del servicio (feriados
-            nacionales, la misma fuente que los calendarios del sistema); si las editás y cambiás de año, se vuelven a cargar.
+            "sábados, domingos y feriados" (se incluyen). Se traen solas según los años del servicio: feriados
+            nacionales (la misma fuente que los calendarios del sistema) e inhábiles judiciales (16/11, 24/12 y 31/12)
+            cuando caen de lunes a viernes. Si las editás y cambiás de año, se vuelven a cargar.
           </p>
         </details>}
       </div>

@@ -5,7 +5,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aniosDelCalculo, calcularVencimientos, esHabil, sumarDiasHabiles } from "../lib/diasHabiles.js";
+import { aniosDelCalculo, calcularVencimientos, esHabil, inhabilesJudicialesDe, sumarDiasHabiles } from "../lib/diasHabiles.js";
 import { URL_FERIADOS, feriadosDe, vaciarCacheFeriados, vencimientosDePublicacion } from "../lib/feriados.js";
 
 const FERIADOS_API = {
@@ -112,4 +112,10 @@ test("cache: si la API falla, el error no queda guardado", async () => {
   const { fetcher, pedidos } = apiFalsa();
   assert.ok((await feriadosDe([2026], { fetcher })).has("2026-02-16"));
   assert.deepEqual(pedidos, [2026]);
+});
+
+test("inhabilesJudicialesDe: solo los que caen de lunes a viernes", () => {
+  // 2027: 16/11 martes, 24/12 viernes, 31/12 viernes. 2030: 16/11 sábado.
+  assert.deepEqual(inhabilesJudicialesDe([2027]), ["2027-11-16", "2027-12-24", "2027-12-31"]);
+  assert.ok(!inhabilesJudicialesDe([2030]).includes("2030-11-16"));
 });
