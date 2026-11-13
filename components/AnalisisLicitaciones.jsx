@@ -7,7 +7,7 @@ import { hoyLocalISO } from "@/lib/mesaEntradas";
 import { fechaISO } from "@/lib/resoluciones";
 import {
   FILTRO_BIENES_DE_USO, PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, esBienDeUso, anioExpediente, partidaDe, etiquetaPartida,
-  ENCUADRES_LICITACIONES, esDescentralizada,
+  ENCUADRES_LICITACIONES,
 } from "@/lib/licitaciones";
 import { RESOLUCIONES_CONV_LICITACIONES, GRUPOS_RESOLUCION_CONV, grupoResolucionConv, pideMotivo, MOTIVOS_NO_ADJUDICACION } from "@/lib/resolucionConv";
 import { FiltroColumna } from "./PanelResoluciones";
@@ -39,13 +39,7 @@ const motivoDe = e => e.motivoResolucion || SIN_MOTIVO;
 // Solapa Análisis de Licitaciones (jefa y jefe del departamento): cómo
 // terminaron las contrataciones, por año y partida, y por qué no se
 // adjudicaron. Tocar un número muestra esos expedientes abajo.
-// Las descentralizadas no pasan por Resoluciones: sin resolución cargada,
-// cuentan como "No pasó por Resoluciones" (solo en el análisis).
-const NO_PASO = "No pasó por Resoluciones";
-const conResolucionEfectiva = e => (!e.resolucionConv && esDescentralizada(e) ? { ...e, resolucionConv: NO_PASO, porEncuadre: true } : e);
-
-export default function AnalisisLicitaciones({ lista: original, onAbrir }) {
-  const lista = useMemo(() => original.map(conResolucionEfectiva), [original]);
+export default function AnalisisLicitaciones({ lista, onAbrir }) {
   const [base, setBase] = useState("exp");
   const [f, setF] = useState({ anio: "", partida: FILTRO_BIENES_DE_USO, jurisdiccion: "", encuadre: "" });
   const [sel, setSel] = useState(null); // { titulo, incluye }
@@ -95,7 +89,7 @@ export default function AnalisisLicitaciones({ lista: original, onAbrir }) {
     const datos = [
       ["EXP", "AÑO", "JURISDICCION", "OBJETO", "PARTIDA (INCISO 4)", "ENCUADRE", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO"],
       ...seleccionados.map(e => [e.exp, anioDe(e), e.jurisdiccion || "", e.objeto, etiquetaPartida(partidaDe(e)), e.encuadre || "",
-        (e.resolucionConv || "") + (e.porEncuadre ? " (descentralizada)" : ""), e.motivoResolucion || "", e.motivoDetalle || ""]),
+        e.resolucionConv || "", e.motivoResolucion || "", e.motivoDetalle || ""]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(datos);
     ws["!cols"] = [16, 8, 26, 60, 26, 14, 22, 40, 50].map(wch => ({ wch }));
@@ -143,10 +137,7 @@ export default function AnalisisLicitaciones({ lista: original, onAbrir }) {
             className={"text-left rounded-xl border px-4 py-3 " + g.tarjeta + (sel?.titulo === g.etiqueta ? " ring-2 ring-offset-2 ring-slate-900" : "")}>
             <p className="text-[11px] opacity-80">{g.etiqueta}</p>
             <p className="text-2xl font-semibold tabular-nums">{porGrupo[g.id].length}</p>
-            <p className="text-[11px] opacity-70">
-              {pct(porGrupo[g.id].length, total)} del total
-              {g.id === "noPaso" && porGrupo.noPaso.some(e => e.porEncuadre) && " · " + porGrupo.noPaso.filter(e => e.porEncuadre).length + " descentralizadas"}
-            </p>
+            <p className="text-[11px] opacity-70">{pct(porGrupo[g.id].length, total)} del total</p>
           </button>
         ))}
       </div>
@@ -306,10 +297,7 @@ export default function AnalisisLicitaciones({ lista: original, onAbrir }) {
                     <td className="py-2 px-3 text-slate-600">{anioDe(e)}</td>
                     <td className="py-2 px-3 text-slate-700"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td>
                     <td className="py-2 px-3 text-slate-600 whitespace-nowrap">{etiquetaPartida(partidaDe(e))}</td>
-                    <td className="py-2 px-3">
-                      {e.resolucionConv ? <EtiquetaResolucion valor={e.resolucionConv} /> : <span className="text-slate-400">-</span>}
-                      {e.porEncuadre && <span className="block mt-0.5 text-[10px] text-slate-500">Por ser descentralizada</span>}
-                    </td>
+                    <td className="py-2 px-3">{e.resolucionConv ? <EtiquetaResolucion valor={e.resolucionConv} /> : <span className="text-slate-400">-</span>}</td>
                     <td className="py-2 px-3 text-slate-700">
                       {pideMotivo(e.resolucionConv) ? (e.motivoResolucion || <span className="text-amber-700">Sin cargar</span>) : <span className="text-slate-300">-</span>}
                       {e.motivoDetalle && <span className="block text-[11px] text-slate-500">{e.motivoDetalle}</span>}
