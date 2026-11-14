@@ -9,7 +9,7 @@ import {
   FILTRO_BIENES_DE_USO, PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, esBienDeUso, anioExpediente, partidaDe, etiquetaPartida,
   ENCUADRES_LICITACIONES,
 } from "@/lib/licitaciones";
-import { RESOLUCIONES_CONV_LICITACIONES, GRUPOS_RESOLUCION_CONV, grupoResolucionConv, pideMotivo, MOTIVOS_NO_ADJUDICACION } from "@/lib/resolucionConv";
+import { RESOLUCIONES_CONV_LICITACIONES, GRUPOS_RESOLUCION_CONV, grupoResolucionConv, pideMotivo, MOTIVOS_NO_ADJUDICACION, motivosDe } from "@/lib/resolucionConv";
 import { FiltroColumna } from "./PanelResoluciones";
 import EtiquetaResolucion from "./EtiquetaResolucion";
 
@@ -34,7 +34,9 @@ const COLOR = {
 const GRUPOS = GRUPOS_RESOLUCION_CONV.map(g => ({ ...g, ...COLOR[g.id] }));
 const grupoDe = r => GRUPOS.find(g => g.id === grupoResolucionConv(r).id);
 const ordenAnios = (a, b) => (a === SIN_ANIO) - (b === SIN_ANIO) || b.localeCompare(a);
-const motivoDe = e => e.motivoResolucion || SIN_MOTIVO;
+// Una contratación puede tener varios motivos: cuenta en cada uno.
+const motivosDeExp = e => { const ms = motivosDe(e.motivoResolucion); return ms.length ? ms : [SIN_MOTIVO]; };
+const tieneMotivo = (e, m) => motivosDeExp(e).includes(m);
 
 // Solapa Análisis de Licitaciones (jefa y jefe del departamento): cómo
 // terminaron las contrataciones, por año y partida, y por qué no se
@@ -69,7 +71,7 @@ export default function AnalisisLicitaciones({ lista, onAbrir }) {
   const total = filas.length;
   const porGrupo = Object.fromEntries(GRUPOS.map(g => [g.id, filas.filter(e => grupoDe(e.resolucionConv) === g)]));
   const conMotivo = filas.filter(e => pideMotivo(e.resolucionConv));
-  const motivos = [...MOTIVOS_NO_ADJUDICACION, SIN_MOTIVO].filter(m => m !== SIN_MOTIVO || conMotivo.some(e => !e.motivoResolucion));
+  const motivos = [...MOTIVOS_NO_ADJUDICACION, SIN_MOTIVO].filter(m => m !== SIN_MOTIVO || conMotivo.some(e => tieneMotivo(e, SIN_MOTIVO)));
   const anios = [...new Set(sinAnio.map(anioDe))].sort(ordenAnios);
   const elegir = (titulo, incluye) => setSel(s => (s?.titulo === titulo ? null : { titulo, incluye }));
   const seleccionados = sel ? filas.filter(sel.incluye) : [];
@@ -227,7 +229,7 @@ export default function AnalisisLicitaciones({ lista, onAbrir }) {
         <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50/60">
           <h3 className="text-sm font-semibold text-slate-900">Por qué no se adjudicaron</h3>
           <span className="text-[11px] text-slate-500">
-            {conMotivo.length} contratacion{conMotivo.length !== 1 ? "es" : ""} con adjudicación parcial o sin adjudicar · {conMotivo.filter(e => e.motivoResolucion).length} con motivo cargado
+            {conMotivo.length} contratacion{conMotivo.length !== 1 ? "es" : ""} con adjudicación parcial o sin adjudicar · {conMotivo.filter(e => !tieneMotivo(e, SIN_MOTIVO)).length} con motivo cargado · una contratación con varios motivos cuenta en cada uno
           </span>
         </div>
         {conMotivo.length === 0 ? (
@@ -244,17 +246,17 @@ export default function AnalisisLicitaciones({ lista, onAbrir }) {
               </thead>
               <tbody>
                 {motivos.map(m => {
-                  const delMotivo = conMotivo.filter(e => motivoDe(e) === m);
+                  const delMotivo = conMotivo.filter(e => tieneMotivo(e, m));
                   return (
                     <tr key={m} className={"border-b border-slate-50 " + (m === SIN_MOTIVO ? "bg-amber-50/60" : "")}>
                       <td className={"py-1.5 px-3 " + (m === SIN_MOTIVO ? "text-amber-800 font-medium" : "text-slate-800")}>{m}</td>
                       {CON_MOTIVO.map(r => (
                         <td key={r} className="py-1.5 px-2 text-right">
-                          <Num n={delMotivo.filter(e => e.resolucionConv === r).length} titulo={m + " · " + r} incluye={e => pideMotivo(e.resolucionConv) && motivoDe(e) === m && e.resolucionConv === r} />
+                          <Num n={delMotivo.filter(e => e.resolucionConv === r).length} titulo={m + " · " + r} incluye={e => pideMotivo(e.resolucionConv) && tieneMotivo(e, m) && e.resolucionConv === r} />
                         </td>
                       ))}
                       <td className="py-1.5 px-3 text-right">
-                        <Num n={delMotivo.length} fuerte titulo={m} incluye={e => pideMotivo(e.resolucionConv) && motivoDe(e) === m} />
+                        <Num n={delMotivo.length} fuerte titulo={m} incluye={e => pideMotivo(e.resolucionConv) && tieneMotivo(e, m)} />
                         {delMotivo.length > 0 && <span className="ml-1 text-[10px] text-slate-400">{pct(delMotivo.length, conMotivo.length)}</span>}
                       </td>
                     </tr>

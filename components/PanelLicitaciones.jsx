@@ -22,7 +22,8 @@ import EtiquetasPrioridad from "./EtiquetasPrioridad";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import CampoOpciones from "./CampoOpciones";
 import EtiquetaResolucion from "./EtiquetaResolucion";
-import { RESOLUCIONES_CONV_LICITACIONES as RESOLUCIONES_CONV, MOTIVOS_NO_ADJUDICACION, pideMotivo } from "@/lib/resolucionConv";
+import { RESOLUCIONES_CONV_LICITACIONES as RESOLUCIONES_CONV, pideMotivo, motivosDe, unirMotivos } from "@/lib/resolucionConv";
+import ModalMotivosNoAdjudicacion from "./ModalMotivosNoAdjudicacion";
 import AnalisisLicitaciones from "./AnalisisLicitaciones";
 import { SelectRapido, FiltroColumna, Seccion, DatoFicha } from "./PanelResoluciones";
 import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
@@ -57,6 +58,31 @@ function aFormulario(e) {
 
 // "COMODORO RIVADAVIA" → "Comodoro Rivadavia".
 const tituloJurisdiccion = s => s.toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());
+
+// Campo del motivo de no adjudicación: muestra los elegidos y abre un modal
+// para marcar uno o varios.
+function CampoMotivos({ resolucion, value, onChange, disabled }) {
+  const [abierto, setAbierto] = useState(false);
+  const elegidos = motivosDe(value);
+  return (
+    <div>
+      <label className="block text-xs font-medium text-slate-600 mb-1">{"Motivo" + (elegidos.length > 1 ? "s" : "") + " (" + resolucion.toLowerCase() + ")"}</label>
+      <button type="button" onClick={() => setAbierto(true)} disabled={disabled}
+        className="w-full min-h-[38px] text-left text-sm border border-slate-300 rounded-md px-3 py-1.5 bg-white hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-800 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed flex items-center gap-2">
+        <span className="flex-1 flex flex-wrap gap-1">
+          {elegidos.length === 0 ? <span className="text-slate-400 py-0.5">Sin cargar</span> : elegidos.map(m => (
+            <span key={m} className="text-xs px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700">{m}</span>
+          ))}
+        </span>
+        <ChevronDown size={14} className="text-slate-400 shrink-0" />
+      </button>
+      {abierto && (
+        <ModalMotivosNoAdjudicacion resolucion={resolucion} elegidos={elegidos} onCerrar={() => setAbierto(false)}
+          onAceptar={ms => { onChange(unirMotivos(ms) || ""); setAbierto(false); }} />
+      )}
+    </div>
+  );
+}
 
 // Alta / edición de un expediente, en dos solapas: los datos y sus
 // movimientos y estados (con el historial). Al editar, la jefa ve los
@@ -253,8 +279,7 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                 {pideMotivo(f.resolucionConv) && (
                   <>
                     <div className="col-span-2">
-                      <Campo_Select label={"Motivo (" + f.resolucionConv.toLowerCase() + ")"} value={f.motivoResolucion || ""} onChange={v => set("motivoResolucion", v)} disabled={fijo}
-                        opciones={["", ...MOTIVOS_NO_ADJUDICACION]} labels={{ "": "Sin cargar" }} />
+                      <CampoMotivos resolucion={f.resolucionConv} value={f.motivoResolucion} onChange={v => set("motivoResolucion", v)} disabled={fijo} />
                     </div>
                     <div className="col-span-2">
                       <Campo_Input label="Detalle del motivo" value={f.motivoDetalle || ""} onChange={v => set("motivoDetalle", v)} disabled={fijo}
@@ -736,7 +761,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
                         onChange={v => cambiarRapido(e, { resolucionConv: v })} />
                     )}
                     {pideMotivo(e.resolucionConv) && (e.motivoResolucion ? (
-                      <span className="block mt-1 max-w-[190px] text-[10px] text-slate-500" title={e.motivoDetalle || ""}>Motivo: {e.motivoResolucion}</span>
+                      <span className="block mt-1 max-w-[190px] text-[10px] text-slate-500" title={e.motivoDetalle || ""}>{motivosDe(e.motivoResolucion).length > 1 ? "Motivos: " : "Motivo: "}{e.motivoResolucion}</span>
                     ) : (
                       <span className="block mt-1 w-fit text-[10px] font-medium px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800">Falta el motivo</span>
                     ))}
