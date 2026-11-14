@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sesionLicitaciones } from "@/lib/licitacionesServidor";
 import { resultadosDeTexto, RESULTADOS_LICITACION } from "@/lib/licitaciones";
+import { unirMotivos } from "@/lib/resolucionConv";
 
 // Para el Excel de Licitaciones: por cada expediente, para qué está o
 // estuvo en Resoluciones (tipo de resolución de cada paso por el sector,
@@ -12,6 +13,8 @@ import { resultadosDeTexto, RESULTADOS_LICITACION } from "@/lib/licitaciones";
 // `actas`: { [idLicitacion]: ["333/2026", ...] } para el link a las actas de
 // apertura (cada N°/año que se entiende; el año, con 4 dígitos).
 // `resultados`: { [idLicitacion]: { tipos: ["Fracasada", "Desierta", ...], detalle, deResoluciones } }
+// `motivos`: { [idLicitacion]: "Sin ofertas; Otro" } los motivos de no
+// adjudicación que cargó Resoluciones (de todos los pasos del expediente).
 // (`deResoluciones`: solo lo que sale de Resoluciones, con sus tipos, para
 // mostrarlo en las observaciones del expediente)
 // para los expedientes con fracasos, desiertas, revocaciones o adjudicaciones
@@ -29,7 +32,7 @@ export async function GET() {
     prisma.expedienteResolucion.findMany({
       select: {
         exp: true, esEscrito: true, escritoMotivo: true, observaciones: true, tipoResolucion: true, situacion: true, tipoContratacion: true, numero: true, fechaIngreso: true,
-        autorizaTipo: true, autorizaNumero: true,
+        autorizaTipo: true, autorizaNumero: true, motivoNoAdjudicacion: true,
         movimientos: { where: { campo: "Tipo de resolución" }, select: { sectorAnterior: true }, orderBy: { fecha: "asc" } },
       },
       orderBy: { fechaIngreso: "asc" },
@@ -57,9 +60,12 @@ export async function GET() {
     .filter(([n, a]) => n > 0 && a >= "2000" && a <= "2099")
     .map(([n, a]) => n + "/" + a);
   const corto = t => { const x = String(t || "").replace(/\s+/g, " ").trim(); return x.length > 160 ? x.slice(0, 157) + "..." : x; };
-  const resultado = {}, contrataciones = {}, actas = {}, resultados = {};
+  const resultado = {}, contrataciones = {}, actas = {}, resultados = {}, motivos = {};
   for (const l of licitaciones) {
     const todas = [...new Set(numeros(l.exp).flatMap(n => porNumero.get(n) || []))];
+
+    const motivosRes = unirMotivos(todas.flatMap(r => String(r.motivoNoAdjudicacion || "").split(";")));
+    if (motivosRes) motivos[l.id] = motivosRes;
 
     const tipos = new Set(), detalle = [], tiposRes = new Set(), detalleRes = [];
     for (const r of todas) {
@@ -91,5 +97,5 @@ export async function GET() {
     const conAnio = [...new Set(encontradas.flatMap(r => [...numerosConAnio(r.numero), ...numerosConAnio(r.autorizaNumero)]))];
     if (conAnio.length) actas[l.id] = conAnio;
   }
-  return NextResponse.json({ resoluciones: resultado, contrataciones, actas, resultados });
+  return NextResponse.json({ resoluciones: resultado, contrataciones, actas, resultados, motivos });
 }

@@ -41,7 +41,11 @@ const tieneMotivo = (e, m) => motivosDeExp(e).includes(m);
 // Solapa Análisis de Licitaciones (jefa y jefe del departamento): cómo
 // terminaron las contrataciones, por año y partida, y por qué no se
 // adjudicaron. Tocar un número muestra esos expedientes abajo.
-export default function AnalisisLicitaciones({ lista, onAbrir }) {
+// `motivosResoluciones`: { [id]: "..." } lo que cargó Resoluciones; se usa
+// cuando Licitaciones no cargó el motivo (el de Licitaciones gana).
+export default function AnalisisLicitaciones({ lista: listaPropia, motivosResoluciones, onAbrir }) {
+  const lista = useMemo(() => listaPropia.map(e => (!e.motivoResolucion && motivosResoluciones?.[e.id]
+    ? { ...e, motivoResolucion: motivosResoluciones[e.id], motivoDeResoluciones: true } : e)), [listaPropia, motivosResoluciones]);
   const [base, setBase] = useState("exp");
   const [f, setF] = useState({ anio: "", partida: FILTRO_BIENES_DE_USO, jurisdiccion: "", encuadre: "" });
   const [sel, setSel] = useState(null); // { titulo, incluye }
@@ -91,7 +95,7 @@ export default function AnalisisLicitaciones({ lista, onAbrir }) {
     const datos = [
       ["EXP", "AÑO", "JURISDICCION", "OBJETO", "PARTIDA (INCISO 4)", "ENCUADRE", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO"],
       ...seleccionados.map(e => [e.exp, anioDe(e), e.jurisdiccion || "", e.objeto, etiquetaPartida(partidaDe(e)), e.encuadre || "",
-        e.resolucionConv || "", e.motivoResolucion || "", e.motivoDetalle || ""]),
+        e.resolucionConv || "", (e.motivoResolucion || "") + (e.motivoDeResoluciones ? " (según Resoluciones)" : ""), e.motivoDetalle || ""]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(datos);
     ws["!cols"] = [16, 8, 26, 60, 26, 14, 22, 40, 50].map(wch => ({ wch }));
@@ -229,7 +233,7 @@ export default function AnalisisLicitaciones({ lista, onAbrir }) {
         <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50/60">
           <h3 className="text-sm font-semibold text-slate-900">Por qué no se adjudicaron</h3>
           <span className="text-[11px] text-slate-500">
-            {conMotivo.length} contratacion{conMotivo.length !== 1 ? "es" : ""} con adjudicación parcial o sin adjudicar · {conMotivo.filter(e => !tieneMotivo(e, SIN_MOTIVO)).length} con motivo cargado · una contratación con varios motivos cuenta en cada uno
+            {conMotivo.length} contratacion{conMotivo.length !== 1 ? "es" : ""} con adjudicación parcial o sin adjudicar · {conMotivo.filter(e => !tieneMotivo(e, SIN_MOTIVO)).length} con motivo cargado ({conMotivo.filter(e => e.motivoDeResoluciones).length} según Resoluciones) · una contratación con varios motivos cuenta en cada uno
           </span>
         </div>
         {conMotivo.length === 0 ? (
@@ -302,6 +306,7 @@ export default function AnalisisLicitaciones({ lista, onAbrir }) {
                     <td className="py-2 px-3">{e.resolucionConv ? <EtiquetaResolucion valor={e.resolucionConv} /> : <span className="text-slate-400">-</span>}</td>
                     <td className="py-2 px-3 text-slate-700">
                       {pideMotivo(e.resolucionConv) ? (e.motivoResolucion || <span className="text-amber-700">Sin cargar</span>) : <span className="text-slate-300">-</span>}
+                      {pideMotivo(e.resolucionConv) && e.motivoDeResoluciones && <span className="block text-[10px] text-violet-700">según Resoluciones</span>}
                       {e.motivoDetalle && <span className="block text-[11px] text-slate-500">{e.motivoDetalle}</span>}
                     </td>
                   </tr>

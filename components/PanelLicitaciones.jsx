@@ -64,7 +64,7 @@ const tituloJurisdiccion = s => s.toLowerCase().replace(/(^|\s)\S/g, l => l.toUp
 // datos como ficha: solo cambia agente y prioridad.
 // `resultado`: lo de fracasos / desiertas / revocadas / parciales que sale
 // de Resoluciones (si lo hay, se muestra junto a las observaciones).
-export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onEliminar, resultado }) {
+export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onEliminar, resultado, motivoResoluciones }) {
   const [f, setF] = useState(() => aFormulario(inicial));
   const [solapa, setSolapa] = useState("datos");
   const [error, setError] = useState("");
@@ -255,6 +255,11 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                   <>
                     <div className="col-span-2">
                       <CampoMotivos resolucion={f.resolucionConv} value={f.motivoResolucion} onChange={v => set("motivoResolucion", v)} disabled={fijo} />
+                      {motivoResoluciones && (
+                        <p className="mt-1 text-[11px] text-violet-800">
+                          Según Resoluciones: {motivoResoluciones}{!f.motivoResolucion && " (se usa en el análisis mientras no cargues uno)"}
+                        </p>
+                      )}
                     </div>
                     <div className="col-span-2">
                       <Campo_Input label="Detalle del motivo" value={f.motivoDetalle || ""} onChange={v => set("motivoDetalle", v)} disabled={fijo}
@@ -624,7 +629,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
       ))}
     </div>
     {enAnalisis ? (
-      <AnalisisLicitaciones lista={lista} onAbrir={setForm} />
+      <AnalisisLicitaciones lista={lista} motivosResoluciones={cruce ? cruce.motivos : undefined} onAbrir={setForm} />
     ) : (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-b border-slate-100 bg-slate-50/60">
@@ -737,6 +742,8 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
                     )}
                     {pideMotivo(e.resolucionConv) && (e.motivoResolucion ? (
                       <span className="block mt-1 max-w-[190px] text-[10px] text-slate-500" title={e.motivoDetalle || ""}>{motivosDe(e.motivoResolucion).length > 1 ? "Motivos: " : "Motivo: "}{e.motivoResolucion}</span>
+                    ) : cruce?.motivos?.[e.id] ? (
+                      <span className="block mt-1 max-w-[190px] text-[10px] text-violet-700">Motivo (según Resoluciones): {cruce.motivos[e.id]}</span>
                     ) : (
                       <span className="block mt-1 w-fit text-[10px] font-medium px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800">Falta el motivo</span>
                     ))}
@@ -765,6 +772,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
           key={form}
           inicial={seleccionado}
           resultado={seleccionado && cruce ? cruce.resultados?.[seleccionado.id] : undefined}
+          motivoResoluciones={seleccionado && cruce ? cruce.motivos?.[seleccionado.id] : undefined}
           esJefa={esJefa}
           onCerrar={() => setForm(null)}
           onGuardar={guardar}
