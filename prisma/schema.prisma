@@ -370,6 +370,9 @@ model ExpedienteResolucion {
   // DESCENTRALIZADA 45, en el mismo expediente.
   autorizaTipo     String?
   autorizaNumero   String?
+  // Con un tipo que no adjudica (TIPOS_SIN_ADJUDICAR): por qué, uno o
+  // varios de MOTIVOS_NO_ADJUDICACION unidos por "; ".
+  motivoNoAdjudicacion String?
   // Escrito: no es un expediente sino un escrito referido a uno (`exp` es
   // el N° de ese expediente). `escritoMotivo`: por qué se generó o qué
   // tramita. Al darlo de alta, los registros de ese expediente que

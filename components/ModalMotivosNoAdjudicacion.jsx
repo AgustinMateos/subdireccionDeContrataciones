@@ -1,10 +1,39 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Check } from "lucide-react";
-import { MOTIVOS_NO_ADJUDICACION } from "@/lib/resolucionConv";
+import { X, Check, ChevronDown } from "lucide-react";
+import { MOTIVOS_NO_ADJUDICACION, motivosDe, unirMotivos } from "@/lib/resolucionConv";
 
-// Elegir uno o varios motivos de no adjudicación (Licitaciones). Va encima
+// Campo del motivo de no adjudicación (Licitaciones y Resoluciones):
+// muestra los elegidos y abre el modal para marcar uno o varios. `value`
+// y `onChange`, como texto ("" si no hay ninguno). Sin `label`, no lleva
+// etiqueta (va dentro de una pregunta del formulario).
+export function CampoMotivos({ resolucion, value, onChange, disabled, label, grande }) {
+  const [abierto, setAbierto] = useState(false);
+  const elegidos = motivosDe(value);
+  const etiqueta = label === undefined ? "Motivo" + (elegidos.length > 1 ? "s" : "") + " (" + String(resolucion || "").toLowerCase() + ")" : label;
+  return (
+    <div>
+      {etiqueta && <label className="block text-xs font-medium text-slate-600 mb-1">{etiqueta}</label>}
+      <button type="button" onClick={() => setAbierto(true)} disabled={disabled}
+        className={"w-full text-left border border-slate-300 rounded-md bg-white hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-800 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed flex items-center gap-2 " +
+          (grande ? "min-h-[44px] text-base px-3 py-2" : "min-h-[38px] text-sm px-3 py-1.5")}>
+        <span className="flex-1 flex flex-wrap gap-1">
+          {elegidos.length === 0 ? <span className="text-slate-400 py-0.5">Sin cargar · tocá para elegir</span> : elegidos.map(m => (
+            <span key={m} className={(grande ? "text-sm" : "text-xs") + " px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700"}>{m}</span>
+          ))}
+        </span>
+        <ChevronDown size={14} className="text-slate-400 shrink-0" />
+      </button>
+      {abierto && (
+        <ModalMotivosNoAdjudicacion resolucion={resolucion} elegidos={elegidos} onCerrar={() => setAbierto(false)}
+          onAceptar={ms => { onChange(unirMotivos(ms) || ""); setAbierto(false); }} />
+      )}
+    </div>
+  );
+}
+
+// Elegir uno o varios motivos de no adjudicación (Licitaciones y Resoluciones). Va encima
 // del formulario del expediente: lo elegido se aplica al aceptar.
 export default function ModalMotivosNoAdjudicacion({ resolucion, elegidos, onCerrar, onAceptar }) {
   const [sel, setSel] = useState(() => new Set(elegidos));

@@ -12,7 +12,9 @@ import {
   FUEROS_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, SECTORES_RESOLUCIONES,
   ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta, esFinalizado, ESTADOS_GENERALES, ETIQUETA_ESTADO_GENERAL, estadoGeneral, esParaAdjudicar, TIPOS_PARA_ADJUDICAR, esPrioritario,
   estaFueraDeResoluciones, faltaDelDictamen, faltaDelEscrito, fechaISO, EVENTO_CAMBIOS_RESOLUCIONES, FRACASA_AUTORIZA, esFracasaAutoriza, textoAutoriza,
+  pideMotivoResolucion,
 } from "@/lib/resoluciones";
+import { CampoMotivos } from "./ModalMotivosNoAdjudicacion";
 import FiltroDesplegable from "./FiltroDesplegable";
 import BotonAccion from "./BotonAccion";
 import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
@@ -76,7 +78,7 @@ const VACIO = {
   esEscrito: false, escritoMotivo: "",
   exp: "", fechaIngreso: "", objeto: "", fuero: "", organismo: "", tipoContratacion: "", numero: "",
   cantidadOfertas: "", cantidadRenglones: "", situacion: "TRAMITANDO",
-  tipoResolucion: "", autorizaTipo: "", autorizaNumero: "", estado: "", sectorActual: "", fechaUltimoMov: "", agente: "", vencOfertas: "",
+  tipoResolucion: "", autorizaTipo: "", autorizaNumero: "", motivoNoAdjudicacion: "", estado: "", sectorActual: "", fechaUltimoMov: "", agente: "", vencOfertas: "",
   inicioServicio: "", montos: "", observaciones: "", prioritario: false,
   renovacionAutomatica: false, renovacionDias: "", renovacionHabiles: true,
   enPrestamo: false, dictamenNumero: "", dictamenVence: "",
@@ -451,6 +453,12 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
                         onTipo={v => set("autorizaTipo", v)} onNumero={v => set("autorizaNumero", v)} />
                     </div>
                   )}
+                  {pideMotivoResolucion(f.tipoResolucion) && (
+                    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-4 space-y-2">
+                      <Pregunta>¿Por qué no se adjudica? <span className="text-sm font-normal text-slate-500">(podés elegir más de uno)</span></Pregunta>
+                      <CampoMotivos resolucion={f.tipoResolucion} value={f.motivoNoAdjudicacion} onChange={v => set("motivoNoAdjudicacion", v)} label="" grande />
+                    </div>
+                  )}
                 </Campo>
                 <Campo pregunta="¿Cuál es el estado general?" ayuda="Finalizado: va al fondo de la lista y deja de contar días." ancho>
                   <ElegirEstadoGeneral valor={f.situacion} onChange={v => set("situacion", v)} />
@@ -549,6 +557,7 @@ function InfoExpediente({ e, historial, irA }) {
         <Dato label="Sector">{e.sectorActual}</Dato>
         <Dato label="Tipo de resolución">{e.tipoResolucion}</Dato>
         {esFracasaAutoriza(e) && <Dato label="Contratación que se autoriza">{textoAutoriza(e)}</Dato>}
+        {pideMotivoResolucion(e.tipoResolucion) && <Dato label="Por qué no se adjudica" ancho>{e.motivoNoAdjudicacion}</Dato>}
         <Dato label="Estado de la resolución">{e.estado}</Dato>
         <Dato label="Días en el sector">
           {dias != null && <span className={"inline-block text-sm font-medium px-2 py-0.5 rounded border " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""} (desde el {fecha(e.fechaIngreso || e.fechaUltimoMov)})</span>}
@@ -715,6 +724,7 @@ const EXTRAS_EXCEL = [
   ["CANT. RENGLONES", 10, e => e.cantidadRenglones ?? ""],
   ["ESCRITO", 8, e => (e.esEscrito ? "SI" : "")],
   ["MOTIVO DEL ESCRITO", 40, e => e.escritoMotivo || ""],
+  ["MOTIVO (NO ADJUDICACION)", 40, e => e.motivoNoAdjudicacion || ""],
   ["EN PRESTAMO", 10, e => (e.enPrestamo ? "SI" : "")],
   ["N° DICTAMEN", 12, e => e.dictamenNumero || ""],
   ["VENCE DICTAMEN", 12, e => fecha(e.dictamenVence)],

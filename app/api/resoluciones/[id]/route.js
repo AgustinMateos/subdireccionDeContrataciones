@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { CAMPOS_DE_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, datosResolucion, faltaDelDictamen, faltaDelEscrito, sinCamposDeResoluciones, soloCamposDeJefa } from "@/lib/resoluciones";
+import { CAMPOS_DE_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, datosResolucion, pideMotivoResolucion, faltaDelDictamen, faltaDelEscrito, sinCamposDeResoluciones, soloCamposDeJefa } from "@/lib/resoluciones";
 import { INCLUDE_RESOLUCION, avisarSiActivaRenovacion, avisarSiEsJefa, cambiosParaAuditoria, marcarAsignado, conPlanObras, conPrestamo, conReingreso, conUltimoMovPorSector, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
 import { registrarAuditoria } from "@/lib/auditoria";
 
@@ -68,6 +68,9 @@ export async function PATCH(request, { params }) {
   for (const k of ["sectorActual", "tipoResolucion", "autorizaTipo", "autorizaNumero", "estado", "agente"]) {
     if (k in body) data[k] = String(body[k] || "").trim() || null;
   }
+  // Si el tipo de resolución pasa a uno que adjudica, el motivo de no
+  // adjudicación se borra.
+  if ("tipoResolucion" in data && !pideMotivoResolucion(data.tipoResolucion)) data.motivoNoAdjudicacion = null;
   if ("prioritario" in body) data.prioritario = body.prioritario === true;
   if ("situacion" in body) data.situacion = datosResolucion({ situacion: body.situacion }).situacion;
   if (existente.enPrestamo && data.situacion === "FINALIZADO") {
