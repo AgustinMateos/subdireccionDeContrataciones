@@ -9,6 +9,7 @@ import {
   HOJAS_IYV, ORDEN_HOJAS_IYV, TIPOS_IYV, AGENTES_IYV, SITUACIONES_IYV, camposDeHoja, campoIyV, diasHasta, ultimoMovIyV,
   sectoresIyV, estadosIyV, puedeEditarIyV, puedeEliminarIyV, bloqueVacioIyV, camposObsIyV, claveObsIyV,
   CLASES_CONTRATACION_IYV, clasesIyV, unirClasesIyV, demoraInicioIyV,
+  mesesDeAtrasoIyV, etiquetaMesIyV, leerMotivosAtrasoIyV, unirMotivosAtrasoIyV, MOTIVOS_DEMORA_IYV, MOTIVOS_FRACASO_IYV, MOTIVOS_ATRASO_IYV,
   partidaIyV, partidaSegunObjetoIyV, esBienDeUsoIyV, esAnticipoIyV, RESOLUCIONES_CONV_IYV, RESOLUCION_DE_EXP_IYV, resolucionesIyV, expDeBloqueIyV, siguienteSubidaIyV, TITULO_BLOQUE_IYV,
 } from "@/lib/cuadroIyV";
 import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
@@ -58,6 +59,57 @@ function EtiquetaDemoraInicio({ estimado, real }) {
   const texto = p.dias === 0 ? "Empezó en la fecha estimada"
     : "Empezó " + p.texto + (p.meses ? " (" + Math.abs(p.dias) + " días)" : "") + (p.dias > 0 ? " después de lo estimado" : " antes de lo estimado");
   return <span className={"block mt-1 w-fit text-[11px] font-medium px-1.5 py-0.5 rounded border " + clase}>{texto}</span>;
+}
+
+// Motivos del atraso del inicio: un renglón por mes (los del atraso y los
+// que ya tengan un motivo cargado), con la lista de motivos de demora y de
+// fracaso; "Otro" se escribe a mano.
+function MotivosAtraso({ label, meses, valor, onChange, puedeEditar }) {
+  const motivos = leerMotivosAtrasoIyV(valor);
+  const todos = [...new Set([...meses, ...Object.keys(motivos)])].sort();
+  if (!todos.length) return null;
+  const cambiar = (mes, v) => onChange(unirMotivosAtrasoIyV({ ...motivos, [mes]: v }));
+  return (
+    <div className="col-span-2 md:col-span-4">
+      <span className="block text-xs font-medium text-slate-600 mb-1">{label}</span>
+      <div className="rounded-md border border-slate-200 divide-y divide-slate-100 bg-white">
+        {todos.map(mes => {
+          const v = motivos[mes] || "";
+          const enLista = !v || MOTIVOS_ATRASO_IYV.includes(v);
+          const fueraDelAtraso = !meses.includes(mes);
+          return (
+            <div key={mes} className="flex flex-wrap items-center gap-2 px-3 py-2">
+              <span className={"w-32 shrink-0 text-xs font-medium " + (fueraDelAtraso ? "text-slate-400" : "text-slate-700")}
+                title={fueraDelAtraso ? "Este mes ya no está dentro del atraso (cambiaron las fechas)" : undefined}>
+                {etiquetaMesIyV(mes)}
+              </span>
+              {!puedeEditar ? (
+                <span className="text-sm text-slate-900">{v || "-"}</span>
+              ) : (
+                <>
+                  <select value={enLista ? v : "Otro"} onChange={e => cambiar(mes, e.target.value)}
+                    className="flex-1 min-w-[220px] text-sm border border-slate-300 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-slate-800">
+                    <option value="">Sin motivo cargado</option>
+                    <optgroup label="Demora">{MOTIVOS_DEMORA_IYV.map(m => <option key={m} value={m}>{m}</option>)}</optgroup>
+                    <optgroup label="Fracaso de la convocatoria">{MOTIVOS_FRACASO_IYV.map(m => <option key={m} value={m}>{m}</option>)}</optgroup>
+                    <option value="Otro">Otro (escribirlo)</option>
+                  </select>
+                  {!enLista && (
+                    <input autoFocus={v === "Otro"} value={v === "Otro" ? "" : v} placeholder="Escribí el motivo"
+                      onChange={e => cambiar(mes, e.target.value || "Otro")}
+                      className="flex-1 min-w-[200px] text-sm border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+                  )}
+                  {fueraDelAtraso && (
+                    <button type="button" onClick={() => cambiar(mes, "")} className="text-xs text-slate-500 hover:text-red-600">Quitar</button>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // Las observaciones de un historial, en texto ("12/11/2026 Ana: ...").
@@ -460,6 +512,12 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
                   if (campo.si && !campo.si(d) && !d[campo.k]) return null;
                   const ancho = campo.largo ? "col-span-2 md:col-span-4" : "";
                   const periodo = campo.inicioReal ? <EtiquetaDemoraInicio estimado={d[campo.k]} real={d[campo.inicioReal]} /> : null;
+                  if (campo.atraso) {
+                    return (
+                      <MotivosAtraso key={campo.k} label={campo.label} valor={d[campo.k]} onChange={v => set(campo.k, v)} puedeEditar={puedeEditar}
+                        meses={mesesDeAtrasoIyV(d[campo.atraso.estimado], d[campo.atraso.real], hoy)} />
+                    );
+                  }
                   if (campo.clases && puedeEditar) {
                     const elegidas = clasesIyV(d[campo.k]);
                     const cambiar = x => set(campo.k, unirClasesIyV(elegidas.includes(x) ? elegidas.filter(y => y !== x) : [...elegidas, x]));
