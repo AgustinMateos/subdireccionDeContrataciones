@@ -1221,7 +1221,43 @@ const filaExcel = e => [
       fecha(e.vencOfertas), e.inicioServicio || "", e.montos || "", e.observaciones || "", e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
 ];
 
+// Excel de la solapa Sin asignar (jefa): hoja Resumen con la cantidad y
+// hoja Sin asignar con los datos para repartirlos.
+const COLUMNAS_SIN_ASIGNAR = [
+  ["N° DE EXPEDIENTE", 16, e => expConPrefijo(e)],
+  ["OBJETO", 50, e => e.objeto || ""],
+  ["CANT. RENGLONES", 10, e => e.cantidadRenglones ?? ""],
+  ["CANT. OFERTAS", 10, e => e.cantidadOfertas ?? ""],
+  ["FUERO", 30, e => e.fuero || ""],
+  ["TIPO DE CONTRATACION", 16, e => e.tipoContratacion || ""],
+  ["AUTORIZA", 14, e => (esFracasaAutoriza(e) ? e.autorizaTipo || "" : "")],
+  ["AUTORIZA (NUMERO)", 12, e => (esFracasaAutoriza(e) ? e.autorizaNumero || "" : "")],
+  ["TIPO DE RESOLUCION", 18, e => e.tipoResolucion || ""],
+  ["VENC. OFERTAS", 12, e => fecha(e.vencOfertas)],
+  ["INICIO DE SERV", 16, e => e.inicioServicio || ""],
+  ["MONTOS", 18, e => e.montos || ""],
+  ["PRIORITARIO", 14, e => (e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "")],
+];
+
+function exportarSinAsignar(filas) {
+  const prioritarios = filas.filter(esPrioritario).length;
+  const resumen = XLSX.utils.aoa_to_sheet([
+    ["EXPEDIENTES SIN ASIGNAR", "CANTIDAD"],
+    ["Total", filas.length],
+    ["Prioritarios", prioritarios],
+    ["No prioritarios", filas.length - prioritarios],
+  ]);
+  resumen["!cols"] = [{ wch: 26 }, { wch: 10 }];
+  const detalle = XLSX.utils.aoa_to_sheet([COLUMNAS_SIN_ASIGNAR.map(c => c[0]), ...filas.map(e => COLUMNAS_SIN_ASIGNAR.map(c => c[2](e)))]);
+  detalle["!cols"] = COLUMNAS_SIN_ASIGNAR.map(c => ({ wch: Math.max(c[1], c[0].length + 2) }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, resumen, "Resumen");
+  XLSX.utils.book_append_sheet(wb, detalle, "Sin asignar");
+  XLSX.writeFile(wb, "resoluciones-sin-asignar-" + hoyLocalISO() + ".xlsx");
+}
+
 function exportarExcel(filas, solapa) {
+  if (solapa === "sinAsignar") { exportarSinAsignar(filas); return; }
   const ws = XLSX.utils.aoa_to_sheet([ENCABEZADO_EXCEL, ...filas.map(filaExcel)]);
   ws["!cols"] = ANCHOS_EXCEL.map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
