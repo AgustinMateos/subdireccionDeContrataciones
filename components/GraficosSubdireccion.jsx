@@ -6,7 +6,7 @@ import { ALERTA_ESTILO } from "@/lib/constants";
 import { alertaDias, diasEnSector } from "@/lib/diasEnSector";
 import { diasRestantes, fmtFecha } from "@/lib/utils";
 import {
-  AGENTES_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, esFinalizado, esPrioritario,
+  TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, esFinalizado, esPrioritario,
   estaFueraDeResoluciones, fechaISO, montoNumero,
 } from "@/lib/resoluciones";
 import {
@@ -19,6 +19,7 @@ import {
 } from "@/lib/ordenesCompra";
 import EstrellaPrioridad from "./EstrellaPrioridad";
 import { SelectRapido } from "./PanelResoluciones";
+import { useAgentesResoluciones } from "./useAgentesResoluciones";
 
 // Análisis de gestión de la jefa de la Subdirección: los mismos análisis
 // para Resoluciones y Licitaciones. Cada departamento se describe con
@@ -40,7 +41,7 @@ const MESES = 12;
 
 const DEPTOS = {
   resoluciones: {
-    nombre: "Resoluciones", Icono: FileCheck, api: "/api/resoluciones", agentes: AGENTES_RESOLUCIONES,
+    nombre: "Resoluciones", Icono: FileCheck, api: "/api/resoluciones", agentes: [], // los activos vienen de la base
     etapa: { titulo: "Por tipo de resolución", orden: TIPOS_RESOLUCION },
     encuadre: { titulo: "Por tipo de contratación", orden: TIPOS_CONTRATACION_RESOLUCIONES },
     origen: "Por fuero",
@@ -192,6 +193,9 @@ export default function GraficosSubdireccion({ mostrarToast }) {
   const [modal, setModal] = useState(null);
 
   const cfg = DEPTOS[depto];
+  // En Resoluciones se asigna solo a los agentes activos (los administra Soporte).
+  const agentesResoluciones = useAgentesResoluciones();
+  const asignables = depto === "resoluciones" ? agentesResoluciones.activos : cfg.agentes;
 
   useEffect(() => {
     if (datos[depto]) return;
@@ -239,10 +243,11 @@ export default function GraficosSubdireccion({ mostrarToast }) {
     mostrarToast(mensaje);
   }
   const acciones = {
+    asignables,
     reasignar: (e, agente) => cambiar(e, { agente: agente || null }, e.exp + " asignado a " + (agente || "nadie")),
     prioridad: e => cambiar(e, { prioritario: !e.prioritario }, e.exp + (e.prioritario ? " ya no es prioritario" : " marcado como prioritario")),
   };
-  const agentes = [...new Set([...cfg.agentes, ...items.map(i => String(i.e.agente || "").trim()).filter(Boolean)])];
+  const agentes = [...new Set([...asignables, ...items.map(i => String(i.e.agente || "").trim()).filter(Boolean)])];
   const abrir = (titulo, subtitulo, filtro, universo = "tramite") => setModal({ titulo, subtitulo, filtro, universo });
 
   const cargando = !datos[depto];
@@ -893,7 +898,7 @@ function TablaItems({ items, cfg, agentes, acciones }) {
                 </td>
               )}
               <td className="py-2 px-4">
-                <SelectRapido valor={e.agente} opciones={agentes} vacio="Sin asignar" onChange={v => acciones.reasignar(e, v)} className="min-w-[110px]" />
+                <SelectRapido valor={e.agente} opciones={acciones.asignables} vacio="Sin asignar" onChange={v => acciones.reasignar(e, v)} className="min-w-[110px]" />
               </td>
             </tr>
           );

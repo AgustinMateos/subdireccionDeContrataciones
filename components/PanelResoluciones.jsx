@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { X, Plus, Download, Trash2, Pencil, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx";
+import { useAgentesResoluciones } from "./useAgentesResoluciones";
 import { ALERTA_ESTILO } from "@/lib/constants";
 import { alertaDias, diasEnSector } from "@/lib/diasEnSector";
 import { fmtFecha } from "@/lib/utils";
@@ -10,7 +11,7 @@ import { hoyLocalISO } from "@/lib/mesaEntradas";
 import { sumarDiasHabiles } from "@/lib/diasHabiles";
 import {
   FUEROS_RESOLUCIONES, TIPOS_CONTRATACION_RESOLUCIONES, TIPOS_RESOLUCION, SECTORES_RESOLUCIONES,
-  ESTADOS_RESOLUCION, AGENTES_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta, esFinalizado, ESTADOS_GENERALES, ETIQUETA_ESTADO_GENERAL, estadoGeneral, esParaAdjudicar, TIPOS_PARA_ADJUDICAR, esPrioritario,
+  ESTADOS_RESOLUCION, EMAIL_JEFA_SUBDIRECCION, compararResoluciones, esFracasoODesierta, esFinalizado, ESTADOS_GENERALES, ETIQUETA_ESTADO_GENERAL, estadoGeneral, esParaAdjudicar, TIPOS_PARA_ADJUDICAR, esPrioritario,
   estaFueraDeResoluciones, faltaDelDictamen, faltaDelEscrito, fechaISO, EVENTO_CAMBIOS_RESOLUCIONES, FRACASA_AUTORIZA, esFracasaAutoriza, textoAutoriza,
   pideMotivoResolucion,
 } from "@/lib/resoluciones";
@@ -113,6 +114,17 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
 
   // Al editar, la jefa solo cambia agente y prioridad de los datos.
   const fijo = esJefa && !!inicial;
+  // Se asigna solo a agentes activos; el que ya tenía el expediente queda
+  // como opción aunque se haya desactivado.
+  const agentesResoluciones = useAgentesResoluciones();
+  const agenteAnterior = String(inicial?.agente || "").trim();
+  const opcionesAgente = [...agentesResoluciones.activos,
+    ...(agenteAnterior && !agentesResoluciones.activos.includes(agenteAnterior) ? [agenteAnterior] : [])];
+  const elegirAgente = agentesResoluciones.cargado ? <>
+    <ElegirDeLista opciones={opcionesAgente} valor={f.agente} onChange={v => set("agente", v)} vacio="Sin asignar"
+      etiqueta={o => (agentesResoluciones.activos.includes(o) ? o : o + " (inactivo)")} />
+    <CargaPorAgente expedientes={expedientes} activos={agentesResoluciones.activos} elegido={f.agente} onElegir={v => set("agente", v)} />
+  </> : <p className="text-sm text-slate-500 py-2">Cargando agentes...</p>;
   // Pasos abiertos: en un alta, el primero; al editar, dónde está y cómo
   // sigue (la jefa, el expediente, donde asigna).
   const pasos = usePasos(!inicial ? { 1: true } : fijo ? { 1: true } : { 4: true }, n => resumenPaso(n, f));
@@ -293,8 +305,7 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
                 <DatoFicha label="Ingresó al sector" valor={fecha(f.fechaIngreso)} />
                 <DatoFicha label="En préstamo" valor={textoPrestamo(f)} />
                 <Campo pregunta="¿A quién se le asigna?" ancho>
-                  <ElegirDeLista opciones={AGENTES_RESOLUCIONES} valor={f.agente} onChange={v => set("agente", v)} vacio="Sin asignar" />
-                  <CargaPorAgente expedientes={expedientes} elegido={f.agente} onElegir={v => set("agente", v)} />
+                  {elegirAgente}
                 </Campo>
                 <Campo pregunta="¿Es prioritario?">
                   <SiNo valor={!!f.prioritario} onChange={v => set("prioritario", v)} si="Sí, prioritario" no="No" />
@@ -390,10 +401,7 @@ export function FormularioResolucion({ inicial, esJefa, expedientes, onCerrar, o
                   )}
                 </Campo>
                 <Campo pregunta="Agente asignado" ancho>
-                  {esJefa ? <>
-                    <ElegirDeLista opciones={AGENTES_RESOLUCIONES} valor={f.agente} onChange={v => set("agente", v)} vacio="Sin asignar" />
-                    <CargaPorAgente expedientes={expedientes} elegido={f.agente} onElegir={v => set("agente", v)} />
-                  </>
+                  {esJefa ? elegirAgente
                     : <p className="text-base text-slate-800 py-2">{f.agente || "Sin asignar"} <span className="text-sm text-slate-500">(lo asigna la jefa)</span></p>}
                 </Campo>
                 {esJefa && (
@@ -775,12 +783,14 @@ function exportarCargaPorAgente(todas, hayOtros, sinAsignar = []) {
   XLSX.writeFile(wb, "carga-por-agente-" + hoyLocalISO() + ".xlsx");
 }
 
-function CargaPorAgente({ expedientes, elegido, onElegir }) {
+function CargaPorAgente({ expedientes, activos, elegido, onElegir }) {
   const [abierta, setAbierta] = useState(false);
   if (!expedientes?.length) return null;
   const enTramite = expedientes.filter(e => estadoGeneral(e) === "TRAMITANDO");
-  // S/A es "sin asignar": no es un agente al que repartirle.
-  const agentes = [...new Set([...AGENTES_RESOLUCIONES, ...enTramite.map(e => e.agente).filter(Boolean)])].filter(a => a !== "S/A");
+  // Los activos y, si todavía tienen expedientes en trámite, los inactivos
+  // (para ver qué hay que reasignar; a ellos no se les asigna). S/A es
+  // "sin asignar": no es un agente al que repartirle.
+  const agentes = [...new Set([...activos, ...enTramite.map(e => e.agente).filter(Boolean)])].filter(a => a !== "S/A");
   const filas = agentes.map(a => {
     const suyos = enTramite.filter(e => e.agente === a);
     const enSector = suyos.filter(e => !estaFueraDeResoluciones(e));
@@ -829,17 +839,20 @@ function CargaPorAgente({ expedientes, elegido, onElegir }) {
           </tr>
         </thead>
         <tbody>
-          {filas.map(r => (
-            <tr key={r.agente} onClick={() => onElegir(r.agente)}
-              className={"cursor-pointer border-b border-slate-100 last:border-0 " + (r.agente === elegido ? "bg-slate-900/5 font-medium" : "hover:bg-slate-50")}>
-              <td className="px-3 py-1.5 font-mono whitespace-nowrap">{r.agente === elegido && <Check size={13} className="inline -mt-0.5 mr-1" />}{r.agente}</td>
+          {filas.map(r => {
+            const activo = activos.includes(r.agente);
+            return (
+            <tr key={r.agente} onClick={activo ? () => onElegir(r.agente) : undefined} title={activo ? undefined : "Agente inactivo: no se le asignan expedientes"}
+              className={"border-b border-slate-100 last:border-0 " + (!activo ? "text-slate-400" : "cursor-pointer " + (r.agente === elegido ? "bg-slate-900/5 font-medium" : "hover:bg-slate-50"))}>
+              <td className="px-3 py-1.5 font-mono whitespace-nowrap">{r.agente === elegido && <Check size={13} className="inline -mt-0.5 mr-1" />}{r.agente}{!activo && <span className="ml-1 font-sans text-[11px]">(inactivo)</span>}</td>
               {celda(r.total, true)}
               {r.grupos.map((n, i) => <Fragment key={i}>{celda(n)}</Fragment>)}
               {hayOtros && celda(r.otros)}
               {celda(r.fuera)}
               <td className={"px-2 py-1.5 text-center tabular-nums " + (r.prioritarios ? "font-semibold text-amber-700" : "text-slate-300")}>{r.prioritarios || "–"}</td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
       </>
@@ -1137,7 +1150,8 @@ const SIN_AGENTE = "__sin_agente__";
 
 function BotonesAgente({ expedientes, elegido, onElegir }) {
   const cuantos = a => expedientes.filter(e => (a === SIN_AGENTE ? !String(e.agente || "").trim() : e.agente === a)).length;
-  const agentes = [...new Set([...AGENTES_RESOLUCIONES, ...expedientes.map(e => e.agente).filter(Boolean)])].filter(a => a !== "S/A");
+  const { activos } = useAgentesResoluciones();
+  const agentes = [...new Set([...activos, ...expedientes.map(e => e.agente).filter(Boolean)])].filter(a => a !== "S/A");
   const botones = [...agentes.map(a => ({ valor: a, etiqueta: a, n: cuantos(a) })), { valor: SIN_AGENTE, etiqueta: "Sin asignar", n: cuantos(SIN_AGENTE) }]
     .filter(b => b.n > 0 || b.valor === elegido);
   if (!botones.length) return null;

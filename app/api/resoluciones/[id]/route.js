@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { CAMPOS_DE_RESOLUCIONES, EMAIL_JEFA_SUBDIRECCION, datosResolucion, pideMotivoResolucion, faltaDelDictamen, faltaDelEscrito, sinCamposDeResoluciones, soloCamposDeJefa } from "@/lib/resoluciones";
-import { INCLUDE_RESOLUCION, avisarSiActivaRenovacion, avisarSiEsJefa, cambiosParaAuditoria, marcarAsignado, conPlanObras, conPrestamo, conReingreso, conUltimoMovPorSector, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { INCLUDE_RESOLUCION, avisarSiActivaRenovacion, errorDeAgente, avisarSiEsJefa, cambiosParaAuditoria, marcarAsignado, conPlanObras, conPrestamo, conReingreso, conUltimoMovPorSector, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
 import { registrarAuditoria } from "@/lib/auditoria";
 
 // Edición. Los cambios de sector actual, tipo de resolución, estado y
@@ -32,6 +32,8 @@ export async function PUT(request, { params }) {
   }
   if (faltaDelDictamen(datos)) return NextResponse.json({ error: faltaDelDictamen(datos) }, { status: 400 });
   if (faltaDelEscrito(datos)) return NextResponse.json({ error: faltaDelEscrito(datos) }, { status: 400 });
+  const errorAgente = await errorDeAgente(prisma, datos, existente.agente);
+  if (errorAgente) return NextResponse.json({ error: errorAgente }, { status: 400 });
   const cambios = registrosDeCambios(existente, datos, session.user.name);
   const expediente = await prisma.expedienteResolucion.update({
     where: { id },
@@ -70,6 +72,8 @@ export async function PATCH(request, { params }) {
   }
   // Si el tipo de resolución pasa a uno que adjudica, el motivo de no
   // adjudicación se borra.
+  const errorAgente = await errorDeAgente(prisma, data, existente.agente);
+  if (errorAgente) return NextResponse.json({ error: errorAgente }, { status: 400 });
   if ("tipoResolucion" in data && !pideMotivoResolucion(data.tipoResolucion)) data.motivoNoAdjudicacion = null;
   if ("prioritario" in body) data.prioritario = body.prioritario === true;
   if ("situacion" in body) data.situacion = datosResolucion({ situacion: body.situacion }).situacion;

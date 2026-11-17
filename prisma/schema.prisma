@@ -261,6 +261,19 @@ model ValorModular {
   actualizadoPor String?
 }
 
+// ---------- Agentes de Resoluciones ----------
+// Los que pasaron por el depto. de Resoluciones. Solo a los activos se les
+// asignan expedientes; los inactivos quedan para el histórico. Los carga y
+// activa/desactiva Soporte.
+
+model AgenteResolucion {
+  id       String   @id @default(cuid())
+  sigla    String   @unique // "LRB", "MLA"...: es lo que se guarda en ExpedienteResolucion.agente
+  nombre   String?
+  activo   Boolean  @default(true)
+  creadoEn DateTime @default(now())
+}
+
 // ---------- Listado de Teléfonos ----------
 
 model SeccionTelefonica {

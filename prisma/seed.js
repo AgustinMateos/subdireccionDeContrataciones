@@ -77,6 +77,16 @@ async function main() {
     console.log("Valor modular inicial: $300.000");
   }
 
+  // ---------- Agentes de Resoluciones (los inactivos no se asignan) ----------
+  // En producción los cargó prisma/crear-agentes-resoluciones.js.
+  const agentesResoluciones = [
+    ...["LRB", "MLA", "JC", "SR", "AUG"].map(sigla => ({ sigla, activo: true })),
+    ...["MQR", "CG", "LT", "CAR", "AM"].map(sigla => ({ sigla, activo: false })),
+  ];
+  for (const a of agentesResoluciones) {
+    await prisma.agenteResolucion.upsert({ where: { sigla: a.sigla }, update: {}, create: a });
+  }
+
   // ---------- Expedientes de ejemplo: Informática y Varios ----------
   const yaHayExpedientes = await prisma.expediente.count();
   if (yaHayExpedientes === 0) {

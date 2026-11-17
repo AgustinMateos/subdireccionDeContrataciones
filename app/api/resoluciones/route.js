@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { compararResoluciones, datosResolucion, faltaDelDictamen, faltaDelEscrito, soloCamposDeJefa } from "@/lib/resoluciones";
-import { INCLUDE_RESOLUCION, anotarEscritoEnExpediente, conConstanciaDeEscrito, aplicarRenovaciones, avisarDictamenesVencidos, avisarJefaParaAsignar, avisarSiActivaRenovacion, avisarSiEsJefa, cambiosParaAuditoria, conPlanObras, conPrestamo, hoy, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
+import { INCLUDE_RESOLUCION, anotarEscritoEnExpediente, conConstanciaDeEscrito, aplicarRenovaciones, avisarDictamenesVencidos, avisarJefaParaAsignar, avisarSiActivaRenovacion, avisarSiEsJefa, cambiosParaAuditoria, conPlanObras, conPrestamo, errorDeAgente, hoy, registrosDeCambios, sesionResoluciones } from "@/lib/resolucionesServidor";
 import { registrarAuditoria } from "@/lib/auditoria";
 
 // Expedientes del sector de Resoluciones (sistema aparte). Antes se
@@ -28,6 +28,8 @@ export async function POST(request) {
   }
   if (faltaDelDictamen(datos)) return NextResponse.json({ error: faltaDelDictamen(datos) }, { status: 400 });
   if (faltaDelEscrito(datos)) return NextResponse.json({ error: faltaDelEscrito(datos) }, { status: 400 });
+  const errorAgente = await errorDeAgente(prisma, datos, null);
+  if (errorAgente) return NextResponse.json({ error: errorAgente }, { status: 400 });
   // Un escrito deja constancia en sus observaciones y en las de su expediente.
   const conConstancia = conConstanciaDeEscrito(datos);
   const cambios = registrosDeCambios(null, conConstancia, session.user.name);
