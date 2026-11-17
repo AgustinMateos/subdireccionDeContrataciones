@@ -8,6 +8,7 @@ import { hoyLocalISO } from "@/lib/mesaEntradas";
 import {
   HOJAS_IYV, ORDEN_HOJAS_IYV, TIPOS_IYV, AGENTES_IYV, SITUACIONES_IYV, camposDeHoja, campoIyV, diasHasta, ultimoMovIyV,
   sectoresIyV, estadosIyV, puedeEditarIyV, puedeEliminarIyV, bloqueVacioIyV, camposObsIyV, claveObsIyV,
+  CLASES_CONTRATACION_IYV, clasesIyV, unirClasesIyV, demoraInicioIyV,
   partidaIyV, partidaSegunObjetoIyV, esBienDeUsoIyV, esAnticipoIyV, RESOLUCIONES_CONV_IYV, RESOLUCION_DE_EXP_IYV, resolucionesIyV, expDeBloqueIyV, siguienteSubidaIyV, TITULO_BLOQUE_IYV,
 } from "@/lib/cuadroIyV";
 import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
@@ -46,6 +47,17 @@ function EtiquetaDias({ dias }) {
       {dias < 0 ? "hace " + -dias + " d" : dias === 0 ? "hoy" : "faltan " + dias + " d"}
     </span>
   );
+}
+
+// Cuánto se corrió el inicio real respecto del estimado (ver demoraInicioIyV).
+function EtiquetaDemoraInicio({ estimado, real }) {
+  const p = demoraInicioIyV(estimado, real);
+  if (!p) return null;
+  const clase = p.dias > 0 ? "bg-amber-50 text-amber-800 border-amber-200"
+    : p.dias < 0 ? "bg-sky-50 text-sky-800 border-sky-200" : "bg-emerald-50 text-emerald-700 border-emerald-200";
+  const texto = p.dias === 0 ? "Empezó en la fecha estimada"
+    : "Empezó " + p.texto + (p.meses ? " (" + Math.abs(p.dias) + " días)" : "") + (p.dias > 0 ? " después de lo estimado" : " antes de lo estimado");
+  return <span className={"block mt-1 w-fit text-[11px] font-medium px-1.5 py-0.5 rounded border " + clase}>{texto}</span>;
 }
 
 // Las observaciones de un historial, en texto ("12/11/2026 Ana: ...").
@@ -443,7 +455,29 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
             <div key={b.id} className={COLOR_BLOQUE[b.id] ? "rounded-lg border p-4 " + COLOR_BLOQUE[b.id].split(" ").filter(c => c.startsWith("border")).join(" ") : ""}>
               <Seccion titulo={b.titulo}>
                 {b.campos.map(campo => {
+                  // Las fechas estimadas, solo si es (o incluye) un servicio
+                  // o si ya tienen algo cargado.
+                  if (campo.si && !campo.si(d) && !d[campo.k]) return null;
                   const ancho = campo.largo ? "col-span-2 md:col-span-4" : "";
+                  const periodo = campo.inicioReal ? <EtiquetaDemoraInicio estimado={d[campo.k]} real={d[campo.inicioReal]} /> : null;
+                  if (campo.clases && puedeEditar) {
+                    const elegidas = clasesIyV(d[campo.k]);
+                    const cambiar = x => set(campo.k, unirClasesIyV(elegidas.includes(x) ? elegidas.filter(y => y !== x) : [...elegidas, x]));
+                    return (
+                      <div key={campo.k} className="col-span-2">
+                        <span className="block text-xs font-medium text-slate-600 mb-1">{campo.label} <span className="font-normal text-slate-400">(uno o varios)</span></span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {CLASES_CONTRATACION_IYV.map(x => (
+                            <button key={x} type="button" onClick={() => cambiar(x)} aria-pressed={elegidas.includes(x)}
+                              className={"px-3 py-1.5 rounded-md border text-xs font-medium transition-colors " +
+                                (elegidas.includes(x) ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-700 border-slate-300 hover:border-slate-500")}>
+                              {x}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
                   if (campo.partida) {
                     const segun = "Según el objeto: " + etiquetaPartida(partidaSegunObjetoIyV(d.objeto));
                     const nota = esAnticipoIyV(d) ? "Anticipo de fondos: nunca cuenta como bien de uso." : null;
@@ -485,6 +519,7 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
                         <p className="text-xs font-medium text-slate-500 mb-1">{campo.label}</p>
                         <p className={"text-sm text-slate-900 break-words whitespace-pre-line " + (campo.exp ? "font-mono" : "")}>{d[campo.k] || "-"}</p>
                         {CON_DIAS.includes(campo.k) && <EtiquetaDias dias={diasHasta(d[campo.k], hoy)} />}
+                        {periodo}
                       </div>
                     );
                   }
@@ -516,6 +551,7 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
                         placeholder={/inicio|vencimiento|ultimo/i.test(campo.k) ? "dd/mm/aaaa" : ""}
                         className={"w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800 " + (campo.exp ? "font-mono" : "")} />
                       {CON_DIAS.includes(campo.k) && <EtiquetaDias dias={diasHasta(d[campo.k], hoy)} />}
+                      {periodo}
                     </label>
                   );
                 })}
