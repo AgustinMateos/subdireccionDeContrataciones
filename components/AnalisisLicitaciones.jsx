@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Download, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
-import { fechaISO } from "@/lib/resoluciones";
+import { fechaISO, montoNumero } from "@/lib/resoluciones";
 import {
   FILTRO_BIENES_DE_USO, PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, esBienDeUso, anioExpediente, partidaDe, etiquetaPartida,
   ENCUADRES_LICITACIONES,
@@ -22,6 +22,12 @@ const BASES_ANIO = {
   mov: { etiqueta: "Año del último movimiento", de: e => fechaISO(e.fechaUltimoMov).slice(0, 4) },
 };
 
+// El monto de Licitaciones es texto ("$ 61.096.888,00"): se suma lo que se puede leer.
+const montoDe = e => montoNumero(e.monto);
+const sumaMontos = es => es.reduce((s, e) => s + (montoDe(e) || 0), 0);
+const fmtMonto = n => "$ " + Math.round(n).toLocaleString("es-AR");
+const fmtMontoCorto = n => (n >= 1e9 ? "$ " + (n / 1e9).toLocaleString("es-AR", { maximumFractionDigits: 1 }) + " mil M"
+  : n >= 1e6 ? "$ " + (n / 1e6).toLocaleString("es-AR", { maximumFractionDigits: 1 }) + " M" : fmtMonto(n));
 const pct = (n, total) => (!total ? "-" : n && n / total < 0.01 ? "<1%" : Math.round((n / total) * 100) + "%");
 // Colores de cada grupo (acá para que Tailwind los vea). Adjudicación parcial, en gris.
 const COLOR = {
@@ -73,6 +79,8 @@ export default function AnalisisLicitaciones({ lista: listaPropia, motivosResolu
     [sinAnio, f.anio, base]);
 
   const total = filas.length;
+  const montoTotal = sumaMontos(filas);
+  const sinMontoTotal = filas.filter(e => montoDe(e) == null).length;
   const porGrupo = Object.fromEntries(GRUPOS.map(g => [g.id, filas.filter(e => grupoDe(e.resolucionConv) === g)]));
   const conMotivo = filas.filter(e => pideMotivo(e.resolucionConv));
   const motivos = [...MOTIVOS_NO_ADJUDICACION, SIN_MOTIVO].filter(m => m !== SIN_MOTIVO || conMotivo.some(e => tieneMotivo(e, SIN_MOTIVO)));
@@ -93,13 +101,14 @@ export default function AnalisisLicitaciones({ lista: listaPropia, motivosResolu
 
   function exportar() {
     const datos = [
-      ["EXP", "AÑO", "JURISDICCION", "OBJETO", "PARTIDA (INCISO 4)", "ENCUADRE", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO"],
-      ...seleccionados.map(e => [e.exp, anioDe(e), e.jurisdiccion || "", e.objeto, etiquetaPartida(partidaDe(e)), e.encuadre || "",
+      ["EXP", "AÑO", "JURISDICCION", "OBJETO", "PARTIDA (INCISO 4)", "ENCUADRE", "MONTO", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO"],
+      ...seleccionados.map(e => [e.exp, anioDe(e), e.jurisdiccion || "", e.objeto, etiquetaPartida(partidaDe(e)), e.encuadre || "", montoDe(e) ?? (e.monto || ""),
         e.resolucionConv || "", (e.motivoResolucion || "") + (e.motivoDeResoluciones ? " (según Resoluciones)" : ""), e.motivoDetalle || ""]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(datos);
-    ws["!cols"] = [16, 8, 26, 60, 26, 14, 22, 40, 50].map(wch => ({ wch }));
+    ws["!cols"] = [16, 8, 26, 60, 26, 14, 18, 22, 40, 50].map(wch => ({ wch }));
     const wb = XLSX.utils.book_new();
+    for (let i = 1; i < datos.length; i++) { const c = ws[XLSX.utils.encode_cell({ r: i, c: 6 })]; if (c?.t === "n") c.z = '"$" #,##0.00'; }
     XLSX.utils.book_append_sheet(wb, ws, "Análisis");
     XLSX.writeFile(wb, "licitaciones-analisis-" + hoyLocalISO() + ".xlsx");
   }
@@ -205,10 +214,20 @@ export default function AnalisisLicitaciones({ lista: listaPropia, motivosResolu
         {/* Por resolución */}
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <h3 className="px-5 py-2.5 border-b border-slate-100 bg-slate-50/60 text-sm font-semibold text-slate-900">Por resolución de la convocatoria</h3>
+          <div className="overflow-x-auto">
           <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-100">
+                <th className="py-2 px-3">Resolución</th><th className="py-2 px-2 text-right">Cant.</th><th className="py-2 px-3 text-right">%</th>
+                <th className="py-2 px-3" /><th className="py-2 px-3 text-right">Monto</th><th className="py-2 px-3 text-right">% monto</th>
+              </tr>
+            </thead>
             <tbody>
               {[...RESOLUCIONES_CONV_LICITACIONES, ""].map(r => {
-                const n = filas.filter(e => (e.resolucionConv || "") === r).length;
+                const deR = filas.filter(e => (e.resolucionConv || "") === r);
+                const n = deR.length;
+                const monto = sumaMontos(deR);
+                const sinMonto = deR.filter(e => montoDe(e) == null).length;
                 const g = grupoDe(r);
                 return (
                   <tr key={r || "-"} className="border-b border-slate-50">
@@ -220,11 +239,29 @@ export default function AnalisisLicitaciones({ lista: listaPropia, motivosResolu
                     <td className="py-1.5 px-3 w-1/3">
                       <div className="h-2 rounded-full bg-slate-100 overflow-hidden"><div className={"h-full " + g.color} style={{ width: (total ? (n / total) * 100 : 0) + "%" }} /></div>
                     </td>
+                    <td className="py-1.5 px-3 text-right whitespace-nowrap tabular-nums text-slate-800" title={monto ? fmtMonto(monto) : undefined}>
+                      {monto ? fmtMontoCorto(monto) : (n ? <span className="text-slate-300">-</span> : "")}
+                      {sinMonto > 0 && <span className="block text-[10px] text-amber-700">{sinMonto} sin monto</span>}
+                    </td>
+                    <td className="py-1.5 px-3 text-right w-14 text-[10px] text-slate-400">{monto ? pct(monto, montoTotal) : ""}</td>
                   </tr>
                 );
               })}
             </tbody>
+            <tfoot>
+              <tr className="border-t border-slate-200 font-semibold text-slate-900">
+                <td className="py-2 px-3">Total</td>
+                <td className="py-2 px-2 text-right tabular-nums pr-3.5">{total || "-"}</td>
+                <td colSpan={2} />
+                <td className="py-2 px-3 text-right whitespace-nowrap tabular-nums" title={montoTotal ? fmtMonto(montoTotal) : undefined}>
+                  {montoTotal ? fmtMontoCorto(montoTotal) : "-"}
+                  {sinMontoTotal > 0 && <span className="block text-[10px] font-normal text-amber-700">{sinMontoTotal} sin monto</span>}
+                </td>
+                <td />
+              </tr>
+            </tfoot>
           </table>
+          </div>
         </div>
       </div>
 
@@ -293,7 +330,7 @@ export default function AnalisisLicitaciones({ lista: listaPropia, motivosResolu
               <thead className="sticky top-0 bg-white">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-100">
                   <th className="py-2 px-3">Exp.</th><th className="py-2 px-3">Año</th><th className="py-2 px-3">Objeto</th>
-                  <th className="py-2 px-3">Partida</th><th className="py-2 px-3">Resolución conv.</th><th className="py-2 px-3">Motivo</th>
+                  <th className="py-2 px-3">Partida</th><th className="py-2 px-3 text-right">Monto</th><th className="py-2 px-3">Resolución conv.</th><th className="py-2 px-3">Motivo</th>
                 </tr>
               </thead>
               <tbody>
@@ -303,6 +340,9 @@ export default function AnalisisLicitaciones({ lista: listaPropia, motivosResolu
                     <td className="py-2 px-3 text-slate-600">{anioDe(e)}</td>
                     <td className="py-2 px-3 text-slate-700"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td>
                     <td className="py-2 px-3 text-slate-600 whitespace-nowrap">{etiquetaPartida(partidaDe(e))}</td>
+                    <td className="py-2 px-3 text-right whitespace-nowrap tabular-nums text-slate-700" title={e.monto || undefined}>
+                      {montoDe(e) != null ? fmtMonto(montoDe(e)) : <span className="text-slate-300">-</span>}
+                    </td>
                     <td className="py-2 px-3">{e.resolucionConv ? <EtiquetaResolucion valor={e.resolucionConv} /> : <span className="text-slate-400">-</span>}</td>
                     <td className="py-2 px-3 text-slate-700">
                       {pideMotivo(e.resolucionConv) ? (e.motivoResolucion || <span className="text-amber-700">Sin cargar</span>) : <span className="text-slate-300">-</span>}
