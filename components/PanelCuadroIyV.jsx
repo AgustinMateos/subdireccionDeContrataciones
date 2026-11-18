@@ -10,7 +10,7 @@ import {
   sectoresIyV, estadosIyV, puedeEditarIyV, puedeEliminarIyV, bloqueVacioIyV, camposObsIyV, claveObsIyV,
   CLASES_CONTRATACION_IYV, clasesIyV, unirClasesIyV, demoraInicioIyV,
   mesesDeAtrasoIyV, etiquetaMesIyV, leerMotivosAtrasoIyV, unirMotivosAtrasoIyV, MOTIVOS_DEMORA_IYV, MOTIVOS_FRACASO_IYV, MOTIVOS_ATRASO_IYV,
-  partidaIyV, partidaSegunObjetoIyV, esBienDeUsoIyV, esAnticipoIyV, RESOLUCIONES_CONV_IYV, ENCUADRES_IYV, contratacionesIyV, RESOLUCION_DE_EXP_IYV, resolucionesIyV, expDeBloqueIyV, siguienteSubidaIyV, TITULO_BLOQUE_IYV,
+  partidaIyV, partidaSegunObjetoIyV, esBienDeUsoIyV, esAnticipoIyV, RESOLUCIONES_CONV_IYV, ENCUADRES_IYV, contratacionesIyV, RESOLUCION_DE_EXP_IYV, FRENADO_DE_EXP_IYV, resolucionesIyV, expDeBloqueIyV, siguienteSubidaIyV, TITULO_BLOQUE_IYV,
 } from "@/lib/cuadroIyV";
 import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
 import CampoOpciones from "./CampoOpciones";
@@ -20,7 +20,7 @@ import { PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, FILTRO_BIENES_DE_USO, etiquetaPar
 import { Campo_Select } from "./CamposFormulario";
 import EtiquetaResolucion from "./EtiquetaResolucion";
 import AnalisisLicitaciones from "./AnalisisLicitaciones";
-import { unirMotivos } from "@/lib/resolucionConv";
+import { unirMotivos, esFrenado, textoFrenado } from "@/lib/resolucionConv";
 
 const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
 const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-900 hover:border-slate-500 transition-colors focus:outline-none focus:border-slate-500 placeholder:text-slate-400";
@@ -416,6 +416,9 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
                           </span>
                           {CON_DIAS.includes(k) && <EtiquetaDias dias={diasHasta(valor, hoy)} />}
                           {RESOLUCION_DE_EXP_IYV[k] && <EtiquetaResolucion valor={d[RESOLUCION_DE_EXP_IYV[k]]} />}
+                          {RESOLUCION_DE_EXP_IYV[k] && esFrenado(d[RESOLUCION_DE_EXP_IYV[k]]) && (
+                            <span className="block mt-0.5 text-[10px] text-yellow-900 whitespace-normal">{textoFrenado(...FRENADO_DE_EXP_IYV[k].map(x => d[x]), hoy)}</span>
+                          )}
                           {k === "objeto" && esBienDeUsoIyV(d) && (
                             <span title={etiquetaPartida(partidaIyV(d))} className="block mt-1 w-fit text-[10px] font-semibold px-1.5 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-800">
                               {partidaIyV(d)} · Bien de uso
@@ -472,7 +475,13 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
   useEffect(() => { if (inicial) setD({ ...(inicial.datos || {}) }); }, [inicial?.actualizadoEn]); // eslint-disable-line react-hooks/exhaustive-deps
   const historial = [...(inicial?.movimientos || [])].reverse();
   const hoy = hoyLocalISO();
-  const set = (k, v) => setD(prev => ({ ...prev, [k]: v }));
+  // Al pasar a Frenado, "Frenado desde" arranca en hoy (se puede cambiar).
+  const set = (k, v) => setD(prev => {
+    const nuevo = { ...prev, [k]: v };
+    const desde = esFrenado(v) && camposDeHoja(hoja).find(x => x.frenado === k && x.fecha);
+    if (desde && !nuevo[desde.k]) nuevo[desde.k] = hoyLocalISO().split("-").reverse().join("/");
+    return nuevo;
+  });
 
   async function correr(accion) {
     setGuardando(true); setError("");
@@ -644,7 +653,7 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
                     <label key={campo.k} className="block">
                       <span className="block text-xs font-medium text-slate-600 mb-1">{campo.label}</span>
                       <input value={d[campo.k] || ""} onChange={e => set(campo.k, e.target.value)}
-                        placeholder={/inicio|vencimiento|ultimo/i.test(campo.k) ? "dd/mm/aaaa" : ""}
+                        placeholder={campo.fecha || /inicio|vencimiento|ultimo/i.test(campo.k) ? "dd/mm/aaaa" : ""}
                         className={"w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800 " + (campo.exp ? "font-mono" : "")} />
                       {CON_DIAS.includes(campo.k) && <EtiquetaDias dias={diasHasta(d[campo.k], hoy)} />}
                       {periodo}

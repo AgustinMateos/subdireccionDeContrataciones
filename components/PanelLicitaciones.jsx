@@ -22,7 +22,7 @@ import EtiquetasPrioridad from "./EtiquetasPrioridad";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import CampoOpciones from "./CampoOpciones";
 import EtiquetaResolucion from "./EtiquetaResolucion";
-import { RESOLUCIONES_CONV_LICITACIONES as RESOLUCIONES_CONV, pideMotivo, motivosDe } from "@/lib/resolucionConv";
+import { RESOLUCIONES_CONV_LICITACIONES as RESOLUCIONES_CONV, pideMotivo, motivosDe, esFrenado, textoFrenado } from "@/lib/resolucionConv";
 import { CampoMotivos } from "./ModalMotivosNoAdjudicacion";
 import AnalisisLicitaciones from "./AnalisisLicitaciones";
 import { SelectRapido, FiltroColumna, Seccion, DatoFicha } from "./PanelResoluciones";
@@ -41,7 +41,7 @@ function filtroVacio() {
 
 const VACIO = {
   exp: "", jurisdiccion: "", organismo: "", domicilio: "", rubro: "", objeto: "", monto: "", plazoEjecucion: "",
-  encuadre: "", partida: "", fechaUltimoMov: "", sector: "", estadoInterno: "", estadoConvocatoria: "", resolucionConv: "", motivoResolucion: "", motivoDetalle: "", observaciones: "",
+  encuadre: "", partida: "", fechaUltimoMov: "", sector: "", estadoInterno: "", estadoConvocatoria: "", resolucionConv: "", motivoResolucion: "", motivoDetalle: "", frenadoDonde: "", frenadoDesde: "", observaciones: "",
   agente: "", paseFirma: "", prioritario: false,
 };
 
@@ -49,7 +49,7 @@ function aFormulario(e) {
   if (!e) return { ...VACIO, fechaUltimoMov: hoyLocalISO(), sector: "Licitaciones" };
   const f = {};
   for (const k of Object.keys(VACIO)) f[k] = e[k] ?? "";
-  for (const k of ["fechaUltimoMov", "paseFirma"]) f[k] = fechaISO(e[k]);
+  for (const k of ["fechaUltimoMov", "paseFirma", "frenadoDesde"]) f[k] = fechaISO(e[k]);
   // El cuadro de observaciones es para agregar una nueva: las anteriores
   // quedan en el historial.
   f.observaciones = "";
@@ -77,6 +77,8 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
   function set(campo, valor) {
     setF(prev => {
       const nuevo = { ...prev, [campo]: valor };
+      // Al pasar a Frenado, "desde" arranca en hoy (se puede cambiar).
+      if (campo === "resolucionConv" && esFrenado(valor) && !nuevo.frenadoDesde) nuevo.frenadoDesde = hoyLocalISO();
       // En un alta de la jefa, el agente sigue a la jurisdicción mientras
       // no lo haya cambiado a mano.
       if (campo === "jurisdiccion" && !inicial && (!prev.agente || prev.agente === agentePorJurisdiccion(prev.jurisdiccion))) {
@@ -127,6 +129,9 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                     <span className={"mt-1 text-[11px] font-medium px-2 py-0.5 rounded border " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""} en sector</span>
                   )}
                   <EtiquetaResolucion valor={inicial.resolucionConv} />
+                  {esFrenado(inicial.resolucionConv) && (
+                    <span className="mt-1 text-[11px] text-yellow-900">{textoFrenado(inicial.frenadoDonde, inicial.frenadoDesde, hoyLocalISO())}</span>
+                  )}
                 </div>
               )}
             </div>
@@ -251,6 +256,15 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                 <Campo_Select label="Resolución conv." value={f.resolucionConv || ""} onChange={v => set("resolucionConv", v)} disabled={fijo}
                   opciones={["", ...RESOLUCIONES_CONV]} labels={{ "": "Sin definir" }} />
                 <Campo_Input label="Último movimiento" type="date" max="9999-12-31" value={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
+                {esFrenado(f.resolucionConv) && (
+                  <>
+                    <div className="col-span-2">
+                      <CampoOpciones label="Frenado en (dónde)" value={f.frenadoDonde} onChange={v => set("frenadoDonde", v)} opciones={SECTORES_LICITACIONES} disabled={fijo} />
+                    </div>
+                    <Campo_Input label="Frenado desde" type="date" max="9999-12-31" value={f.frenadoDesde} onChange={v => set("frenadoDesde", v)} disabled={fijo} />
+                    <p className="text-[11px] text-yellow-900 self-end pb-2">{textoFrenado(null, f.frenadoDesde, hoyLocalISO())}</p>
+                  </>
+                )}
                 {pideMotivo(f.resolucionConv) && (
                   <>
                     <div className="col-span-2">
@@ -407,13 +421,13 @@ function exportarExcel(filas, solapa, resoluciones, contrataciones, actas = {}, 
   const columnasActas = Array.from({ length: maxActas }, (_, i) => "ACTA DE APERTURA" + (maxActas > 1 ? " " + (i + 1) : ""));
   const datos = [
     ["EXP", "JURISDICCION", "ORGANISMO", "DOMICILIO", "RUBRO", "PARTIDA (INCISO 4)", "OBJETO", "MONTO", "PLAZO DE EJECUCION (DH)", "ENCUADRE",
-      "ULTIMO MOVIMIENTO", "DIAS EN EL SECTOR", "SECTOR", "ESTADO INTERNO", "ESTADO CONVOCATORIA", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO", "OBSERVACIONES", "AGENTE",
+      "ULTIMO MOVIMIENTO", "DIAS EN EL SECTOR", "SECTOR", "ESTADO INTERNO", "ESTADO CONVOCATORIA", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO", "FRENADO EN", "FRENADO DESDE", "OBSERVACIONES", "AGENTE",
       "PASE A LA FIRMA", "PRIORITARIO", "TIPO DE RESOLUCION (EN RESOLUCIONES)", "N° DE CONTRATACION (RESOLUCIONES)",
       "FRACASOS / DESIERTAS / REVOCADAS / PARCIALES", "DONDE FIGURA", ...columnasActas],
     ...filas.map(e => [
       e.exp, e.jurisdiccion || "", e.organismo || "", e.domicilio || "", e.rubro || "", etiquetaPartida(partidaDe(e)), e.objeto, e.monto || "", e.plazoEjecucion || "",
       e.encuadre || "", fecha(e.fechaUltimoMov), diasEnSectorLicitacion(e) ?? "", e.sector || "", e.estadoInterno || "",
-      e.estadoConvocatoria || "", e.resolucionConv || "", e.motivoResolucion || "", e.motivoDetalle || "", [e.observaciones, resultados?.[e.id]?.deResoluciones].filter(Boolean).join(" // "), e.agente || "", e.paseFirma ? fecha(e.paseFirma) : "",
+      e.estadoConvocatoria || "", e.resolucionConv || "", e.motivoResolucion || "", e.motivoDetalle || "", e.frenadoDonde || "", e.frenadoDesde ? fecha(e.frenadoDesde) : "", [e.observaciones, resultados?.[e.id]?.deResoluciones].filter(Boolean).join(" // "), e.agente || "", e.paseFirma ? fecha(e.paseFirma) : "",
       e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
       resoluciones ? resoluciones[e.id] || "No pasó por Resoluciones" : "",
       contrataciones?.[e.id] || "",
@@ -429,7 +443,7 @@ function exportarExcel(filas, solapa, resoluciones, contrataciones, actas = {}, 
     const celda = ws[XLSX.utils.encode_cell({ r: i + 1, c: primeraActa + j })];
     if (url && celda) celda.l = { Target: url, Tooltip: "Acta de apertura " + actas[filas[i].id][j] };
   }));
-  ws["!cols"] = [16, 30, 30, 30, 16, 26, 50, 18, 16, 14, 12, 8, 14, 12, 22, 18, 36, 40, 50, 10, 12, 12, 60, 30, 30, 80, ...columnasActas.map(() => 60)].map(wch => ({ wch }));
+  ws["!cols"] = [16, 30, 30, 30, 16, 26, 50, 18, 16, 14, 12, 8, 14, 12, 22, 18, 36, 40, 24, 12, 50, 10, 12, 12, 60, 30, 30, 80, ...columnasActas.map(() => 60)].map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Licitaciones");
   XLSX.writeFile(wb, "licitaciones-" + (solapa === "general" ? "" : solapa + "-") + hoyLocalISO() + ".xlsx");
@@ -701,6 +715,9 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
                     </div>
                     <EtiquetasPrioridad expediente={e} />
                     <EtiquetaResolucion valor={e.resolucionConv} />
+                    {esFrenado(e.resolucionConv) && (
+                      <span className="block mt-0.5 max-w-[190px] whitespace-normal text-[10px] text-yellow-900">{textoFrenado(e.frenadoDonde, e.frenadoDesde, hoyLocalISO())}</span>
+                    )}
                     {cruce?.resultados?.[e.id] && (
                       <span title={cruce.resultados[e.id].detalle} className="block mt-1 w-fit max-w-[190px] whitespace-normal text-[10px] font-semibold px-1.5 py-0.5 rounded border border-rose-300 bg-rose-50 text-rose-800">
                         {cruce.resultados[e.id].tipos.join(" · ")}

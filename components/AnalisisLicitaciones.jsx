@@ -9,7 +9,7 @@ import {
   FILTRO_BIENES_DE_USO, PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, esBienDeUso as esBienDeUsoLic, anioExpediente, partidaDe as partidaDeLic, etiquetaPartida,
   ENCUADRES_LICITACIONES,
 } from "@/lib/licitaciones";
-import { RESOLUCIONES_CONV_LICITACIONES, GRUPOS_RESOLUCION_CONV, grupoResolucionConv, pideMotivo, MOTIVOS_NO_ADJUDICACION, motivosDe } from "@/lib/resolucionConv";
+import { RESOLUCIONES_CONV_LICITACIONES, GRUPOS_RESOLUCION_CONV, grupoResolucionConv, pideMotivo, MOTIVOS_NO_ADJUDICACION, motivosDe, esFrenado, textoFrenado } from "@/lib/resolucionConv";
 import { FiltroColumna } from "./PanelResoluciones";
 import EtiquetaResolucion from "./EtiquetaResolucion";
 
@@ -33,6 +33,7 @@ const COLOR = {
   parcial: { relleno: "fill-slate-400", color: "bg-slate-400", tarjeta: "border-slate-300 bg-slate-100 text-slate-800" },
   noPaso: { relleno: "fill-sky-400", color: "bg-sky-400", tarjeta: "border-sky-200 bg-sky-50 text-sky-900" },
   noAdjudicadas: { relleno: "fill-rose-500", color: "bg-rose-500", tarjeta: "border-rose-200 bg-rose-50 text-rose-900" },
+  frenadas: { relleno: "fill-yellow-400", color: "bg-yellow-400", tarjeta: "border-yellow-300 bg-yellow-50 text-yellow-900" },
   sinDefinir: { relleno: "fill-slate-200", color: "bg-slate-200", tarjeta: "border-dashed border-slate-300 bg-white text-slate-600" },
 };
 const GRUPOS_TODOS = GRUPOS_RESOLUCION_CONV.map(g => ({ ...g, ...COLOR[g.id] }));
@@ -144,12 +145,12 @@ export default function AnalisisLicitaciones({
 
   function exportar() {
     const datos = [
-      ["EXP", ...(conBloque ? ["BLOQUE"] : []), "AÑO", etiquetaJurisdiccion.toUpperCase(), "OBJETO", "PARTIDA (INCISO 4)", "ENCUADRE", "MONTO", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO"],
+      ["EXP", ...(conBloque ? ["BLOQUE"] : []), "AÑO", etiquetaJurisdiccion.toUpperCase(), "OBJETO", "PARTIDA (INCISO 4)", "ENCUADRE", "MONTO", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO", "FRENADO (DONDE Y DESDE)"],
       ...seleccionados.map(e => [e.exp, ...(conBloque ? [e.bloque || ""] : []), anioDe(e), e.jurisdiccion || "", e.objeto, etiquetaPartida(partidaDe(e)), e.encuadre || "", montoDe(e) ?? (e.monto || ""),
-        (e.resolucionConv || "") + (e.resolucionDeResoluciones ? " (según Resoluciones" + (e.resolucionEnTramite ? ", en trámite)" : ")") : ""), (e.motivoResolucion || "") + (e.motivoDeResoluciones ? " (según Resoluciones)" : ""), e.motivoDetalle || ""]),
+        (e.resolucionConv || "") + (e.resolucionDeResoluciones ? " (según Resoluciones" + (e.resolucionEnTramite ? ", en trámite)" : ")") : ""), (e.motivoResolucion || "") + (e.motivoDeResoluciones ? " (según Resoluciones)" : ""), e.motivoDetalle || "", esFrenado(e.resolucionConv) ? textoFrenado(e.frenadoDonde, e.frenadoDesde, hoyLocalISO()) : ""]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(datos);
-    ws["!cols"] = [16, ...(conBloque ? [18] : []), 8, 26, 60, 26, 14, 18, 22, 40, 50].map(wch => ({ wch }));
+    ws["!cols"] = [16, ...(conBloque ? [18] : []), 8, 26, 60, 26, 14, 18, 22, 40, 50, 40].map(wch => ({ wch }));
     const wb = XLSX.utils.book_new();
     for (let i = 1; i < datos.length; i++) { const c = ws[XLSX.utils.encode_cell({ r: i, c: conBloque ? 7 : 6 })]; if (c?.t === "n") c.z = '"$" #,##0.00'; }
     XLSX.utils.book_append_sheet(wb, ws, "Análisis");
@@ -419,7 +420,7 @@ export default function AnalisisLicitaciones({
               <thead className="sticky top-0 bg-white">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-100">
                   <th className="py-2 px-3">Exp.</th><th className="py-2 px-3">Año</th><th className="py-2 px-3">Objeto</th>
-                  <th className="py-2 px-3">Partida</th><th className="py-2 px-3 text-right">Monto</th><th className="py-2 px-3">Resolución conv.</th><th className="py-2 px-3">Motivo</th>
+                  <th className="py-2 px-3">Partida</th><th className="py-2 px-3 text-right">Monto</th><th className="py-2 px-3">Resolución conv.</th><th className="py-2 px-3">Motivo / frenado</th>
                 </tr>
               </thead>
               <tbody>
@@ -440,7 +441,8 @@ export default function AnalisisLicitaciones({
                       {e.resolucionDeResoluciones && <span className="block text-[10px] text-violet-700">según Resoluciones{e.resolucionEnTramite ? " (en trámite)" : ""}</span>}
                     </td>
                     <td className="py-2 px-3 text-slate-700">
-                      {pideMotivo(e.resolucionConv) ? (e.motivoResolucion || <span className="text-amber-700">Sin cargar</span>) : <span className="text-slate-300">-</span>}
+                      {esFrenado(e.resolucionConv) && <span className="block text-yellow-900">{textoFrenado(e.frenadoDonde, e.frenadoDesde, hoyLocalISO()) || "Frenado (sin dónde ni desde cuándo)"}</span>}
+                      {pideMotivo(e.resolucionConv) ? (e.motivoResolucion || <span className="text-amber-700">Sin cargar</span>) : !esFrenado(e.resolucionConv) && <span className="text-slate-300">-</span>}
                       {pideMotivo(e.resolucionConv) && e.motivoDeResoluciones && <span className="block text-[10px] text-violet-700">según Resoluciones</span>}
                       {e.motivoDetalle && <span className="block text-[11px] text-slate-500">{e.motivoDetalle}</span>}
                     </td>

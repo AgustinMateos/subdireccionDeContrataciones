@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { EMAIL_JEFA_SUBDIRECCION } from "@/lib/resoluciones";
-import { resolucionConvValida, motivoValido, pideMotivo } from "@/lib/resolucionConv";
+import { hoyArgentina } from "@/lib/utils";
+import { resolucionConvValida, motivoValido, pideMotivo, esFrenado } from "@/lib/resolucionConv";
 import { CAMPOS_DE_LICITACIONES, datosLicitacion, sinCamposDeLicitaciones, soloCamposDeJefaLicitaciones } from "@/lib/licitaciones";
 import { INCLUDE_LICITACION, conPlanObras, registrosDeCambiosLicitacion, sesionLicitaciones } from "@/lib/licitacionesServidor";
 
@@ -48,12 +49,18 @@ export async function PATCH(request, { params }) {
 
   const data = {};
   for (const k of [...CAMPOS_DE_LICITACIONES, "agente"]) {
-    if (k in body) data[k] = k === "resolucionConv" ? resolucionConvValida(body[k]) : String(body[k] || "").trim() || null;
+    if (!(k in body)) continue;
+    if (k === "frenadoDesde") { const f = body[k] ? new Date(body[k]) : null; data[k] = f && !Number.isNaN(f.getTime()) ? f : null; }
+    else data[k] = k === "resolucionConv" ? resolucionConvValida(body[k]) : String(body[k] || "").trim() || null;
   }
   // El motivo va con la resolución: si ya no lo pide, se borra.
   const resolucion = "resolucionConv" in data ? data.resolucionConv : existente.resolucionConv;
   if ("motivoResolucion" in data) data.motivoResolucion = motivoValido(resolucion, data.motivoResolucion);
   if (!pideMotivo(resolucion)) { data.motivoResolucion = null; data.motivoDetalle = null; }
+  // Frenado: dónde y desde cuándo van con la resolución. Al pasar a Frenado
+  // desde la tabla, "desde" arranca en hoy.
+  if (!esFrenado(resolucion)) { data.frenadoDonde = null; data.frenadoDesde = null; }
+  else if (!esFrenado(existente.resolucionConv) && !data.frenadoDesde) data.frenadoDesde = new Date(hoyArgentina().toISOString().slice(0, 10) + "T00:00:00.000Z");
   if ("prioritario" in body) data.prioritario = body.prioritario === true;
   const cambios = registrosDeCambiosLicitacion(existente, data, session.user.name);
   const expediente = await prisma.expedienteLicitacion.update({
