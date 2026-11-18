@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTORES, PRORROGA_MESES_OPCIONES, llevaAdecuaciones, llevaOrdenDeCompra, etiquetaAdecuaciones } from "@/lib/constants";
+import { AREA_LABEL, MODALIDADES_CONTRATACION, FUERZAS_SEGURIDAD, ENCUADRE_INTERADMINISTRATIVO, TIPOS_SERVICIOS, ZONAS, ESTADOS_CONVOCATORIA, SECTORES, PRORROGA_MESES_OPCIONES, llevaAdecuaciones, llevaOrdenDeCompra, llevaResolucionAdjudicacion, etiquetaAdecuaciones } from "@/lib/constants";
 import { Campo_Input, Campo_Select } from "./CamposFormulario";
 import SelectorOrganismos from "./SelectorOrganismos";
 import CampoFuero from "./CampoFuero";
@@ -308,7 +308,10 @@ export default function FormularioExpediente({ titulo, inicial, esNuevo, expedie
                   <Campo_Input label="OC" value={f.ocResolucion} onChange={v => set("ocResolucion", v)} />
                 )}
                 <Campo_Input label="Resolución de llamado" value={f.resolucionLlamado} onChange={v => set("resolucionLlamado", v)} />
-                <Campo_Input label="Resolución de adjudicación" value={f.resolucionAdjudicacion} onChange={v => set("resolucionAdjudicacion", v)} />
+                {/* La descentralizada lleva resolución de llamado, no de adjudicación. */}
+                {(llevaResolucionAdjudicacion(f) || f.resolucionAdjudicacion) && (
+                  <Campo_Input label="Resolución de adjudicación" value={f.resolucionAdjudicacion} onChange={v => set("resolucionAdjudicacion", v)} />
+                )}
               </>
             )}
             <Campo_Input label="Adjudicatario" value={esVinculoAVigente ? "" : f.adjudicatario} onChange={v => set("adjudicatario", v)} placeholder={esVinculoAVigente ? "Se completa al adjudicar" : ""} disabled={esVinculoAVigente} />

@@ -866,6 +866,7 @@ export async function POST(request) {
           ? { adjudicacionPorRenglon, adjudicatario: firmasUnicas.join(" / "), montoARS: montoTotal }
           : {}),
         ...(body.resolucionAdjudicacion ? { resolucionAdjudicacion: String(body.resolucionAdjudicacion).trim() } : {}),
+        ...(body.resolucionLlamado ? { resolucionLlamado: String(body.resolucionLlamado).trim() } : {}),
         ...(ocsUnicas ? { ocResolucion: ocsUnicas } : {}),
         ...(body.montoUSD != null ? { montoUSD: Number(body.montoUSD) || 0 } : {}),
         observaciones: {

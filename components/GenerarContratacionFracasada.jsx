@@ -109,6 +109,7 @@ function FormUnico({ exp, onCerrar, onConfirmar }) {
       ...f,
       montoARS: Number(f.montoARS) || 0,
       ocResolucion: esDescentralizada ? "" : f.ocResolucion,
+      resolucionAdjudicacion: esDescentralizada ? "" : f.resolucionAdjudicacion,
       mesesProrroga: f.tieneProrroga ? f.mesesProrroga : null,
     });
     setCargando(false);
@@ -142,11 +143,14 @@ function FormUnico({ exp, onCerrar, onConfirmar }) {
           <input value={f.resolucionLlamado} onChange={e => set("resolucionLlamado", e.target.value)}
             className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Resolución de adjudicación</label>
-          <input value={f.resolucionAdjudicacion} onChange={e => set("resolucionAdjudicacion", e.target.value)}
-            className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
-        </div>
+        {/* La descentralizada lleva resolución de llamado, no de adjudicación. */}
+        {!esDescentralizada && (
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Resolución de adjudicación</label>
+            <input value={f.resolucionAdjudicacion} onChange={e => set("resolucionAdjudicacion", e.target.value)}
+              className="w-full text-sm border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+          </div>
+        )}
         <div className="col-span-2 border border-slate-200 rounded-md p-3 bg-slate-50">
           <label className="flex items-start gap-2.5 cursor-pointer">
             <input
@@ -264,7 +268,7 @@ function FormDividir({ exp, disponibles, onCerrar, onConfirmar }) {
       montoARS: Number(g.montoARS) || 0,
       ocResolucion: g.modalidad === "Contratación Descentralizada" ? "" : g.ocResolucion,
       resolucionLlamado: g.resolucionLlamado,
-      resolucionAdjudicacion: g.resolucionAdjudicacion,
+      resolucionAdjudicacion: g.modalidad === "Contratación Descentralizada" ? "" : g.resolucionAdjudicacion,
       tieneProrroga: g.tieneProrroga,
       mesesProrroga: g.tieneProrroga ? g.mesesProrroga : null,
     })));
@@ -330,11 +334,13 @@ function FormDividir({ exp, disponibles, onCerrar, onConfirmar }) {
                 <input value={g.resolucionLlamado} onChange={e => actualizarGrupo(g.id, "resolucionLlamado", e.target.value)}
                   className="w-full text-sm border border-slate-300 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-800" />
               </div>
-              <div>
-                <label className="block text-[11px] font-medium text-slate-600 mb-1">Resolución de adjudicación</label>
-                <input value={g.resolucionAdjudicacion} onChange={e => actualizarGrupo(g.id, "resolucionAdjudicacion", e.target.value)}
-                  className="w-full text-sm border border-slate-300 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-800" />
-              </div>
+              {!esDescentralizada && (
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">Resolución de adjudicación</label>
+                  <input value={g.resolucionAdjudicacion} onChange={e => actualizarGrupo(g.id, "resolucionAdjudicacion", e.target.value)}
+                    className="w-full text-sm border border-slate-300 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-800" />
+                </div>
+              )}
               <div className="col-span-2">
                 <label className="block text-[11px] font-medium text-slate-600 mb-1">Objeto</label>
                 <input value={g.objeto} onChange={e => actualizarGrupo(g.id, "objeto", e.target.value)} placeholder={exp.objeto}
