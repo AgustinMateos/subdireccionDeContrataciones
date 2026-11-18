@@ -31,13 +31,36 @@ const fmtMontoCorto = n => (n >= 1e9 ? "$ " + (n / 1e9).toLocaleString("es-AR", 
 const pct = (n, total) => (!total ? "-" : n && n / total < 0.01 ? "<1%" : Math.round((n / total) * 100) + "%");
 // Colores de cada grupo (acá para que Tailwind los vea). Adjudicación parcial, en gris.
 const COLOR = {
-  adjudicadas: { color: "bg-emerald-500", tarjeta: "border-emerald-200 bg-emerald-50 text-emerald-900" },
-  parcial: { color: "bg-slate-400", tarjeta: "border-slate-300 bg-slate-100 text-slate-800" },
-  noPaso: { color: "bg-sky-400", tarjeta: "border-sky-200 bg-sky-50 text-sky-900" },
-  noAdjudicadas: { color: "bg-rose-500", tarjeta: "border-rose-200 bg-rose-50 text-rose-900" },
-  sinDefinir: { color: "bg-slate-200", tarjeta: "border-dashed border-slate-300 bg-white text-slate-600" },
+  adjudicadas: { relleno: "fill-emerald-500", color: "bg-emerald-500", tarjeta: "border-emerald-200 bg-emerald-50 text-emerald-900" },
+  parcial: { relleno: "fill-slate-400", color: "bg-slate-400", tarjeta: "border-slate-300 bg-slate-100 text-slate-800" },
+  noPaso: { relleno: "fill-sky-400", color: "bg-sky-400", tarjeta: "border-sky-200 bg-sky-50 text-sky-900" },
+  noAdjudicadas: { relleno: "fill-rose-500", color: "bg-rose-500", tarjeta: "border-rose-200 bg-rose-50 text-rose-900" },
+  sinDefinir: { relleno: "fill-slate-200", color: "bg-slate-200", tarjeta: "border-dashed border-slate-300 bg-white text-slate-600" },
 };
 const GRUPOS = GRUPOS_RESOLUCION_CONV.map(g => ({ ...g, ...COLOR[g.id] }));
+// Torta en SVG: una porción por grupo, proporcional al monto.
+function Torta({ porciones, seleccionada, onElegir }) {
+  const total = porciones.reduce((s, p) => s + p.valor, 0);
+  if (!total) return null;
+  const R = 90, C = 100;
+  const punto = f => [C + R * Math.sin(2 * Math.PI * f), C - R * Math.cos(2 * Math.PI * f)];
+  let desde = 0;
+  return (
+    <svg viewBox="0 0 200 200" className="w-44 h-44 shrink-0" role="img" aria-label="Monto por resultado">
+      {porciones.filter(p => p.valor > 0).map(p => {
+        const f = p.valor / total;
+        const [x1, y1] = punto(desde);
+        desde += f;
+        const [x2, y2] = punto(desde);
+        const clase = p.relleno + " stroke-white cursor-pointer hover:opacity-80 " + (seleccionada && seleccionada !== p.titulo ? "opacity-40" : "");
+        const titulo = <title>{p.titulo + ": " + fmtMonto(p.valor) + " (" + pct(p.valor, total) + ")"}</title>;
+        return f >= 0.9999
+          ? <circle key={p.id} cx={C} cy={C} r={R} className={clase} strokeWidth="2" onClick={() => onElegir(p)}>{titulo}</circle>
+          : <path key={p.id} d={`M${C},${C} L${x1},${y1} A${R},${R} 0 ${f > 0.5 ? 1 : 0} 1 ${x2},${y2} Z`} className={clase} strokeWidth="2" onClick={() => onElegir(p)}>{titulo}</path>;
+      })}
+    </svg>
+  );
+}
 const grupoDe = r => GRUPOS.find(g => g.id === grupoResolucionConv(r).id);
 const ordenAnios = (a, b) => (a === SIN_ANIO) - (b === SIN_ANIO) || b.localeCompare(a);
 // Una contratación puede tener varios motivos: cuenta en cada uno.
@@ -169,6 +192,47 @@ export default function AnalisisLicitaciones({ lista: listaPropia, motivosResolu
             {GRUPOS.map(g => (
               <span key={g.id} className="flex items-center gap-1.5"><span className={"w-2.5 h-2.5 rounded-sm " + g.color} />{g.etiqueta} {pct(porGrupo[g.id].length, total)}</span>
             ))}
+          </div>
+        </div>
+      )}
+
+      {montoTotal > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50/60">
+            <h3 className="text-sm font-semibold text-slate-900">Monto por resultado</h3>
+            <span className="text-[11px] text-slate-500">
+              Total {fmtMonto(montoTotal)}{sinMontoTotal > 0 ? " · " + sinMontoTotal + " contratacion" + (sinMontoTotal !== 1 ? "es" : "") + " sin monto (no suman)" : ""} · tocá una porción para ver esos expedientes
+            </span>
+          </div>
+          <div className="px-5 py-4 flex flex-col sm:flex-row items-center gap-6">
+            <Torta porciones={GRUPOS.map(g => ({ id: g.id, titulo: g.etiqueta, relleno: g.relleno, valor: sumaMontos(porGrupo[g.id]) }))}
+              seleccionada={GRUPOS.some(g => g.etiqueta === sel?.titulo) ? sel.titulo : null}
+              onElegir={p => elegir(p.titulo, e => grupoDe(e.resolucionConv)?.id === p.id)} />
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-100">
+                  <th className="py-2 px-2">Resultado</th><th className="py-2 px-2 text-right">Monto</th><th className="py-2 px-2 text-right">% monto</th><th className="py-2 px-2 text-right">Cant.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {GRUPOS.map(g => {
+                  const monto = sumaMontos(porGrupo[g.id]);
+                  const sinMonto = porGrupo[g.id].filter(e => montoDe(e) == null).length;
+                  return (
+                    <tr key={g.id} onClick={() => elegir(g.etiqueta, e => grupoDe(e.resolucionConv) === g)}
+                      className={"border-b border-slate-50 cursor-pointer hover:bg-slate-50 " + (sel?.titulo === g.etiqueta ? "bg-slate-100" : "")}>
+                      <td className="py-1.5 px-2"><span className="flex items-center gap-2"><span className={"w-2.5 h-2.5 rounded-sm " + g.color} />{g.etiqueta}</span></td>
+                      <td className="py-1.5 px-2 text-right whitespace-nowrap tabular-nums text-slate-900 font-medium" title={monto ? fmtMonto(monto) : undefined}>
+                        {monto ? fmtMontoCorto(monto) : <span className="text-slate-300">-</span>}
+                        {sinMonto > 0 && <span className="block text-[10px] font-normal text-amber-700">{sinMonto} sin monto</span>}
+                      </td>
+                      <td className="py-1.5 px-2 text-right tabular-nums text-slate-600">{monto ? pct(monto, montoTotal) : ""}</td>
+                      <td className="py-1.5 px-2 text-right tabular-nums text-slate-500">{porGrupo[g.id].length || ""}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
