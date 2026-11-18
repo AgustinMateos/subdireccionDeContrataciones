@@ -10,7 +10,7 @@ import {
   sectoresIyV, estadosIyV, puedeEditarIyV, puedeEliminarIyV, bloqueVacioIyV, camposObsIyV, claveObsIyV,
   CLASES_CONTRATACION_IYV, clasesIyV, unirClasesIyV, demoraInicioIyV,
   mesesDeAtrasoIyV, etiquetaMesIyV, leerMotivosAtrasoIyV, unirMotivosAtrasoIyV, MOTIVOS_DEMORA_IYV, MOTIVOS_FRACASO_IYV, MOTIVOS_ATRASO_IYV,
-  partidaIyV, partidaSegunObjetoIyV, esBienDeUsoIyV, esAnticipoIyV, RESOLUCIONES_CONV_IYV, RESOLUCION_DE_EXP_IYV, resolucionesIyV, expDeBloqueIyV, siguienteSubidaIyV, TITULO_BLOQUE_IYV,
+  partidaIyV, partidaSegunObjetoIyV, esBienDeUsoIyV, esAnticipoIyV, RESOLUCIONES_CONV_IYV, ENCUADRES_IYV, contratacionesIyV, RESOLUCION_DE_EXP_IYV, resolucionesIyV, expDeBloqueIyV, siguienteSubidaIyV, TITULO_BLOQUE_IYV,
 } from "@/lib/cuadroIyV";
 import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
 import CampoOpciones from "./CampoOpciones";
@@ -19,6 +19,8 @@ import { expParaBuscar } from "@/lib/numeroExpediente";
 import { PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, FILTRO_BIENES_DE_USO, etiquetaPartida } from "@/lib/inciso4";
 import { Campo_Select } from "./CamposFormulario";
 import EtiquetaResolucion from "./EtiquetaResolucion";
+import AnalisisLicitaciones from "./AnalisisLicitaciones";
+import { unirMotivos } from "@/lib/resolucionConv";
 
 const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
 const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-900 hover:border-slate-500 transition-colors focus:outline-none focus:border-slate-500 placeholder:text-slate-400";
@@ -142,7 +144,17 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
   const [pagina, setPagina] = useState(0);
   const [porPagina, setPorPagina] = useState(OPCIONES_POR_PAGINA[1]);
   const [ficha, setFicha] = useState(null); // null | "nueva" | id
+  // Solapa Análisis (la misma de Licitaciones), con los motivos de no
+  // adjudicación de Resoluciones por N° de expediente (se piden al abrirla).
+  const [enAnalisis, setEnAnalisis] = useState(false);
+  const [motivosPorNumero, setMotivosPorNumero] = useState(null);
   const hoy = hoyLocalISO();
+
+  useEffect(() => {
+    if (!enAnalisis || motivosPorNumero) return;
+    fetch("/api/cuadro-iyv/motivos").then(r => (r.ok ? r.json() : null)).catch(() => null)
+      .then(data => setMotivosPorNumero(data?.motivos || {}));
+  }, [enAnalisis, motivosPorNumero]);
 
   useEffect(() => {
     let activo = true;
@@ -175,13 +187,23 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
     for (const o of observaciones) { if (!m.has(o.clave)) m.set(o.clave, []); m.get(o.clave).push(o); }
     return m;
   }, [observaciones]);
+  const contrataciones = useMemo(() => (enAnalisis ? contratacionesIyV(lista) : []), [lista, enAnalisis]);
+  const motivosResoluciones = useMemo(() => {
+    if (!motivosPorNumero) return undefined;
+    const m = {};
+    for (const e of contrataciones) {
+      const ms = unirMotivos((String(e.exp).match(/\d{2}-\d{4,6}\/\d{4}/g) || []).flatMap(n => String(motivosPorNumero[n] || "").split(";")));
+      if (ms) m[e.id] = ms;
+    }
+    return m;
+  }, [contrataciones, motivosPorNumero]);
   const deLaHoja = useMemo(() => lista.filter(x => x.hoja === hoja), [lista, hoja]);
   const def = HOJAS_IYV[hoja];
   const tieneGrupo = !!campoIyV(hoja, "grupo");
   const tieneSituacion = !!campoIyV(hoja, "estado");
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); setPagina(0); }
-  function cambiarHoja(h) { setHoja(h); setF(filtroVacio()); setPagina(0); }
+  function cambiarHoja(h) { setHoja(h); setEnAnalisis(false); setF(filtroVacio()); setPagina(0); }
   const hayFiltros = Object.entries(f).some(([k, v]) => v !== filtroVacio()[k]);
 
   const opciones = useMemo(() => {
@@ -294,15 +316,26 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
         {ORDEN_HOJAS_IYV.map(h => (
           <button key={h} type="button" onClick={() => cambiarHoja(h)}
             className={"px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 whitespace-nowrap " +
-              (hoja === h ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}>
+              (hoja === h && !enAnalisis ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}>
             {HOJAS_IYV[h].etiqueta}
             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 tabular-nums">
               {lista.filter(x => x.hoja === h).length}
             </span>
           </button>
         ))}
+        <button type="button" onClick={() => { setEnAnalisis(true); setF(filtroVacio()); setPagina(0); }}
+          className={"px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors whitespace-nowrap " +
+            (enAnalisis ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}>
+          Análisis
+        </button>
       </div>
 
+      {enAnalisis ? (
+        <AnalisisLicitaciones lista={contrataciones} motivosResoluciones={motivosResoluciones}
+          onAbrir={id => setFicha(String(id).split(":")[0])}
+          resoluciones={RESOLUCIONES_CONV_IYV} partidaDe={e => e.partida} esBienDeUso={e => !!PARTIDAS_INCISO_4[e.partida]}
+          encuadres={ENCUADRES_IYV} etiquetaJurisdiccion="Fuero" archivo="informatica-y-varios-analisis" />
+      ) : (
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-b border-slate-100 bg-slate-50/60 flex-wrap">
           <div>
@@ -397,6 +430,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
         <Paginacion total={filtradas.length} pagina={paginaActual} porPagina={porPagina}
           onPagina={setPagina} onPorPagina={n => { setPorPagina(n); setPagina(0); }} />
       </div>
+      )}
 
       {ficha && (
         <FichaFila

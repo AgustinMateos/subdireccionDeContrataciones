@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
 import { fechaISO, montoNumero } from "@/lib/resoluciones";
 import {
-  FILTRO_BIENES_DE_USO, PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, esBienDeUso, anioExpediente, partidaDe, etiquetaPartida,
+  FILTRO_BIENES_DE_USO, PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, esBienDeUso as esBienDeUsoLic, anioExpediente, partidaDe as partidaDeLic, etiquetaPartida,
   ENCUADRES_LICITACIONES,
 } from "@/lib/licitaciones";
 import { RESOLUCIONES_CONV_LICITACIONES, GRUPOS_RESOLUCION_CONV, grupoResolucionConv, pideMotivo, MOTIVOS_NO_ADJUDICACION, motivosDe } from "@/lib/resolucionConv";
@@ -15,8 +15,6 @@ import EtiquetaResolucion from "./EtiquetaResolucion";
 
 const SIN_MOTIVO = "Sin motivo cargado";
 const SIN_ANIO = "Sin año";
-// Las resoluciones que piden motivo (adjudicación parcial y las no adjudicadas).
-const CON_MOTIVO = RESOLUCIONES_CONV_LICITACIONES.filter(pideMotivo);
 const BASES_ANIO = {
   exp: { etiqueta: "Año del expediente", de: e => anioExpediente(e) },
   mov: { etiqueta: "Año del último movimiento", de: e => fechaISO(e.fechaUltimoMov).slice(0, 4) },
@@ -37,7 +35,7 @@ const COLOR = {
   noAdjudicadas: { relleno: "fill-rose-500", color: "bg-rose-500", tarjeta: "border-rose-200 bg-rose-50 text-rose-900" },
   sinDefinir: { relleno: "fill-slate-200", color: "bg-slate-200", tarjeta: "border-dashed border-slate-300 bg-white text-slate-600" },
 };
-const GRUPOS = GRUPOS_RESOLUCION_CONV.map(g => ({ ...g, ...COLOR[g.id] }));
+const GRUPOS_TODOS = GRUPOS_RESOLUCION_CONV.map(g => ({ ...g, ...COLOR[g.id] }));
 // Torta en SVG: una porción por grupo, proporcional al monto.
 function Torta({ porciones, seleccionada, onElegir }) {
   const total = porciones.reduce((s, p) => s + p.valor, 0);
@@ -61,18 +59,31 @@ function Torta({ porciones, seleccionada, onElegir }) {
     </svg>
   );
 }
-const grupoDe = r => GRUPOS.find(g => g.id === grupoResolucionConv(r).id);
+const grupoDe = r => GRUPOS_TODOS.find(g => g.id === grupoResolucionConv(r).id);
 const ordenAnios = (a, b) => (a === SIN_ANIO) - (b === SIN_ANIO) || b.localeCompare(a);
 // Una contratación puede tener varios motivos: cuenta en cada uno.
 const motivosDeExp = e => { const ms = motivosDe(e.motivoResolucion); return ms.length ? ms : [SIN_MOTIVO]; };
 const tieneMotivo = (e, m) => motivosDeExp(e).includes(m);
 
-// Solapa Análisis de Licitaciones (jefa y jefe del departamento): cómo
-// terminaron las contrataciones, por año y partida, y por qué no se
-// adjudicaron. Tocar un número muestra esos expedientes abajo.
+// Solapa Análisis de Licitaciones (jefa y jefe del departamento) y del
+// Cuadro de Informática y Varios: cómo terminaron las contrataciones, por
+// año y partida, y por qué no se adjudicaron. Tocar un número muestra esos
+// expedientes abajo.
 // `motivosResoluciones`: { [id]: "..." } lo que cargó Resoluciones; se usa
-// cuando Licitaciones no cargó el motivo (el de Licitaciones gana).
-export default function AnalisisLicitaciones({ lista: listaPropia, motivosResoluciones, onAbrir }) {
+// cuando el panel no cargó el motivo (el del panel gana).
+// Lo que cambia de un panel a otro: las resoluciones posibles, cómo se lee
+// la partida, los encuadres, la etiqueta de la jurisdicción y el nombre
+// del Excel. Si la contratación trae `bloque`, se muestra bajo el N°.
+export default function AnalisisLicitaciones({
+  lista: listaPropia, motivosResoluciones, onAbrir,
+  resoluciones = RESOLUCIONES_CONV_LICITACIONES, partidaDe: partidaDeProp = partidaDeLic, esBienDeUso: esBienDeUsoProp = esBienDeUsoLic,
+  encuadres = ENCUADRES_LICITACIONES, etiquetaJurisdiccion = "Jurisdicción", archivo = "licitaciones-analisis",
+}) {
+  const partidaDe = partidaDeProp, esBienDeUso = esBienDeUsoProp;
+  // Solo los grupos y las resoluciones que existen en este panel.
+  const GRUPOS = GRUPOS_TODOS.filter(g => g.incluye.some(r => r === "" || resoluciones.includes(r)));
+  // Las resoluciones que piden motivo (adjudicación parcial y las no adjudicadas).
+  const CON_MOTIVO = resoluciones.filter(pideMotivo);
   const lista = useMemo(() => listaPropia.map(e => (!e.motivoResolucion && motivosResoluciones?.[e.id]
     ? { ...e, motivoResolucion: motivosResoluciones[e.id], motivoDeResoluciones: true } : e)), [listaPropia, motivosResoluciones]);
   const [base, setBase] = useState("exp");
@@ -85,7 +96,7 @@ export default function AnalisisLicitaciones({ lista: listaPropia, motivosResolu
     anio: [...new Set(lista.map(anioDe))].sort(ordenAnios),
     partida: [FILTRO_BIENES_DE_USO, ...Object.keys(PARTIDAS_INCISO_4).map(etiquetaPartida), etiquetaPartida(NO_ES_BIEN_DE_USO)],
     jurisdiccion: [...new Set(lista.map(e => e.jurisdiccion).filter(Boolean))].sort(),
-    encuadre: [...new Set([...ENCUADRES_LICITACIONES, ...lista.map(e => e.encuadre).filter(Boolean)])],
+    encuadre: [...new Set([...encuadres, ...lista.map(e => e.encuadre).filter(Boolean)])],
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [lista, base]);
 
@@ -110,6 +121,7 @@ export default function AnalisisLicitaciones({ lista: listaPropia, motivosResolu
   const anios = [...new Set(sinAnio.map(anioDe))].sort(ordenAnios);
   const elegir = (titulo, incluye) => setSel(s => (s?.titulo === titulo ? null : { titulo, incluye }));
   const seleccionados = sel ? filas.filter(sel.incluye) : [];
+  const conBloque = lista.some(e => e.bloque);
   const hayFiltros = f.anio || f.partida !== FILTRO_BIENES_DE_USO || f.jurisdiccion || f.encuadre;
 
   // Celda con un número que filtra la lista de abajo.
@@ -124,16 +136,16 @@ export default function AnalisisLicitaciones({ lista: listaPropia, motivosResolu
 
   function exportar() {
     const datos = [
-      ["EXP", "AÑO", "JURISDICCION", "OBJETO", "PARTIDA (INCISO 4)", "ENCUADRE", "MONTO", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO"],
-      ...seleccionados.map(e => [e.exp, anioDe(e), e.jurisdiccion || "", e.objeto, etiquetaPartida(partidaDe(e)), e.encuadre || "", montoDe(e) ?? (e.monto || ""),
+      ["EXP", ...(conBloque ? ["BLOQUE"] : []), "AÑO", etiquetaJurisdiccion.toUpperCase(), "OBJETO", "PARTIDA (INCISO 4)", "ENCUADRE", "MONTO", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO"],
+      ...seleccionados.map(e => [e.exp, ...(conBloque ? [e.bloque || ""] : []), anioDe(e), e.jurisdiccion || "", e.objeto, etiquetaPartida(partidaDe(e)), e.encuadre || "", montoDe(e) ?? (e.monto || ""),
         e.resolucionConv || "", (e.motivoResolucion || "") + (e.motivoDeResoluciones ? " (según Resoluciones)" : ""), e.motivoDetalle || ""]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(datos);
-    ws["!cols"] = [16, 8, 26, 60, 26, 14, 18, 22, 40, 50].map(wch => ({ wch }));
+    ws["!cols"] = [16, ...(conBloque ? [18] : []), 8, 26, 60, 26, 14, 18, 22, 40, 50].map(wch => ({ wch }));
     const wb = XLSX.utils.book_new();
-    for (let i = 1; i < datos.length; i++) { const c = ws[XLSX.utils.encode_cell({ r: i, c: 6 })]; if (c?.t === "n") c.z = '"$" #,##0.00'; }
+    for (let i = 1; i < datos.length; i++) { const c = ws[XLSX.utils.encode_cell({ r: i, c: conBloque ? 7 : 6 })]; if (c?.t === "n") c.z = '"$" #,##0.00'; }
     XLSX.utils.book_append_sheet(wb, ws, "Análisis");
-    XLSX.writeFile(wb, "licitaciones-analisis-" + hoyLocalISO() + ".xlsx");
+    XLSX.writeFile(wb, archivo + "-" + hoyLocalISO() + ".xlsx");
   }
 
   return (
@@ -150,7 +162,7 @@ export default function AnalisisLicitaciones({ lista: listaPropia, motivosResolu
           <FiltroColumna valor={f.anio} etiqueta="Todos los años" opciones={opciones.anio} onChange={v => set("anio", v)} /></div>
         <div className="w-60 text-[11px] text-slate-500 space-y-1"><span className="block">Partida</span>
           <FiltroColumna valor={f.partida} etiqueta="Todas las partidas" opciones={opciones.partida} onChange={v => set("partida", v)} /></div>
-        <div className="w-52 text-[11px] text-slate-500 space-y-1"><span className="block">Jurisdicción</span>
+        <div className="w-52 text-[11px] text-slate-500 space-y-1"><span className="block">{etiquetaJurisdiccion}</span>
           <FiltroColumna valor={f.jurisdiccion} etiqueta="Todas" opciones={opciones.jurisdiccion} onChange={v => set("jurisdiccion", v)} /></div>
         <div className="w-40 text-[11px] text-slate-500 space-y-1"><span className="block">Encuadre</span>
           <FiltroColumna valor={f.encuadre} etiqueta="Todos" opciones={opciones.encuadre} onChange={v => set("encuadre", v)} /></div>
@@ -287,7 +299,7 @@ export default function AnalisisLicitaciones({ lista: listaPropia, motivosResolu
               </tr>
             </thead>
             <tbody>
-              {[...RESOLUCIONES_CONV_LICITACIONES, ""].map(r => {
+              {[...resoluciones, ""].map(r => {
                 const deR = filas.filter(e => (e.resolucionConv || "") === r);
                 const n = deR.length;
                 const monto = sumaMontos(deR);
@@ -400,7 +412,10 @@ export default function AnalisisLicitaciones({ lista: listaPropia, motivosResolu
               <tbody>
                 {seleccionados.map(e => (
                   <tr key={e.id} onClick={() => onAbrir(e.id)} className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer align-top">
-                    <td className="py-2 px-3 font-mono font-semibold text-slate-900 whitespace-nowrap">{e.exp}</td>
+                    <td className="py-2 px-3 font-mono font-semibold text-slate-900 whitespace-nowrap">
+                      {e.exp || "-"}
+                      {e.bloque && <span className="block font-sans font-normal text-[10px] text-slate-500">{e.bloque}</span>}
+                    </td>
                     <td className="py-2 px-3 text-slate-600">{anioDe(e)}</td>
                     <td className="py-2 px-3 text-slate-700"><span className="line-clamp-2" title={e.objeto}>{e.objeto}</span></td>
                     <td className="py-2 px-3 text-slate-600 whitespace-nowrap">{etiquetaPartida(partidaDe(e))}</td>
