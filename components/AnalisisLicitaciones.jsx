@@ -71,11 +71,14 @@ const tieneMotivo = (e, m) => motivosDeExp(e).includes(m);
 // expedientes abajo.
 // `motivosResoluciones`: { [id]: "..." } lo que cargó Resoluciones; se usa
 // cuando el panel no cargó el motivo (el del panel gana).
+// `resolucionesDeResoluciones`: { [id]: { valor, enTramite } } cómo terminó
+// según el tipo de resolución de Resoluciones; igual, solo si el panel no
+// cargó la resolución de la convocatoria.
 // Lo que cambia de un panel a otro: las resoluciones posibles, cómo se lee
 // la partida, los encuadres, la etiqueta de la jurisdicción y el nombre
 // del Excel. Si la contratación trae `bloque`, se muestra bajo el N°.
 export default function AnalisisLicitaciones({
-  lista: listaPropia, motivosResoluciones, onAbrir,
+  lista: listaPropia, motivosResoluciones, resolucionesDeResoluciones, onAbrir,
   resoluciones = RESOLUCIONES_CONV_LICITACIONES, partidaDe: partidaDeProp = partidaDeLic, esBienDeUso: esBienDeUsoProp = esBienDeUsoLic,
   encuadres = ENCUADRES_LICITACIONES, etiquetaJurisdiccion = "Jurisdicción", archivo = "licitaciones-analisis",
 }) {
@@ -84,8 +87,12 @@ export default function AnalisisLicitaciones({
   const GRUPOS = GRUPOS_TODOS.filter(g => g.incluye.some(r => r === "" || resoluciones.includes(r)));
   // Las resoluciones que piden motivo (adjudicación parcial y las no adjudicadas).
   const CON_MOTIVO = resoluciones.filter(pideMotivo);
-  const lista = useMemo(() => listaPropia.map(e => (!e.motivoResolucion && motivosResoluciones?.[e.id]
-    ? { ...e, motivoResolucion: motivosResoluciones[e.id], motivoDeResoluciones: true } : e)), [listaPropia, motivosResoluciones]);
+  const lista = useMemo(() => listaPropia.map(e => {
+    const r = !e.resolucionConv && resolucionesDeResoluciones?.[e.id];
+    if (r) e = { ...e, resolucionConv: r.valor, resolucionDeResoluciones: true, resolucionEnTramite: r.enTramite };
+    if (!e.motivoResolucion && motivosResoluciones?.[e.id]) e = { ...e, motivoResolucion: motivosResoluciones[e.id], motivoDeResoluciones: true };
+    return e;
+  }), [listaPropia, motivosResoluciones, resolucionesDeResoluciones]);
   const [base, setBase] = useState("exp");
   const [f, setF] = useState({ anio: "", partida: FILTRO_BIENES_DE_USO, jurisdiccion: "", encuadre: "" });
   const [sel, setSel] = useState(null); // { titulo, incluye }
@@ -122,6 +129,7 @@ export default function AnalisisLicitaciones({
   const elegir = (titulo, incluye) => setSel(s => (s?.titulo === titulo ? null : { titulo, incluye }));
   const seleccionados = sel ? filas.filter(sel.incluye) : [];
   const conBloque = lista.some(e => e.bloque);
+  const porResoluciones = filas.filter(e => e.resolucionDeResoluciones).length;
   const hayFiltros = f.anio || f.partida !== FILTRO_BIENES_DE_USO || f.jurisdiccion || f.encuadre;
 
   // Celda con un número que filtra la lista de abajo.
@@ -138,7 +146,7 @@ export default function AnalisisLicitaciones({
     const datos = [
       ["EXP", ...(conBloque ? ["BLOQUE"] : []), "AÑO", etiquetaJurisdiccion.toUpperCase(), "OBJETO", "PARTIDA (INCISO 4)", "ENCUADRE", "MONTO", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO"],
       ...seleccionados.map(e => [e.exp, ...(conBloque ? [e.bloque || ""] : []), anioDe(e), e.jurisdiccion || "", e.objeto, etiquetaPartida(partidaDe(e)), e.encuadre || "", montoDe(e) ?? (e.monto || ""),
-        e.resolucionConv || "", (e.motivoResolucion || "") + (e.motivoDeResoluciones ? " (según Resoluciones)" : ""), e.motivoDetalle || ""]),
+        (e.resolucionConv || "") + (e.resolucionDeResoluciones ? " (según Resoluciones" + (e.resolucionEnTramite ? ", en trámite)" : ")") : ""), (e.motivoResolucion || "") + (e.motivoDeResoluciones ? " (según Resoluciones)" : ""), e.motivoDetalle || ""]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(datos);
     ws["!cols"] = [16, ...(conBloque ? [18] : []), 8, 26, 60, 26, 14, 18, 22, 40, 50].map(wch => ({ wch }));
@@ -289,7 +297,12 @@ export default function AnalisisLicitaciones({
 
         {/* Por resolución */}
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <h3 className="px-5 py-2.5 border-b border-slate-100 bg-slate-50/60 text-sm font-semibold text-slate-900">Por resolución de la convocatoria</h3>
+          <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50/60">
+            <h3 className="text-sm font-semibold text-slate-900">Por resolución de la convocatoria</h3>
+            {porResoluciones > 0 && (
+              <span className="text-[11px] text-slate-500">{porResoluciones} sin resolución cargada en el panel tomada{porResoluciones !== 1 ? "s" : ""} de Resoluciones (por su tipo de resolución)</span>
+            )}
+          </div>
           <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -422,7 +435,10 @@ export default function AnalisisLicitaciones({
                     <td className="py-2 px-3 text-right whitespace-nowrap tabular-nums text-slate-700" title={e.monto || undefined}>
                       {montoDe(e) != null ? fmtMonto(montoDe(e)) : <span className="text-slate-300">-</span>}
                     </td>
-                    <td className="py-2 px-3">{e.resolucionConv ? <EtiquetaResolucion valor={e.resolucionConv} /> : <span className="text-slate-400">-</span>}</td>
+                    <td className="py-2 px-3">
+                      {e.resolucionConv ? <EtiquetaResolucion valor={e.resolucionConv} /> : <span className="text-slate-400">-</span>}
+                      {e.resolucionDeResoluciones && <span className="block text-[10px] text-violet-700">según Resoluciones{e.resolucionEnTramite ? " (en trámite)" : ""}</span>}
+                    </td>
                     <td className="py-2 px-3 text-slate-700">
                       {pideMotivo(e.resolucionConv) ? (e.motivoResolucion || <span className="text-amber-700">Sin cargar</span>) : <span className="text-slate-300">-</span>}
                       {pideMotivo(e.resolucionConv) && e.motivoDeResoluciones && <span className="block text-[10px] text-violet-700">según Resoluciones</span>}

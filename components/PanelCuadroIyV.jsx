@@ -144,17 +144,18 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
   const [pagina, setPagina] = useState(0);
   const [porPagina, setPorPagina] = useState(OPCIONES_POR_PAGINA[1]);
   const [ficha, setFicha] = useState(null); // null | "nueva" | id
-  // Solapa Análisis (la misma de Licitaciones), con los motivos de no
-  // adjudicación de Resoluciones por N° de expediente (se piden al abrirla).
+  // Solapa Análisis (la misma de Licitaciones), cruzada con Resoluciones
+  // por N° de expediente: cómo terminó la convocatoria (si el cuadro no lo
+  // tiene cargado) y los motivos de no adjudicación. Se piden al abrirla.
   const [enAnalisis, setEnAnalisis] = useState(false);
-  const [motivosPorNumero, setMotivosPorNumero] = useState(null);
+  const [cruceRes, setCruceRes] = useState(null);
   const hoy = hoyLocalISO();
 
   useEffect(() => {
-    if (!enAnalisis || motivosPorNumero) return;
-    fetch("/api/cuadro-iyv/motivos").then(r => (r.ok ? r.json() : null)).catch(() => null)
-      .then(data => setMotivosPorNumero(data?.motivos || {}));
-  }, [enAnalisis, motivosPorNumero]);
+    if (!enAnalisis || cruceRes) return;
+    fetch("/api/cuadro-iyv/resoluciones").then(r => (r.ok ? r.json() : null)).catch(() => null)
+      .then(data => setCruceRes({ resoluciones: data?.resoluciones || {}, motivos: data?.motivos || {} }));
+  }, [enAnalisis, cruceRes]);
 
   useEffect(() => {
     let activo = true;
@@ -188,15 +189,18 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
     return m;
   }, [observaciones]);
   const contrataciones = useMemo(() => (enAnalisis ? contratacionesIyV(lista) : []), [lista, enAnalisis]);
-  const motivosResoluciones = useMemo(() => {
-    if (!motivosPorNumero) return undefined;
-    const m = {};
+  const cruceAnalisis = useMemo(() => {
+    if (!cruceRes) return {};
+    const motivos = {}, resoluciones = {};
     for (const e of contrataciones) {
-      const ms = unirMotivos((String(e.exp).match(/\d{2}-\d{4,6}\/\d{4}/g) || []).flatMap(n => String(motivosPorNumero[n] || "").split(";")));
-      if (ms) m[e.id] = ms;
+      const nums = String(e.exp).match(/\d{2}-\d{4,6}\/\d{4}/g) || [];
+      const ms = unirMotivos(nums.flatMap(n => String(cruceRes.motivos[n] || "").split(";")));
+      if (ms) motivos[e.id] = ms;
+      const r = nums.map(n => cruceRes.resoluciones[n]).find(Boolean);
+      if (r) resoluciones[e.id] = r;
     }
-    return m;
-  }, [contrataciones, motivosPorNumero]);
+    return { motivos, resoluciones };
+  }, [contrataciones, cruceRes]);
   const deLaHoja = useMemo(() => lista.filter(x => x.hoja === hoja), [lista, hoja]);
   const def = HOJAS_IYV[hoja];
   const tieneGrupo = !!campoIyV(hoja, "grupo");
@@ -331,7 +335,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
       </div>
 
       {enAnalisis ? (
-        <AnalisisLicitaciones lista={contrataciones} motivosResoluciones={motivosResoluciones}
+        <AnalisisLicitaciones lista={contrataciones} motivosResoluciones={cruceAnalisis.motivos} resolucionesDeResoluciones={cruceAnalisis.resoluciones}
           onAbrir={id => setFicha(String(id).split(":")[0])}
           resoluciones={RESOLUCIONES_CONV_IYV} partidaDe={e => e.partida} esBienDeUso={e => !!PARTIDAS_INCISO_4[e.partida]}
           encuadres={ENCUADRES_IYV} etiquetaJurisdiccion="Fuero" archivo="informatica-y-varios-analisis" />
