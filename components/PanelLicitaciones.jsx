@@ -25,6 +25,7 @@ import EtiquetaResolucion from "./EtiquetaResolucion";
 import { RESOLUCIONES_CONV_LICITACIONES as RESOLUCIONES_CONV, pideMotivo, motivosDe, esFrenado, textoFrenado } from "@/lib/resolucionConv";
 import { CampoMotivos } from "./ModalMotivosNoAdjudicacion";
 import AnalisisLicitaciones from "./AnalisisLicitaciones";
+import { noLlevaOrdenCompra, NO_LLEVA_OC } from "@/lib/inciso4";
 import PresupuestoBienesDeUso from "./PresupuestoBienesDeUso";
 import { PRESUPUESTO_LICITACIONES } from "@/lib/presupuestoLicitaciones";
 import { SelectRapido, FiltroColumna, Seccion, DatoFicha } from "./PanelResoluciones";
@@ -43,7 +44,7 @@ function filtroVacio() {
 
 const VACIO = {
   exp: "", jurisdiccion: "", organismo: "", domicilio: "", rubro: "", objeto: "", monto: "", plazoEjecucion: "",
-  encuadre: "", partida: "", fechaUltimoMov: "", sector: "", estadoInterno: "", estadoConvocatoria: "", resolucionConv: "", motivoResolucion: "", motivoDetalle: "", frenadoDonde: "", frenadoDesde: "", observaciones: "",
+  encuadre: "", partida: "", fechaUltimoMov: "", sector: "", estadoInterno: "", estadoConvocatoria: "", resolucionConv: "", motivoResolucion: "", motivoDetalle: "", frenadoDonde: "", frenadoDesde: "", ordenCompra: "", observaciones: "",
   agente: "", paseFirma: "", prioritario: false,
 };
 
@@ -258,6 +259,14 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                 <Campo_Select label="Resolución conv." value={f.resolucionConv || ""} onChange={v => set("resolucionConv", v)} disabled={fijo}
                   opciones={["", ...RESOLUCIONES_CONV]} labels={{ "": "Sin definir" }} />
                 <Campo_Input label="Último movimiento" type="date" max="9999-12-31" value={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
+                {noLlevaOrdenCompra(f.encuadre) ? (
+                  <div>
+                    <Campo_Input label="Orden de compra" value={f.ordenCompra} onChange={v => set("ordenCompra", v)} disabled placeholder={NO_LLEVA_OC} />
+                    <p className="mt-1 text-[11px] text-slate-500">{NO_LLEVA_OC} ({f.encuadre})</p>
+                  </div>
+                ) : (
+                  <Campo_Input label="Orden de compra" value={f.ordenCompra} onChange={v => set("ordenCompra", v)} disabled={fijo} placeholder="N° de OC" />
+                )}
                 {esFrenado(f.resolucionConv) && (
                   <>
                     <div className="col-span-2">
@@ -428,13 +437,13 @@ function exportarExcel(filas, solapa, resoluciones, contrataciones, actas = {}, 
   const columnasActas = Array.from({ length: maxActas }, (_, i) => "ACTA DE APERTURA" + (maxActas > 1 ? " " + (i + 1) : ""));
   const datos = [
     ["EXP", "JURISDICCION", "ORGANISMO", "DOMICILIO", "RUBRO", "PARTIDA (INCISO 4)", "OBJETO", "MONTO", "PLAZO DE EJECUCION (DH)", "ENCUADRE",
-      "ULTIMO MOVIMIENTO", "DIAS EN EL SECTOR", "SECTOR", "ESTADO INTERNO", "ESTADO CONVOCATORIA", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO", "DEMORADO EN", "DEMORADO DESDE", "OBSERVACIONES", "AGENTE",
+      "ULTIMO MOVIMIENTO", "DIAS EN EL SECTOR", "SECTOR", "ESTADO INTERNO", "ESTADO CONVOCATORIA", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO", "DEMORADO EN", "DEMORADO DESDE", "ORDEN DE COMPRA", "OBSERVACIONES", "AGENTE",
       "PASE A LA FIRMA", "PRIORITARIO", "TIPO DE RESOLUCION (EN RESOLUCIONES)", "N° DE CONTRATACION (RESOLUCIONES)",
       "FRACASOS / DESIERTAS / REVOCADAS / PARCIALES", "DONDE FIGURA", ...columnasActas],
     ...filas.map(e => [
       e.exp, e.jurisdiccion || "", e.organismo || "", e.domicilio || "", e.rubro || "", etiquetaPartida(partidaDe(e)), e.objeto, e.monto || "", e.plazoEjecucion || "",
       e.encuadre || "", fecha(e.fechaUltimoMov), diasEnSectorLicitacion(e) ?? "", e.sector || "", e.estadoInterno || "",
-      e.estadoConvocatoria || "", e.resolucionConv || "", e.motivoResolucion || "", e.motivoDetalle || "", e.frenadoDonde || "", e.frenadoDesde ? fecha(e.frenadoDesde) : "", [e.observaciones, resultados?.[e.id]?.deResoluciones].filter(Boolean).join(" // "), e.agente || "", e.paseFirma ? fecha(e.paseFirma) : "",
+      e.estadoConvocatoria || "", e.resolucionConv || "", e.motivoResolucion || "", e.motivoDetalle || "", e.frenadoDonde || "", e.frenadoDesde ? fecha(e.frenadoDesde) : "", noLlevaOrdenCompra(e.encuadre) ? NO_LLEVA_OC : e.ordenCompra || "", [e.observaciones, resultados?.[e.id]?.deResoluciones].filter(Boolean).join(" // "), e.agente || "", e.paseFirma ? fecha(e.paseFirma) : "",
       e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
       resoluciones ? resoluciones[e.id] || "No pasó por Resoluciones" : "",
       contrataciones?.[e.id] || "",

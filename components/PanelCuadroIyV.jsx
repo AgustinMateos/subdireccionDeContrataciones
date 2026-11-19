@@ -16,7 +16,7 @@ import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
 import CampoOpciones from "./CampoOpciones";
 import { FiltroColumna, Seccion } from "./PanelResoluciones";
 import { expParaBuscar } from "@/lib/numeroExpediente";
-import { PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, FILTRO_BIENES_DE_USO, etiquetaPartida } from "@/lib/inciso4";
+import { PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, FILTRO_BIENES_DE_USO, etiquetaPartida, noLlevaOrdenCompra, NO_LLEVA_OC } from "@/lib/inciso4";
 import { Campo_Select } from "./CamposFormulario";
 import EtiquetaResolucion from "./EtiquetaResolucion";
 import AnalisisLicitaciones from "./AnalisisLicitaciones";
@@ -626,6 +626,16 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
                           puedeEditar={puedeEditar} puedeEliminar={puedeEliminar}
                           onAgregar={onAgregarObs} onBorrar={onBorrarObs}
                         />
+                      </div>
+                    );
+                  }
+                  // Orden de compra en un encuadre que no la lleva: leyenda (y lo que tenga cargado).
+                  if (campo.ordenCompra && noLlevaOrdenCompra(d[campo.ordenCompra])) {
+                    return (
+                      <div key={campo.k} className="min-w-0">
+                        <p className="text-xs font-medium text-slate-500 mb-1">{campo.label}</p>
+                        <p className={"text-sm break-words " + (d[campo.k] ? "text-slate-900" : "text-slate-400")}>{d[campo.k] || NO_LLEVA_OC}</p>
+                        {d[campo.k] && <p className="text-[11px] text-slate-500 mt-0.5">{NO_LLEVA_OC}</p>}
                       </div>
                     );
                   }
