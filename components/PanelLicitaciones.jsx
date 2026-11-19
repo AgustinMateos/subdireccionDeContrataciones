@@ -25,6 +25,8 @@ import EtiquetaResolucion from "./EtiquetaResolucion";
 import { RESOLUCIONES_CONV_LICITACIONES as RESOLUCIONES_CONV, pideMotivo, motivosDe, esFrenado, textoFrenado } from "@/lib/resolucionConv";
 import { CampoMotivos } from "./ModalMotivosNoAdjudicacion";
 import AnalisisLicitaciones from "./AnalisisLicitaciones";
+import PresupuestoBienesDeUso from "./PresupuestoBienesDeUso";
+import { PRESUPUESTO_LICITACIONES } from "@/lib/presupuestoLicitaciones";
 import { SelectRapido, FiltroColumna, Seccion, DatoFicha } from "./PanelResoluciones";
 import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 
@@ -407,6 +409,11 @@ export const SOLAPAS = [
 ];
 // Solo para la jefa y el jefe del departamento; no lista expedientes.
 const SOLAPA_ANALISIS = { id: "analisis", etiqueta: "Análisis", incluye: () => true };
+// Igual: qué expedientes encuadran en cada título del presupuesto de bienes de uso.
+const SOLAPA_PRESUPUESTO = { id: "presupuesto", etiqueta: "Presupuesto " + PRESUPUESTO_LICITACIONES.anio, incluye: () => true };
+// Los expedientes como los usa PresupuestoBienesDeUso (la partida, ya resuelta; el rubro, de subtítulo).
+const paraPresupuesto = e => ({ ...e, partida: partidaDe(e), bloque: e.rubro || "", fechaUltimoMov: fechaISO(e.fechaUltimoMov) });
+const textoPresupuesto = e => (e.objeto || "") + " " + (e.rubro || "");
 
 // `resoluciones`: { [id]: para qué está o estuvo en Resoluciones } y
 // `contrataciones`: { [id]: sus N° de contratación allá }; sin ellos (no
@@ -515,8 +522,10 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
     };
   }, [lista]);
 
-  const solapas = [...SOLAPAS.filter(s => !s.soloJefa || esJefa), ...(esJefe ? [SOLAPA_ANALISIS] : [])];
+  const solapas = [...SOLAPAS.filter(s => !s.soloJefa || esJefa), ...(esJefe ? [SOLAPA_ANALISIS, SOLAPA_PRESUPUESTO] : [])];
   const enAnalisis = solapa === SOLAPA_ANALISIS.id && esJefe;
+  const enPresupuesto = solapa === SOLAPA_PRESUPUESTO.id && esJefe;
+  const listaPresupuesto = useMemo(() => (enPresupuesto ? lista.map(paraPresupuesto) : []), [lista, enPresupuesto]);
   const deLaSolapa = useMemo(() => lista.filter((SOLAPAS.find(s => s.id === solapa) || SOLAPAS[0]).incluye), [lista, solapa]);
   // En Concluidos y archivados no se cuentan días en el sector.
   const enTerminados = solapa === "terminados";
@@ -634,7 +643,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
             (solapa === s.id ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}
         >
           {s.etiqueta}
-          {s !== SOLAPA_ANALISIS && (
+          {s !== SOLAPA_ANALISIS && s !== SOLAPA_PRESUPUESTO && (
             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 tabular-nums">
               {lista.filter(s.incluye).length}
             </span>
@@ -642,7 +651,10 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
         </button>
       ))}
     </div>
-    {enAnalisis ? (
+    {enPresupuesto ? (
+      <PresupuestoBienesDeUso presupuesto={PRESUPUESTO_LICITACIONES} lista={listaPresupuesto} textoDe={textoPresupuesto}
+        onAbrir={setForm} archivo="licitaciones-presupuesto" />
+    ) : enAnalisis ? (
       <AnalisisLicitaciones lista={lista} motivosResoluciones={cruce ? cruce.motivos : undefined} onAbrir={setForm} />
     ) : (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">

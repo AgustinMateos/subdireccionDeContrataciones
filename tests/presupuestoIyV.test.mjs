@@ -27,3 +27,20 @@ test("lo ambiguo encuadra en más de un título y lo que no es del área, en nin
   assert.deepEqual(titulos("Provisión de tóner"), []);
   assert.deepEqual(titulos(""), []);
 });
+
+// Licitaciones: Mobiliario, maquinaria y equipamiento (por objeto y rubro).
+import { PRESUPUESTO_LICITACIONES } from "../lib/presupuestoLicitaciones.js";
+const tituloLic = (objeto, rubro = "") => PRESUPUESTO_LICITACIONES.renglonesDe(objeto + " " + rubro).map(x => x.descripcion);
+
+test("Licitaciones: los renglones suman el total de la planilla", () => {
+  for (const t of PRESUPUESTO_LICITACIONES.tipos) assert.ok(Math.abs(PRESUPUESTO_LICITACIONES.suma(t.id) - t.total) <= 5, t.id);
+});
+
+test("Licitaciones: cada objeto va a su título", () => {
+  assert.deepEqual(tituloLic("Provisión e instalación de equipos", "AA"), ["Equipos de Aire Acondicionado / Termomecánica"]);
+  assert.deepEqual(tituloLic("Adquisición de sillas y escritorios", "MOBILIARIO"), ["Dependencias Total País"]);
+  assert.deepEqual(tituloLic("Provisión de heladeras y microondas", "ELECTRODOMESTICO"), ["Desfibriladores / Electrodomésticos"]);
+  assert.deepEqual(tituloLic("Recarga de matafuegos"), ["Matafuegos / Iluminación Emergencia"]);
+  assert.deepEqual(tituloLic("Sistema de detección de incendio"), ["Provisión de Sistema Detección Incendio"]);
+  assert.deepEqual(tituloLic("Provisión de resmas", "RESMAS"), []);
+});

@@ -20,7 +20,7 @@ import { PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, FILTRO_BIENES_DE_USO, etiquetaPar
 import { Campo_Select } from "./CamposFormulario";
 import EtiquetaResolucion from "./EtiquetaResolucion";
 import AnalisisLicitaciones from "./AnalisisLicitaciones";
-import PresupuestoIyV from "./PresupuestoIyV";
+import PresupuestoBienesDeUso from "./PresupuestoBienesDeUso";
 import { PRESUPUESTO_IYV } from "@/lib/presupuestoIyV";
 import { unirMotivos, esFrenado, textoFrenado } from "@/lib/resolucionConv";
 
@@ -344,7 +344,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
       </div>
 
       {enPresupuesto ? (
-        <PresupuestoIyV lista={contrataciones} resolucionesDeResoluciones={cruceAnalisis.resoluciones} onAbrir={id => setFicha(String(id).split(":")[0])} />
+        <PresupuestoBienesDeUso presupuesto={PRESUPUESTO_IYV} conAntecedentes archivo="informatica-y-varios-presupuesto" lista={contrataciones} resolucionesDeResoluciones={cruceAnalisis.resoluciones} onAbrir={id => setFicha(String(id).split(":")[0])} />
       ) : enAnalisis ? (
         <AnalisisLicitaciones lista={contrataciones} motivosResoluciones={cruceAnalisis.motivos} resolucionesDeResoluciones={cruceAnalisis.resoluciones}
           onAbrir={id => setFicha(String(id).split(":")[0])}

@@ -6,7 +6,6 @@ import * as XLSX from "xlsx";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
 import { montoNumero } from "@/lib/resoluciones";
 import { PARTIDAS_INCISO_4, etiquetaPartida } from "@/lib/inciso4";
-import { PRESUPUESTO_IYV, RENGLONES_PRESUPUESTO_IYV, renglonesDeObjetoIyV } from "@/lib/presupuestoIyV";
 import EtiquetaResolucion from "./EtiquetaResolucion";
 
 const fmtMonto = n => "$ " + Math.round(n).toLocaleString("es-AR");
@@ -14,20 +13,29 @@ const pct = (n, total) => (!total ? "-" : n && n / total < 0.01 ? "<1%" : Math.r
 const montoDe = e => montoNumero(e.monto);
 const sumaMontos = es => es.reduce((s, e) => s + (montoDe(e) || 0), 0);
 const esAntecedente = e => e.hoja === "antecedentes";
-const tipoDe = id => PRESUPUESTO_IYV.tipos.find(t => t.id === id);
 const anioMovDe = e => String(e.fechaUltimoMov || "").slice(0, 4);
 const SIN_MOV = "sin";
 // Adjudicadas: totales o parciales.
 const ADJUDICADAS = ["Adjudicada", "Adjudicación parcial"];
 const FRACASADAS = ["Fracasada", "Fracasa / Autoriza", "Fracasa / Desierta"];
 
-// Solapa "Presupuesto 2026" del Cuadro de Informática y Varios: los títulos
-// de las planillas de bienes de uso (tangibles e intangibles) y qué
-// expedientes del cuadro encuadran en cada uno, según su objeto.
+// Solapa "Presupuesto 2026" (Cuadro de Informática y Varios, Licitaciones):
+// los títulos de las planillas de bienes de uso (`presupuesto`, de
+// lib/presupuestos.js) y qué expedientes del cuadro encuadran en cada uno.
+// `lista`: los expedientes con exp, bloque (subtítulo), jurisdiccion,
+// objeto, partida (ya resuelta), monto, resolucionConv y fechaUltimoMov.
+// `textoDe`: el texto que se cruza con los títulos (por defecto, el objeto).
+// `conAntecedentes`: muestra la opción de sumar los antecedentes (hoja
+// "antecedentes" del Cuadro IyV).
 // `resolucionesDeResoluciones` ({ [id]: { valor, enTramite } }): cómo
 // terminó según Resoluciones, para los que no la tienen cargada en el cuadro
 // (el mismo cruce que el Análisis).
-export default function PresupuestoIyV({ lista, onAbrir, resolucionesDeResoluciones }) {
+export default function PresupuestoBienesDeUso({
+  presupuesto, lista, onAbrir, resolucionesDeResoluciones, textoDe = e => e.objeto, conAntecedentes: opcionAntecedentes = false, archivo,
+}) {
+  const PRESUPUESTO = presupuesto;
+  const RENGLONES = presupuesto.renglones;
+  const tipoDe = id => presupuesto.tipos.find(t => t.id === id);
   const [conAntecedentes, setConAntecedentes] = useState(false);
   // Filtros: solo los bienes de uso del cuadro (Inciso 4) y el año del
   // último movimiento del expediente (del bloque: vigente, continuidad...).
@@ -37,20 +45,22 @@ export default function PresupuestoIyV({ lista, onAbrir, resolucionesDeResolucio
   // Lista abierta desde las tarjetas: null | "todos" | "revisar" | "adjudicadas" | "fracasadas" | "sinTitulo".
   const [verLista, setVerLista] = useState(null);
 
-  const base = useMemo(() => lista.filter(e => (conAntecedentes || !esAntecedente(e)) && (!soloBienesDeUso || PARTIDAS_INCISO_4[e.partida])),
+  const base = useMemo(() => lista.filter(e => (conAntecedentes || !opcionAntecedentes || !esAntecedente(e)) && (!soloBienesDeUso || PARTIDAS_INCISO_4[e.partida])),
     [lista, conAntecedentes, soloBienesDeUso]);
   const anios = useMemo(() => [...new Set(base.map(anioMovDe).filter(Boolean))].sort((a, b) => b.localeCompare(a)), [base]);
   const hayExpSinMov = base.some(e => !anioMovDe(e));
   const expedientes = useMemo(() => base.filter(e => !anioMov || anioMovDe(e) === (anioMov === SIN_MOV ? "" : anioMov)).map(e => {
     const r = !e.resolucionConv && resolucionesDeResoluciones?.[e.id];
     if (r) e = { ...e, resolucionConv: r.valor, resolucionDeResoluciones: true, resolucionEnTramite: r.enTramite };
-    return { ...e, renglones: renglonesDeObjetoIyV(e.objeto) };
-  }), [base, anioMov, resolucionesDeResoluciones]);
+    return { ...e, renglones: presupuesto.renglonesDe(textoDe(e)) };
+    // textoDe es fijo para cada cuadro.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [base, anioMov, resolucionesDeResoluciones, presupuesto]);
   const porRenglon = useMemo(() => {
-    const m = new Map(RENGLONES_PRESUPUESTO_IYV.map(x => [x.id, []]));
+    const m = new Map(RENGLONES.map(x => [x.id, []]));
     for (const e of expedientes) for (const x of e.renglones) m.get(x.id).push(e);
     return m;
-  }, [expedientes]);
+  }, [expedientes, RENGLONES]);
   // Bienes de uso del cuadro que no encuadran en ningún título.
   const sinTitulo = useMemo(() => expedientes.filter(e => !e.renglones.length && PARTIDAS_INCISO_4[e.partida]), [expedientes]);
   const aRevisar = expedientes.filter(e => e.renglones.length > 1);
@@ -58,7 +68,7 @@ export default function PresupuestoIyV({ lista, onAbrir, resolucionesDeResolucio
   const adjudicadas = expedientes.filter(e => e.renglones.length && ADJUDICADAS.includes(e.resolucionConv));
   const parciales = adjudicadas.filter(e => e.resolucionConv !== "Adjudicada").length;
   const fracasadas = expedientes.filter(e => e.renglones.length && FRACASADAS.includes(e.resolucionConv));
-  const presupuestoTotal = PRESUPUESTO_IYV.tipos.reduce((s, t) => s + t.total, 0);
+  const presupuestoTotal = PRESUPUESTO.tipos.reduce((s, t) => s + t.total, 0);
   const LISTAS = {
     todos: { titulo: (soloBienesDeUso ? "Todos los bienes de uso del cuadro" : "Todos los expedientes del cuadro") + (anioMov ? " (último movimiento: " + (anioMov === SIN_MOV ? "sin fecha" : anioMov) + ")" : "") + " y su título del presupuesto", es: expedientes },
     revisar: { titulo: "Expedientes que encuadran en más de un título", es: aRevisar },
@@ -72,7 +82,7 @@ export default function PresupuestoIyV({ lista, onAbrir, resolucionesDeResolucio
 
   function exportar() {
     const filas = [];
-    for (const x of RENGLONES_PRESUPUESTO_IYV) {
+    for (const x of RENGLONES) {
       const es = porRenglon.get(x.id);
       if (!es.length) filas.push([tipoDe(x.tipo).titulo, x.seccion, x.descripcion, x.monto, "", "", "", "", "", "", ""]);
       for (const e of es) filas.push([tipoDe(x.tipo).titulo, x.seccion, x.descripcion, x.monto, e.exp, e.bloque || "", e.objeto, etiquetaPartida(e.partida),
@@ -81,15 +91,15 @@ export default function PresupuestoIyV({ lista, onAbrir, resolucionesDeResolucio
     for (const e of sinTitulo) filas.push(["", "", "SIN TÍTULO DEL PRESUPUESTO", "", e.exp, e.bloque || "", e.objeto, etiquetaPartida(e.partida), montoDe(e) ?? (e.monto || ""), e.resolucionConv || "", ""]);
     const ws = XLSX.utils.aoa_to_sheet([["TIPO", "SECCION", "DESCRIPCION", "PRESUPUESTO 2026", "EXP", "BLOQUE", "OBJETO", "PARTIDA", "MONTO DEL EXP.", "RESOLUCION CONV.", "A REVISAR"], ...filas]);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Presupuesto " + PRESUPUESTO_IYV.anio);
-    XLSX.writeFile(wb, "informatica-y-varios-presupuesto-" + PRESUPUESTO_IYV.anio + "-" + hoyLocalISO() + ".xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Presupuesto " + PRESUPUESTO.anio);
+    XLSX.writeFile(wb, archivo + "-" + PRESUPUESTO.anio + "-" + hoyLocalISO() + ".xlsx");
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-xs text-slate-500 max-w-2xl">
-          Bienes de uso {PRESUPUESTO_IYV.anio} (Informes de la Dirección General de Tecnología y de Seguridad Informática). Cada expediente del cuadro
+          Bienes de uso {PRESUPUESTO.anio} ({PRESUPUESTO.fuente}). Cada expediente del cuadro
           encuadra en un título según su objeto. Los que encuadran en más de uno quedan <span className="text-amber-700 font-medium">a revisar</span>.
         </p>
         <div className="flex items-center gap-3 flex-wrap">
@@ -102,9 +112,11 @@ export default function PresupuestoIyV({ lista, onAbrir, resolucionesDeResolucio
             {anios.map(a => <option key={a} value={a}>Último mov.: {a}</option>)}
             {hayExpSinMov && <option value={SIN_MOV}>Último mov.: sin fecha</option>}
           </select>
-          <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
-            <input type="checkbox" checked={conAntecedentes} onChange={e => setConAntecedentes(e.target.checked)} /> Incluir antecedentes
-          </label>
+          {opcionAntecedentes && (
+            <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+              <input type="checkbox" checked={conAntecedentes} onChange={e => setConAntecedentes(e.target.checked)} /> Incluir antecedentes
+            </label>
+          )}
           <button type="button" onClick={exportar}
             className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700">
             <Download size={14} /> Excel
@@ -121,8 +133,8 @@ export default function PresupuestoIyV({ lista, onAbrir, resolucionesDeResolucio
             {expedientes.filter(e => e.renglones.length).length} con título · {fmtMonto(sumaMontos(expedientes))} · {verLista === "todos" ? "ocultar" : "ver"}
           </p>
         </button>
-        {PRESUPUESTO_IYV.tipos.map(t => {
-          const es = [...new Set(RENGLONES_PRESUPUESTO_IYV.filter(x => x.tipo === t.id).flatMap(x => porRenglon.get(x.id)))];
+        {PRESUPUESTO.tipos.map(t => {
+          const es = [...new Set(RENGLONES.filter(x => x.tipo === t.id).flatMap(x => porRenglon.get(x.id)))];
           return (
             <div key={t.id} className="bg-white border border-slate-200 rounded-xl px-4 py-3">
               <p className="text-[11px] uppercase tracking-wide text-slate-500">{t.titulo}</p>
@@ -170,7 +182,7 @@ export default function PresupuestoIyV({ lista, onAbrir, resolucionesDeResolucio
         </div>
       )}
 
-      {PRESUPUESTO_IYV.tipos.map(t => (
+      {PRESUPUESTO.tipos.map(t => (
         <div key={t.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50/60 flex items-baseline justify-between gap-2 flex-wrap">
             <div>
@@ -194,7 +206,7 @@ export default function PresupuestoIyV({ lista, onAbrir, resolucionesDeResolucio
                 {t.secciones.map(s => (
                   <Fragment key={s.titulo}>
                     <tr className="bg-slate-50/60"><td colSpan={5} className="py-1.5 px-3 text-[11px] font-semibold italic text-slate-600">{s.titulo}</td></tr>
-                    {RENGLONES_PRESUPUESTO_IYV.filter(x => x.tipo === t.id && x.seccion === s.titulo).map(x => {
+                    {RENGLONES.filter(x => x.tipo === t.id && x.seccion === s.titulo).map(x => {
                       const es = porRenglon.get(x.id);
                       const monto = sumaMontos(es);
                       const abierto = abiertos.has(x.id);
