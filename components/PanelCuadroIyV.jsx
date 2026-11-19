@@ -156,10 +156,10 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
   const hoy = hoyLocalISO();
 
   useEffect(() => {
-    if (!enAnalisis || cruceRes) return;
+    if (!(enAnalisis || enPresupuesto) || cruceRes) return;
     fetch("/api/cuadro-iyv/resoluciones").then(r => (r.ok ? r.json() : null)).catch(() => null)
       .then(data => setCruceRes({ resoluciones: data?.resoluciones || {}, motivos: data?.motivos || {} }));
-  }, [enAnalisis, cruceRes]);
+  }, [enAnalisis, enPresupuesto, cruceRes]);
 
   useEffect(() => {
     let activo = true;
@@ -344,7 +344,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
       </div>
 
       {enPresupuesto ? (
-        <PresupuestoIyV lista={contrataciones} onAbrir={id => setFicha(String(id).split(":")[0])} />
+        <PresupuestoIyV lista={contrataciones} resolucionesDeResoluciones={cruceAnalisis.resoluciones} onAbrir={id => setFicha(String(id).split(":")[0])} />
       ) : enAnalisis ? (
         <AnalisisLicitaciones lista={contrataciones} motivosResoluciones={cruceAnalisis.motivos} resolucionesDeResoluciones={cruceAnalisis.resoluciones}
           onAbrir={id => setFicha(String(id).split(":")[0])}

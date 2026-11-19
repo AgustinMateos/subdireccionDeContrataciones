@@ -15,17 +15,26 @@ const montoDe = e => montoNumero(e.monto);
 const sumaMontos = es => es.reduce((s, e) => s + (montoDe(e) || 0), 0);
 const esAntecedente = e => e.hoja === "antecedentes";
 const tipoDe = id => PRESUPUESTO_IYV.tipos.find(t => t.id === id);
+// Adjudicadas: totales o parciales.
+const ADJUDICADAS = ["Adjudicada", "Adjudicación parcial"];
 
 // Solapa "Presupuesto 2026" del Cuadro de Informática y Varios: los títulos
 // de las planillas de bienes de uso (tangibles e intangibles) y qué
 // expedientes del cuadro encuadran en cada uno, según su objeto.
-export default function PresupuestoIyV({ lista, onAbrir }) {
+// `resolucionesDeResoluciones` ({ [id]: { valor, enTramite } }): cómo
+// terminó según Resoluciones, para los que no la tienen cargada en el cuadro
+// (el mismo cruce que el Análisis).
+export default function PresupuestoIyV({ lista, onAbrir, resolucionesDeResoluciones }) {
   const [conAntecedentes, setConAntecedentes] = useState(false);
   const [abiertos, setAbiertos] = useState(() => new Set());
-  const [verSinTitulo, setVerSinTitulo] = useState(false);
+  // Lista abierta desde las tarjetas: null | "revisar" | "adjudicadas" | "sinTitulo".
+  const [verLista, setVerLista] = useState(null);
 
-  const expedientes = useMemo(() => lista.filter(e => conAntecedentes || !esAntecedente(e))
-    .map(e => ({ ...e, renglones: renglonesDeObjetoIyV(e.objeto) })), [lista, conAntecedentes]);
+  const expedientes = useMemo(() => lista.filter(e => conAntecedentes || !esAntecedente(e)).map(e => {
+    const r = !e.resolucionConv && resolucionesDeResoluciones?.[e.id];
+    if (r) e = { ...e, resolucionConv: r.valor, resolucionDeResoluciones: true, resolucionEnTramite: r.enTramite };
+    return { ...e, renglones: renglonesDeObjetoIyV(e.objeto) };
+  }), [lista, conAntecedentes, resolucionesDeResoluciones]);
   const porRenglon = useMemo(() => {
     const m = new Map(RENGLONES_PRESUPUESTO_IYV.map(x => [x.id, []]));
     for (const e of expedientes) for (const x of e.renglones) m.get(x.id).push(e);
@@ -33,7 +42,17 @@ export default function PresupuestoIyV({ lista, onAbrir }) {
   }, [expedientes]);
   // Bienes de uso del cuadro que no encuadran en ningún título.
   const sinTitulo = useMemo(() => expedientes.filter(e => !e.renglones.length && PARTIDAS_INCISO_4[e.partida]), [expedientes]);
-  const aRevisar = expedientes.filter(e => e.renglones.length > 1).length;
+  const aRevisar = expedientes.filter(e => e.renglones.length > 1);
+  // Encuadrados en algún título y adjudicados.
+  const adjudicadas = expedientes.filter(e => e.renglones.length && ADJUDICADAS.includes(e.resolucionConv));
+  const parciales = adjudicadas.filter(e => e.resolucionConv !== "Adjudicada").length;
+  const presupuestoTotal = PRESUPUESTO_IYV.tipos.reduce((s, t) => s + t.total, 0);
+  const LISTAS = {
+    revisar: { titulo: "Expedientes que encuadran en más de un título", es: aRevisar },
+    adjudicadas: { titulo: "Expedientes adjudicados que encuadran en el presupuesto", es: adjudicadas },
+    sinTitulo: { titulo: "Bienes de uso del cuadro que no encuadran en ningún título", es: sinTitulo },
+  };
+  const alternarLista = id => setVerLista(v => (v === id ? null : id));
 
   function alternar(id) { setAbiertos(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; }); }
 
@@ -70,7 +89,7 @@ export default function PresupuestoIyV({ lista, onAbrir }) {
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
         {PRESUPUESTO_IYV.tipos.map(t => {
           const es = [...new Set(RENGLONES_PRESUPUESTO_IYV.filter(x => x.tipo === t.id).flatMap(x => porRenglon.get(x.id)))];
           return (
@@ -81,24 +100,34 @@ export default function PresupuestoIyV({ lista, onAbrir }) {
             </div>
           );
         })}
-        <div className="bg-white border border-amber-200 rounded-xl px-4 py-3">
+        <button type="button" onClick={() => alternarLista("revisar")}
+          className={"text-left bg-white border border-amber-200 rounded-xl px-4 py-3 hover:bg-amber-50/50 " + (verLista === "revisar" ? "ring-2 ring-amber-300" : "")}>
           <p className="text-[11px] uppercase tracking-wide text-amber-700">A revisar</p>
-          <p className="text-lg font-semibold text-slate-900 tabular-nums">{aRevisar}</p>
-          <p className="text-[11px] text-slate-500">encuadran en más de un título</p>
-        </div>
-        <button type="button" onClick={() => setVerSinTitulo(v => !v)} className="text-left bg-white border border-slate-200 rounded-xl px-4 py-3 hover:bg-slate-50">
+          <p className="text-lg font-semibold text-slate-900 tabular-nums">{aRevisar.length}</p>
+          <p className="text-[11px] text-slate-500">encuadran en más de un título · {verLista === "revisar" ? "ocultar" : "ver"}</p>
+        </button>
+        <button type="button" onClick={() => alternarLista("adjudicadas")}
+          className={"text-left bg-white border border-emerald-200 rounded-xl px-4 py-3 hover:bg-emerald-50/50 " + (verLista === "adjudicadas" ? "ring-2 ring-emerald-300" : "")}>
+          <p className="text-[11px] uppercase tracking-wide text-emerald-700">Adjudicadas</p>
+          <p className="text-lg font-semibold text-slate-900 tabular-nums">{adjudicadas.length}</p>
+          <p className="text-[11px] text-slate-500">
+            {fmtMonto(sumaMontos(adjudicadas))} · {pct(sumaMontos(adjudicadas), presupuestoTotal)} del presupuesto{parciales ? " · " + parciales + " parcial" + (parciales !== 1 ? "es" : "") : ""} · {verLista === "adjudicadas" ? "ocultar" : "ver"}
+          </p>
+        </button>
+        <button type="button" onClick={() => alternarLista("sinTitulo")}
+          className={"text-left bg-white border border-slate-200 rounded-xl px-4 py-3 hover:bg-slate-50 " + (verLista === "sinTitulo" ? "ring-2 ring-slate-300" : "")}>
           <p className="text-[11px] uppercase tracking-wide text-slate-500">Bienes de uso sin título</p>
           <p className="text-lg font-semibold text-slate-900 tabular-nums">{sinTitulo.length}</p>
-          <p className="text-[11px] text-slate-500">del cuadro, no encuadran en ninguno · {verSinTitulo ? "ocultar" : "ver"}</p>
+          <p className="text-[11px] text-slate-500">del cuadro, no encuadran en ninguno · {verLista === "sinTitulo" ? "ocultar" : "ver"}</p>
         </button>
       </div>
 
-      {verSinTitulo && (
+      {verLista && (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50/60">
-            <h3 className="text-sm font-semibold text-slate-900">Bienes de uso del cuadro que no encuadran en ningún título</h3>
+            <h3 className="text-sm font-semibold text-slate-900">{LISTAS[verLista].titulo}</h3>
           </div>
-          <ListaExpedientes expedientes={sinTitulo} onAbrir={onAbrir} />
+          <ListaExpedientes expedientes={LISTAS[verLista].es} onAbrir={onAbrir} />
         </div>
       )}
 
@@ -191,13 +220,19 @@ function ListaExpedientes({ expedientes, onAbrir, renglon, tipo }) {
               <td className="py-1.5 px-3 text-slate-700 min-w-[240px]">
                 {e.objeto}
                 {otros.length > 0 && <span className="block text-[10px] text-amber-700">A revisar: también encuadra en {otros.map(x => x.descripcion).join(", ")}</span>}
+                {!renglon && e.renglones.length > 0 && (
+                  <span className={"block text-[10px] " + (e.renglones.length > 1 ? "text-amber-700" : "text-emerald-700")}>Título: {e.renglones.map(x => x.descripcion).join(" / ")}</span>
+                )}
               </td>
               <td className="py-1.5 px-3 whitespace-nowrap">
                 <span className={PARTIDAS_INCISO_4[e.partida] ? "text-slate-700" : "text-rose-700"}>{etiquetaPartida(e.partida)}</span>
                 {otraPartida && <span className="block text-[10px] text-amber-700">No es la partida de esta planilla</span>}
               </td>
               <td className="py-1.5 px-3 text-right whitespace-nowrap tabular-nums text-slate-700">{montoDe(e) != null ? fmtMonto(montoDe(e)) : <span className="text-slate-300">-</span>}</td>
-              <td className="py-1.5 px-3"><EtiquetaResolucion valor={e.resolucionConv} /></td>
+              <td className="py-1.5 px-3">
+                <EtiquetaResolucion valor={e.resolucionConv} />
+                {e.resolucionDeResoluciones && <span className="block text-[10px] text-violet-700">según Resoluciones{e.resolucionEnTramite ? " (en trámite)" : ""}</span>}
+              </td>
             </tr>
           );
         })}
