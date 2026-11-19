@@ -202,6 +202,7 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                 <DatoFicha label="Rubro" valor={f.rubro} />
                 <div className="col-span-2"><DatoFicha label="Partida (Inciso 4)" valor={etiquetaPartida(partidaDe(f)) + (f.partida ? "" : " (según el rubro)")} /></div>
                 <DatoFicha label="Encuadre" valor={f.encuadre} />
+                <DatoFicha label="Orden de compra" valor={noLlevaOrdenCompra(f.encuadre) && !f.ordenCompra ? NO_LLEVA_OC : f.ordenCompra} />
                 <div className="col-span-2"><DatoFicha label="Monto" valor={f.monto} /></div>
                 <div className="col-span-2 md:col-span-3"><DatoFicha label="Plazo de ejecución (DH)" valor={f.plazoEjecucion} /></div>
                 <DatoFicha label="Pase a la firma" valor={fecha(f.paseFirma)} />
@@ -245,6 +246,14 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                   {esAnticipo(f) && <p className="mt-1 text-[11px] text-slate-500">Es un anticipo de fondos: no cuenta como bien de uso.</p>}
                 </div>
                 <CampoOpciones label="Encuadre" value={f.encuadre} onChange={v => set("encuadre", v)} opciones={ENCUADRES_LICITACIONES} />
+                {noLlevaOrdenCompra(f.encuadre) ? (
+                  <div>
+                    <Campo_Input label="Orden de compra" value={f.ordenCompra} onChange={v => set("ordenCompra", v)} disabled placeholder={NO_LLEVA_OC} />
+                    <p className="mt-1 text-[11px] text-slate-500">{NO_LLEVA_OC} ({f.encuadre})</p>
+                  </div>
+                ) : (
+                  <Campo_Input label="Orden de compra" value={f.ordenCompra} onChange={v => set("ordenCompra", v)} placeholder="N° de OC" />
+                )}
                 <div className="col-span-2"><Campo_Input label="Monto" value={f.monto} onChange={v => set("monto", v)} placeholder="$ 61.096.888,00" /></div>
                 <div className="col-span-2 md:col-span-3"><Campo_Input label="Plazo de ejecución (DH)" value={f.plazoEjecucion} onChange={v => set("plazoEjecucion", v)} placeholder="30 o Reng 1 y 2: 20 DH" /></div>
                 <Campo_Input label="Pase a la firma" type="date" max="9999-12-31" value={f.paseFirma} onChange={v => set("paseFirma", v)} />
@@ -259,14 +268,6 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                 <Campo_Select label="Resolución conv." value={f.resolucionConv || ""} onChange={v => set("resolucionConv", v)} disabled={fijo}
                   opciones={["", ...RESOLUCIONES_CONV]} labels={{ "": "Sin definir" }} />
                 <Campo_Input label="Último movimiento" type="date" max="9999-12-31" value={f.fechaUltimoMov} onChange={v => set("fechaUltimoMov", v)} />
-                {noLlevaOrdenCompra(f.encuadre) ? (
-                  <div>
-                    <Campo_Input label="Orden de compra" value={f.ordenCompra} onChange={v => set("ordenCompra", v)} disabled placeholder={NO_LLEVA_OC} />
-                    <p className="mt-1 text-[11px] text-slate-500">{NO_LLEVA_OC} ({f.encuadre})</p>
-                  </div>
-                ) : (
-                  <Campo_Input label="Orden de compra" value={f.ordenCompra} onChange={v => set("ordenCompra", v)} disabled={fijo} placeholder="N° de OC" />
-                )}
                 {esFrenado(f.resolucionConv) && (
                   <>
                     <div className="col-span-2">
