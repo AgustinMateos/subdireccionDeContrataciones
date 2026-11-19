@@ -17,6 +17,7 @@ const esAntecedente = e => e.hoja === "antecedentes";
 const tipoDe = id => PRESUPUESTO_IYV.tipos.find(t => t.id === id);
 // Adjudicadas: totales o parciales.
 const ADJUDICADAS = ["Adjudicada", "Adjudicación parcial"];
+const FRACASADAS = ["Fracasada", "Fracasa / Autoriza", "Fracasa / Desierta"];
 
 // Solapa "Presupuesto 2026" del Cuadro de Informática y Varios: los títulos
 // de las planillas de bienes de uso (tangibles e intangibles) y qué
@@ -27,7 +28,7 @@ const ADJUDICADAS = ["Adjudicada", "Adjudicación parcial"];
 export default function PresupuestoIyV({ lista, onAbrir, resolucionesDeResoluciones }) {
   const [conAntecedentes, setConAntecedentes] = useState(false);
   const [abiertos, setAbiertos] = useState(() => new Set());
-  // Lista abierta desde las tarjetas: null | "revisar" | "adjudicadas" | "sinTitulo".
+  // Lista abierta desde las tarjetas: null | "revisar" | "adjudicadas" | "fracasadas" | "sinTitulo".
   const [verLista, setVerLista] = useState(null);
 
   const expedientes = useMemo(() => lista.filter(e => conAntecedentes || !esAntecedente(e)).map(e => {
@@ -46,10 +47,12 @@ export default function PresupuestoIyV({ lista, onAbrir, resolucionesDeResolucio
   // Encuadrados en algún título y adjudicados.
   const adjudicadas = expedientes.filter(e => e.renglones.length && ADJUDICADAS.includes(e.resolucionConv));
   const parciales = adjudicadas.filter(e => e.resolucionConv !== "Adjudicada").length;
+  const fracasadas = expedientes.filter(e => e.renglones.length && FRACASADAS.includes(e.resolucionConv));
   const presupuestoTotal = PRESUPUESTO_IYV.tipos.reduce((s, t) => s + t.total, 0);
   const LISTAS = {
     revisar: { titulo: "Expedientes que encuadran en más de un título", es: aRevisar },
     adjudicadas: { titulo: "Expedientes adjudicados que encuadran en el presupuesto", es: adjudicadas },
+    fracasadas: { titulo: "Expedientes fracasados que encuadran en el presupuesto", es: fracasadas },
     sinTitulo: { titulo: "Bienes de uso del cuadro que no encuadran en ningún título", es: sinTitulo },
   };
   const alternarLista = id => setVerLista(v => (v === id ? null : id));
@@ -89,7 +92,7 @@ export default function PresupuestoIyV({ lista, onAbrir, resolucionesDeResolucio
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {PRESUPUESTO_IYV.tipos.map(t => {
           const es = [...new Set(RENGLONES_PRESUPUESTO_IYV.filter(x => x.tipo === t.id).flatMap(x => porRenglon.get(x.id)))];
           return (
@@ -112,6 +115,14 @@ export default function PresupuestoIyV({ lista, onAbrir, resolucionesDeResolucio
           <p className="text-lg font-semibold text-slate-900 tabular-nums">{adjudicadas.length}</p>
           <p className="text-[11px] text-slate-500">
             {fmtMonto(sumaMontos(adjudicadas))} · {pct(sumaMontos(adjudicadas), presupuestoTotal)} del presupuesto{parciales ? " · " + parciales + " parcial" + (parciales !== 1 ? "es" : "") : ""} · {verLista === "adjudicadas" ? "ocultar" : "ver"}
+          </p>
+        </button>
+        <button type="button" onClick={() => alternarLista("fracasadas")}
+          className={"text-left bg-white border border-rose-200 rounded-xl px-4 py-3 hover:bg-rose-50/50 " + (verLista === "fracasadas" ? "ring-2 ring-rose-300" : "")}>
+          <p className="text-[11px] uppercase tracking-wide text-rose-700">Fracasadas</p>
+          <p className="text-lg font-semibold text-slate-900 tabular-nums">{fracasadas.length}</p>
+          <p className="text-[11px] text-slate-500">
+            {fmtMonto(sumaMontos(fracasadas))} · {pct(sumaMontos(fracasadas), presupuestoTotal)} del presupuesto · {verLista === "fracasadas" ? "ocultar" : "ver"}
           </p>
         </button>
         <button type="button" onClick={() => alternarLista("sinTitulo")}
