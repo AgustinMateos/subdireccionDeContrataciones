@@ -20,6 +20,8 @@ import { PARTIDAS_INCISO_4, NO_ES_BIEN_DE_USO, FILTRO_BIENES_DE_USO, etiquetaPar
 import { Campo_Select } from "./CamposFormulario";
 import EtiquetaResolucion from "./EtiquetaResolucion";
 import AnalisisLicitaciones from "./AnalisisLicitaciones";
+import PresupuestoIyV from "./PresupuestoIyV";
+import { PRESUPUESTO_IYV } from "@/lib/presupuestoIyV";
 import { unirMotivos, esFrenado, textoFrenado } from "@/lib/resolucionConv";
 
 const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
@@ -148,6 +150,8 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
   // por N° de expediente: cómo terminó la convocatoria (si el cuadro no lo
   // tiene cargado) y los motivos de no adjudicación. Se piden al abrirla.
   const [enAnalisis, setEnAnalisis] = useState(false);
+  // Solapa Presupuesto 2026: qué expedientes encuadran en cada título.
+  const [enPresupuesto, setEnPresupuesto] = useState(false);
   const [cruceRes, setCruceRes] = useState(null);
   const hoy = hoyLocalISO();
 
@@ -188,7 +192,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
     for (const o of observaciones) { if (!m.has(o.clave)) m.set(o.clave, []); m.get(o.clave).push(o); }
     return m;
   }, [observaciones]);
-  const contrataciones = useMemo(() => (enAnalisis ? contratacionesIyV(lista) : []), [lista, enAnalisis]);
+  const contrataciones = useMemo(() => (enAnalisis || enPresupuesto ? contratacionesIyV(lista) : []), [lista, enAnalisis, enPresupuesto]);
   const cruceAnalisis = useMemo(() => {
     if (!cruceRes) return {};
     const motivos = {}, resoluciones = {};
@@ -207,7 +211,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
   const tieneSituacion = !!campoIyV(hoja, "estado");
 
   function set(campo, valor) { setF(prev => ({ ...prev, [campo]: valor })); setPagina(0); }
-  function cambiarHoja(h) { setHoja(h); setEnAnalisis(false); setF(filtroVacio()); setPagina(0); }
+  function cambiarHoja(h) { setHoja(h); setEnAnalisis(false); setEnPresupuesto(false); setF(filtroVacio()); setPagina(0); }
   const hayFiltros = Object.entries(f).some(([k, v]) => v !== filtroVacio()[k]);
 
   const opciones = useMemo(() => {
@@ -320,21 +324,28 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
         {ORDEN_HOJAS_IYV.map(h => (
           <button key={h} type="button" onClick={() => cambiarHoja(h)}
             className={"px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 whitespace-nowrap " +
-              (hoja === h && !enAnalisis ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}>
+              (hoja === h && !enAnalisis && !enPresupuesto ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}>
             {HOJAS_IYV[h].etiqueta}
             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 tabular-nums">
               {lista.filter(x => x.hoja === h).length}
             </span>
           </button>
         ))}
-        <button type="button" onClick={() => { setEnAnalisis(true); setF(filtroVacio()); setPagina(0); }}
+        <button type="button" onClick={() => { setEnAnalisis(true); setEnPresupuesto(false); setF(filtroVacio()); setPagina(0); }}
           className={"px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors whitespace-nowrap " +
             (enAnalisis ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}>
           Análisis
         </button>
+        <button type="button" onClick={() => { setEnPresupuesto(true); setEnAnalisis(false); setF(filtroVacio()); setPagina(0); }}
+          className={"px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors whitespace-nowrap " +
+            (enPresupuesto ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800")}>
+          Presupuesto {PRESUPUESTO_IYV.anio}
+        </button>
       </div>
 
-      {enAnalisis ? (
+      {enPresupuesto ? (
+        <PresupuestoIyV lista={contrataciones} onAbrir={id => setFicha(String(id).split(":")[0])} />
+      ) : enAnalisis ? (
         <AnalisisLicitaciones lista={contrataciones} motivosResoluciones={cruceAnalisis.motivos} resolucionesDeResoluciones={cruceAnalisis.resoluciones}
           onAbrir={id => setFicha(String(id).split(":")[0])}
           resoluciones={RESOLUCIONES_CONV_IYV} partidaDe={e => e.partida} esBienDeUso={e => !!PARTIDAS_INCISO_4[e.partida]}
@@ -475,7 +486,7 @@ function FichaFila({ hoja, inicial, puedeEditar, puedeEliminar, onCerrar, onGuar
   useEffect(() => { if (inicial) setD({ ...(inicial.datos || {}) }); }, [inicial?.actualizadoEn]); // eslint-disable-line react-hooks/exhaustive-deps
   const historial = [...(inicial?.movimientos || [])].reverse();
   const hoy = hoyLocalISO();
-  // Al pasar a Frenado, "Frenado desde" arranca en hoy (se puede cambiar).
+  // Al pasar a Demorado, "Demorado desde" arranca en hoy (se puede cambiar).
   const set = (k, v) => setD(prev => {
     const nuevo = { ...prev, [k]: v };
     const desde = esFrenado(v) && camposDeHoja(hoja).find(x => x.frenado === k && x.fecha);
