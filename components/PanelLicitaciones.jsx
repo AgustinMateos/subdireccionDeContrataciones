@@ -77,7 +77,7 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
   function set(campo, valor) {
     setF(prev => {
       const nuevo = { ...prev, [campo]: valor };
-      // Al pasar a Frenado, "desde" arranca en hoy (se puede cambiar).
+      // Al pasar a Demorado, "desde" arranca en hoy (se puede cambiar).
       if (campo === "resolucionConv" && esFrenado(valor) && !nuevo.frenadoDesde) nuevo.frenadoDesde = hoyLocalISO();
       // En un alta de la jefa, el agente sigue a la jurisdicción mientras
       // no lo haya cambiado a mano.
@@ -259,9 +259,9 @@ export function FormularioLicitacion({ inicial, esJefa, onCerrar, onGuardar, onE
                 {esFrenado(f.resolucionConv) && (
                   <>
                     <div className="col-span-2">
-                      <CampoOpciones label="Frenado en (dónde)" value={f.frenadoDonde} onChange={v => set("frenadoDonde", v)} opciones={SECTORES_LICITACIONES} disabled={fijo} />
+                      <CampoOpciones label="Demorado en (dónde)" value={f.frenadoDonde} onChange={v => set("frenadoDonde", v)} opciones={SECTORES_LICITACIONES} disabled={fijo} />
                     </div>
-                    <Campo_Input label="Frenado desde" type="date" max="9999-12-31" value={f.frenadoDesde} onChange={v => set("frenadoDesde", v)} disabled={fijo} />
+                    <Campo_Input label="Demorado desde" type="date" max="9999-12-31" value={f.frenadoDesde} onChange={v => set("frenadoDesde", v)} disabled={fijo} />
                     <p className="text-[11px] text-yellow-900 self-end pb-2">{textoFrenado(null, f.frenadoDesde, hoyLocalISO())}</p>
                   </>
                 )}
@@ -421,7 +421,7 @@ function exportarExcel(filas, solapa, resoluciones, contrataciones, actas = {}, 
   const columnasActas = Array.from({ length: maxActas }, (_, i) => "ACTA DE APERTURA" + (maxActas > 1 ? " " + (i + 1) : ""));
   const datos = [
     ["EXP", "JURISDICCION", "ORGANISMO", "DOMICILIO", "RUBRO", "PARTIDA (INCISO 4)", "OBJETO", "MONTO", "PLAZO DE EJECUCION (DH)", "ENCUADRE",
-      "ULTIMO MOVIMIENTO", "DIAS EN EL SECTOR", "SECTOR", "ESTADO INTERNO", "ESTADO CONVOCATORIA", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO", "FRENADO EN", "FRENADO DESDE", "OBSERVACIONES", "AGENTE",
+      "ULTIMO MOVIMIENTO", "DIAS EN EL SECTOR", "SECTOR", "ESTADO INTERNO", "ESTADO CONVOCATORIA", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO", "DEMORADO EN", "DEMORADO DESDE", "OBSERVACIONES", "AGENTE",
       "PASE A LA FIRMA", "PRIORITARIO", "TIPO DE RESOLUCION (EN RESOLUCIONES)", "N° DE CONTRATACION (RESOLUCIONES)",
       "FRACASOS / DESIERTAS / REVOCADAS / PARCIALES", "DONDE FIGURA", ...columnasActas],
     ...filas.map(e => [

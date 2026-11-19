@@ -37,15 +37,38 @@ const COLOR = {
   sinDefinir: { relleno: "fill-slate-200", color: "bg-slate-200", tarjeta: "border-dashed border-slate-300 bg-white text-slate-600" },
 };
 const GRUPOS_TODOS = GRUPOS_RESOLUCION_CONV.map(g => ({ ...g, ...COLOR[g.id] }));
-// Torta en SVG: una porción por grupo, proporcional al monto.
-function Torta({ porciones, seleccionada, onElegir }) {
+// En "Monto por resultado", No adjudicadas y Demoradas van juntas (un solo
+// porcentaje) y adentro se ven por separado.
+const NO_ADJ_Y_DEMORADAS = { id: "noAdjYDemoradas", etiqueta: "No adjudicadas y demoradas", grupos: ["noAdjudicadas", "frenadas"] };
+// Torta en SVG: una porción por grupo, proporcional al monto. `conjunto`
+// (opcional) dibuja un anillo afuera que abarca las porciones de esos grupos
+// (tienen que ir seguidas) con el porcentaje de todas juntas.
+function Torta({ porciones, seleccionada, onElegir, conjunto }) {
   const total = porciones.reduce((s, p) => s + p.valor, 0);
   if (!total) return null;
-  const R = 90, C = 100;
-  const punto = f => [C + R * Math.sin(2 * Math.PI * f), C - R * Math.cos(2 * Math.PI * f)];
+  const C = 100, R = conjunto ? 84 : 90;
+  const punto = (f, r = R) => [C + r * Math.sin(2 * Math.PI * f), C - r * Math.cos(2 * Math.PI * f)];
   let desde = 0;
+  let anillo = null;
+  if (conjunto) {
+    const i = porciones.findIndex(p => conjunto.grupos.includes(p.id));
+    const ini = porciones.slice(0, Math.max(i, 0)).reduce((s, p) => s + p.valor, 0) / total;
+    const valor = porciones.filter(p => conjunto.grupos.includes(p.id)).reduce((s, p) => s + p.valor, 0);
+    const f = valor / total, RA = 94;
+    if (i >= 0 && f > 0) {
+      const [x1, y1] = punto(ini, RA), [x2, y2] = punto(ini + Math.min(f, 0.9999), RA);
+      const clase = "fill-none stroke-rose-700 cursor-pointer hover:opacity-80 " + (seleccionada && seleccionada !== conjunto.etiqueta ? "opacity-40" : "");
+      anillo = (
+        <path d={`M${x1},${y1} A${RA},${RA} 0 ${f > 0.5 ? 1 : 0} 1 ${x2},${y2}`} className={clase} strokeWidth="5" strokeLinecap="round"
+          onClick={() => onElegir({ id: conjunto.id, titulo: conjunto.etiqueta })}>
+          <title>{conjunto.etiqueta + ": " + fmtMonto(valor) + " (" + pct(valor, total) + ")"}</title>
+        </path>
+      );
+    }
+  }
   return (
     <svg viewBox="0 0 200 200" className="w-44 h-44 shrink-0" role="img" aria-label="Monto por resultado">
+      {anillo}
       {porciones.filter(p => p.valor > 0).map(p => {
         const f = p.valor / total;
         const [x1, y1] = punto(desde);
@@ -128,6 +151,8 @@ export default function AnalisisLicitaciones({
   const motivos = [...MOTIVOS_NO_ADJUDICACION, SIN_MOTIVO].filter(m => m !== SIN_MOTIVO || conMotivo.some(e => tieneMotivo(e, SIN_MOTIVO)));
   const anios = [...new Set(sinAnio.map(anioDe))].sort(ordenAnios);
   const elegir = (titulo, incluye) => setSel(s => (s?.titulo === titulo ? null : { titulo, incluye }));
+  const conjuntoMonto = NO_ADJ_Y_DEMORADAS.grupos.every(id => GRUPOS.some(g => g.id === id)) ? NO_ADJ_Y_DEMORADAS : null;
+  const elegirConjunto = () => elegir(NO_ADJ_Y_DEMORADAS.etiqueta, e => NO_ADJ_Y_DEMORADAS.grupos.includes(grupoDe(e.resolucionConv)?.id));
   const seleccionados = sel ? filas.filter(sel.incluye) : [];
   const conBloque = lista.some(e => e.bloque);
   const porResoluciones = filas.filter(e => e.resolucionDeResoluciones).length;
@@ -145,7 +170,7 @@ export default function AnalisisLicitaciones({
 
   function exportar() {
     const datos = [
-      ["EXP", ...(conBloque ? ["BLOQUE"] : []), "AÑO", etiquetaJurisdiccion.toUpperCase(), "OBJETO", "PARTIDA (INCISO 4)", "ENCUADRE", "MONTO", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO", "FRENADO (DONDE Y DESDE)"],
+      ["EXP", ...(conBloque ? ["BLOQUE"] : []), "AÑO", etiquetaJurisdiccion.toUpperCase(), "OBJETO", "PARTIDA (INCISO 4)", "ENCUADRE", "MONTO", "RESOLUCION CONV.", "MOTIVO", "DETALLE DEL MOTIVO", "DEMORADO (DONDE Y DESDE)"],
       ...seleccionados.map(e => [e.exp, ...(conBloque ? [e.bloque || ""] : []), anioDe(e), e.jurisdiccion || "", e.objeto, etiquetaPartida(partidaDe(e)), e.encuadre || "", montoDe(e) ?? (e.monto || ""),
         (e.resolucionConv || "") + (e.resolucionDeResoluciones ? " (según Resoluciones" + (e.resolucionEnTramite ? ", en trámite)" : ")") : ""), (e.motivoResolucion || "") + (e.motivoDeResoluciones ? " (según Resoluciones)" : ""), e.motivoDetalle || "", esFrenado(e.resolucionConv) ? textoFrenado(e.frenadoDonde, e.frenadoDesde, hoyLocalISO()) : ""]),
     ];
@@ -227,8 +252,9 @@ export default function AnalisisLicitaciones({
           </div>
           <div className="px-5 py-4 flex flex-col sm:flex-row items-center gap-6">
             <Torta porciones={GRUPOS.map(g => ({ id: g.id, titulo: g.etiqueta, relleno: g.relleno, valor: sumaMontos(porGrupo[g.id]) }))}
-              seleccionada={GRUPOS.some(g => g.etiqueta === sel?.titulo) ? sel.titulo : null}
-              onElegir={p => elegir(p.titulo, e => grupoDe(e.resolucionConv)?.id === p.id)} />
+              conjunto={conjuntoMonto}
+              seleccionada={GRUPOS.some(g => g.etiqueta === sel?.titulo) || sel?.titulo === NO_ADJ_Y_DEMORADAS.etiqueta ? sel.titulo : null}
+              onElegir={p => p.id === NO_ADJ_Y_DEMORADAS.id ? elegirConjunto() : elegir(p.titulo, e => grupoDe(e.resolucionConv)?.id === p.id)} />
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-100">
@@ -239,18 +265,36 @@ export default function AnalisisLicitaciones({
                 {GRUPOS.map(g => {
                   const monto = sumaMontos(porGrupo[g.id]);
                   const sinMonto = porGrupo[g.id].filter(e => montoDe(e) == null).length;
-                  return (
+                  const dentro = !!conjuntoMonto && NO_ADJ_Y_DEMORADAS.grupos.includes(g.id);
+                  // Fila del conjunto, antes de la primera de sus subdivisiones.
+                  const filaConjunto = dentro && g.id === GRUPOS.find(x => NO_ADJ_Y_DEMORADAS.grupos.includes(x.id)).id && (() => {
+                    const delConjunto = GRUPOS.filter(x => NO_ADJ_Y_DEMORADAS.grupos.includes(x.id)).flatMap(x => porGrupo[x.id]);
+                    const montoC = sumaMontos(delConjunto);
+                    const sinMontoC = delConjunto.filter(e => montoDe(e) == null).length;
+                    return (
+                      <tr key={NO_ADJ_Y_DEMORADAS.id} onClick={elegirConjunto}
+                        className={"border-b border-slate-50 cursor-pointer hover:bg-slate-50 " + (sel?.titulo === NO_ADJ_Y_DEMORADAS.etiqueta ? "bg-slate-100" : "")}>
+                        <td className="py-1.5 px-2 font-medium"><span className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full border-2 border-rose-700" />{NO_ADJ_Y_DEMORADAS.etiqueta}</span></td>
+                        <td className="py-1.5 px-2 text-right whitespace-nowrap tabular-nums text-slate-900 font-semibold" title={montoC ? fmtMonto(montoC) : undefined}>
+                          {montoC ? fmtMontoCorto(montoC) : <span className="text-slate-300">-</span>}
+                          {sinMontoC > 0 && <span className="block text-[10px] font-normal text-amber-700">{sinMontoC} sin monto</span>}
+                        </td>
+                        <td className="py-1.5 px-2 text-right tabular-nums text-slate-900 font-semibold">{montoC ? pct(montoC, montoTotal) : ""}</td>
+                        <td className="py-1.5 px-2 text-right tabular-nums text-slate-600">{delConjunto.length || ""}</td>
+                      </tr>
+                    );
+                  })();
+                  return [filaConjunto,
                     <tr key={g.id} onClick={() => elegir(g.etiqueta, e => grupoDe(e.resolucionConv) === g)}
                       className={"border-b border-slate-50 cursor-pointer hover:bg-slate-50 " + (sel?.titulo === g.etiqueta ? "bg-slate-100" : "")}>
-                      <td className="py-1.5 px-2"><span className="flex items-center gap-2"><span className={"w-2.5 h-2.5 rounded-sm " + g.color} />{g.etiqueta}</span></td>
+                      <td className={"py-1.5 px-2" + (dentro ? " pl-7" : "")}><span className="flex items-center gap-2"><span className={"w-2.5 h-2.5 rounded-sm " + g.color} />{g.etiqueta}</span></td>
                       <td className="py-1.5 px-2 text-right whitespace-nowrap tabular-nums text-slate-900 font-medium" title={monto ? fmtMonto(monto) : undefined}>
                         {monto ? fmtMontoCorto(monto) : <span className="text-slate-300">-</span>}
                         {sinMonto > 0 && <span className="block text-[10px] font-normal text-amber-700">{sinMonto} sin monto</span>}
                       </td>
                       <td className="py-1.5 px-2 text-right tabular-nums text-slate-600">{monto ? pct(monto, montoTotal) : ""}</td>
                       <td className="py-1.5 px-2 text-right tabular-nums text-slate-500">{porGrupo[g.id].length || ""}</td>
-                    </tr>
-                  );
+                    </tr>];
                 })}
               </tbody>
             </table>
@@ -420,7 +464,7 @@ export default function AnalisisLicitaciones({
               <thead className="sticky top-0 bg-white">
                 <tr className="text-left text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-100">
                   <th className="py-2 px-3">Exp.</th><th className="py-2 px-3">Año</th><th className="py-2 px-3">Objeto</th>
-                  <th className="py-2 px-3">Partida</th><th className="py-2 px-3 text-right">Monto</th><th className="py-2 px-3">Resolución conv.</th><th className="py-2 px-3">Motivo / frenado</th>
+                  <th className="py-2 px-3">Partida</th><th className="py-2 px-3 text-right">Monto</th><th className="py-2 px-3">Resolución conv.</th><th className="py-2 px-3">Motivo / demora</th>
                 </tr>
               </thead>
               <tbody>
@@ -441,7 +485,7 @@ export default function AnalisisLicitaciones({
                       {e.resolucionDeResoluciones && <span className="block text-[10px] text-violet-700">según Resoluciones{e.resolucionEnTramite ? " (en trámite)" : ""}</span>}
                     </td>
                     <td className="py-2 px-3 text-slate-700">
-                      {esFrenado(e.resolucionConv) && <span className="block text-yellow-900">{textoFrenado(e.frenadoDonde, e.frenadoDesde, hoyLocalISO()) || "Frenado (sin dónde ni desde cuándo)"}</span>}
+                      {esFrenado(e.resolucionConv) && <span className="block text-yellow-900">{textoFrenado(e.frenadoDonde, e.frenadoDesde, hoyLocalISO()) || "Demorado (sin dónde ni desde cuándo)"}</span>}
                       {pideMotivo(e.resolucionConv) ? (e.motivoResolucion || <span className="text-amber-700">Sin cargar</span>) : !esFrenado(e.resolucionConv) && <span className="text-slate-300">-</span>}
                       {pideMotivo(e.resolucionConv) && e.motivoDeResoluciones && <span className="block text-[10px] text-violet-700">según Resoluciones</span>}
                       {e.motivoDetalle && <span className="block text-[11px] text-slate-500">{e.motivoDetalle}</span>}
