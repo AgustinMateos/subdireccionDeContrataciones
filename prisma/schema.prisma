@@ -581,6 +581,7 @@ model OrdenCompra {
   notificada       String?
   itemPendiente    String?
   pase             String?
+  quienLoTiene     String? // quién tiene el expediente: DEBY | MELY | CARO | VANE | SUBDIRECCION | ORDENES DE COMPRA
   estado           String? // COMPLETO = terminada
   fechaPublicacion String?
   observaciones    String?

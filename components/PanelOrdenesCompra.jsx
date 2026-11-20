@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Plus, Download, Trash2, ArrowRight, Users, Check, XCircle, CheckCircle2, Printer } from "lucide-react";
+import { X, Plus, Download, Trash2, ArrowRight, Users, Check, Printer } from "lucide-react";
 import * as XLSX from "xlsx";
 import { ALERTA_ESTILO } from "@/lib/constants";
 import { alertaDias } from "@/lib/diasEnSector";
@@ -10,7 +10,7 @@ import { hoyLocalISO } from "@/lib/mesaEntradas";
 import { EMAIL_JEFA_SUBDIRECCION, fechaISO } from "@/lib/resoluciones";
 import { esFechaISO } from "@/lib/diasHabiles";
 import {
-  AGENTES_ORDENES_COMPRA, TIPOS_ORDEN_COMPRA, ESTADOS_ORDEN_COMPRA, PASES_ORDEN_COMPRA, PASOS_ORDEN_COMPRA,
+  AGENTES_ORDENES_COMPRA, QUIEN_LO_TIENE_OC, TIPOS_ORDEN_COMPRA, ESTADOS_ORDEN_COMPRA, PASES_ORDEN_COMPRA, PASOS_ORDEN_COMPRA,
   CONTROLADORES_ORDENES_COMPRA, avanceOC, cbuCargado, compararOrdenesCompra, fechaYQuien, numeroOCSiguiente, textoFechaYQuien, compararPorNumeroOC, diasEnOC, siguienteNumeroOC, diasParaVencerOC, esCompleta, esPrioritariaOC, porVencerOC,
 } from "@/lib/ordenesCompra";
 import BotonAccion from "./BotonAccion";
@@ -27,11 +27,11 @@ const norm = s => String(s || "").trim().toLowerCase();
 const fecha = f => (f ? fmtFecha(fechaISO(f)) : "-");
 const CLASE_INPUT = "w-full text-xs font-normal bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-900 hover:border-slate-500 transition-colors focus:outline-none focus:border-slate-500 placeholder:text-slate-400";
 
-const ETIQUETA_CAMPO = { estado: "Estado", pase: "Pase" };
+const ETIQUETA_CAMPO = { estado: "Estado", pase: "Pase", quienLoTiene: "Lo tiene" };
 const CAMPOS_FECHA = ["fechaResol", "ingresoOC", "vencimientoOC"];
 
 function filtroVacio() {
-  return { exp: "", texto: "", tipo: "", agente: "" };
+  return { exp: "", texto: "", tipo: "", agente: "", quien: "" };
 }
 
 const VACIO = {
@@ -39,7 +39,7 @@ const VACIO = {
   plazoEjecucion: "", inicioServicio: "", autoriza: "", numeroResol: "", fechaResol: "", proveedor: "", codigoProveedor: "",
   montoResolucion: "", montoAjustado: "", ingresoOC: "", vtoArt44: "", vencimientoOC: "", notificacion44: "",
   cbu: "", informe: "", contabilidad: "", controlada: "", firmaSol: "", notificada: "", itemPendiente: "",
-  pase: "", estado: "", fechaPublicacion: "", observaciones: "", prioritario: false,
+  pase: "", quienLoTiene: "", estado: "", fechaPublicacion: "", observaciones: "", prioritario: false,
 };
 
 // En el alta, cada proveedor del expediente con su N° de OC y sus montos:
@@ -257,8 +257,10 @@ function ProveedoresOC({ proveedores, onChange }) {
 }
 
 // Ficha del expediente para imprimir (la carátula de papel del
-// departamento): ingreso y vencimientos y, por cada orden de compra, su N°,
-// el código y el nombre del proveedor y si tiene CBU. Junta todas las OC
+// departamento): por cada orden de compra, su N°, el código y el nombre del
+// proveedor y si tiene CBU; si es provisión o servicio. Arriba de todo, el vencimiento grande y debajo
+// ingreso, vto. art. 44, vto. OC e inicio del servicio. Si es prioritaria (estrella) o
+// está en el Plan de Obras, lo dice bien grande arriba. Junta todas las OC
 // del mismo expediente (en el alta, las de cada proveedor cargado).
 // Mismo expediente para la ficha: igual o con algún N° de expediente en
 // común ("13-06148/2026-LA" y "13-06148/2026").
@@ -276,12 +278,14 @@ function ordenesDeLaFicha(f, inicial, ordenes) {
   return [...(f.proveedores || [f]), ...guardadas].sort((a, b) => compararPorNumeroOC(b, a));
 }
 
-function imprimirFicha(f, ocs) {
+function imprimirFicha(f, ocs, enPlanObras) {
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const vacio = '<span class="linea"></span>';
   const dato = v => (v ? "<b>" + esc(v) + "</b>" : vacio);
   const anio = (fechaISO(f.ingresoOC) || hoyLocalISO()).slice(0, 4);
   const vtoOC = fechaISO(f.vencimientoOC);
+  // Provisión o servicio (se guarda PROVISION / SERVICIO).
+  const tipoOC = /SERVICIO/i.test(f.tipo) ? "SERVICIO" : /PROVISI/i.test(f.tipo) ? "PROVISIÓN" : String(f.tipo || "").trim().toUpperCase();
   const [dd, mm, aa] = vtoOC ? [vtoOC.slice(8, 10), vtoOC.slice(5, 7), vtoOC.slice(0, 4)] : ["", "", ""];
   const bloque = o => `
     <div class="oc">
@@ -297,41 +301,51 @@ function imprimirFicha(f, ocs) {
     <style>
       body { font-family: "Times New Roman", serif; font-size: 15px; color: #000; margin: 0; }
       .ficha { border: 2px solid #000; max-width: 720px; margin: 0 auto; }
-      .exp { padding: 6px 10px; border-bottom: 1px solid #000; font-size: 13px; }
+      .exp { padding: 6px 10px; border-bottom: 1px solid #000; font-size: 13px; display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+      .exp .tipo { font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; letter-spacing: 1px; white-space: nowrap; }
       .cuerpo { display: grid; grid-template-columns: 1fr 1fr; }
       .col { padding: 8px 10px; }
       .col + .col { border-left: 1px solid #000; }
       .cabecera { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 6px; }
       .oc { padding: 6px 0; line-height: 1.7; border-bottom: 1px solid #000; }
       .oc:last-child { border-bottom: 0; }
-      .fechas { border-top: 1px solid #000; margin-top: 8px; padding-top: 8px; line-height: 2; }
+      .cuerpo.una { grid-template-columns: 1fr; }
+      .prioridad { display: flex; gap: 10px; justify-content: center; padding: 8px 10px; border-bottom: 2px solid #000; }
+      .prioridad span { font-family: Arial, sans-serif; font-size: 26px; font-weight: bold; letter-spacing: 1px; padding: 4px 14px; border: 3px solid #000; border-radius: 6px; }
+      .prioridad .estrella { font-size: 32px; line-height: 1; vertical-align: -3px; }
+      .pie { display: grid; grid-template-columns: 1fr 1fr; border-top: 2px solid #000; border-bottom: 2px solid #000; }
+      .pie div { padding: 6px 10px; line-height: 1.6; }
+      .pie div:nth-child(odd) { border-right: 1px solid #000; }
+      .pie div:nth-child(-n+2) { border-bottom: 1px solid #000; }
       .linea { display: inline-block; min-width: 90px; border-bottom: 1px dotted #000; }
       b { font-weight: bold; }
-      .vence { border-top: 2px solid #000; text-align: center; padding: 18px 10px 24px; }
+      .vence { text-align: center; padding: 14px 10px 18px; }
       .vence h2 { font-family: Arial, sans-serif; font-size: 64px; margin: 0 0 12px; letter-spacing: 2px; }
       .vence .dia { font-family: Arial, sans-serif; font-size: 44px; font-weight: bold; }
       @page { margin: 12mm; }
     </style></head>
     <body><div class="ficha">
-      <div class="exp">Expediente: <b>${esc(f.exp)}</b>${f.objeto ? " · " + esc(f.objeto) : ""}</div>
-      <div class="cuerpo">
+      ${f.prioritario || enPlanObras ? `<div class="prioridad">
+        ${f.prioritario ? '<span><span class="estrella">&#9733;</span> PRIORITARIO</span>' : ""}
+        ${enPlanObras ? "<span>PLAN DE OBRAS</span>" : ""}
+      </div>` : ""}
+      <div class="vence">
+        <h2>VENCE:</h2>
+        <div class="dia">${vtoOC ? esc(dd) + " / " + esc(mm) + " / " + esc(aa) : "____ / ____ / ____"}</div>
+      </div>
+      <div class="pie">
+        <div>INGRESO: ${dato(f.ingresoOC ? fecha(f.ingresoOC) : "")}</div>
+        <div>VTO ART 44: ${dato(f.vtoArt44)}</div>
+        <div>VTO OC: ${dato(vtoOC ? fecha(vtoOC) : "")}</div>
+        <div>INICIO SERV: ${dato(f.inicioServicio)}</div>
+      </div>
+      <div class="exp"><span>Expediente: <b>${esc(f.exp)}</b>${f.objeto ? " · " + esc(f.objeto) : ""}</span><span class="tipo">${tipoOC ? esc(tipoOC) : "PROVISIÓN / SERVICIO: " + vacio}</span></div>
+      <div class="cuerpo${derecha.length ? "" : " una"}">
         <div class="col">
           <div class="cabecera"><span>AÑO: ${anio}</span><span>(CBU)</span></div>
           <div>${izquierda.map(bloque).join("")}</div>
         </div>
-        <div class="col">
-          ${derecha.length ? "<div>" + derecha.map(bloque).join("") + "</div>" : ""}
-          <div class="fechas"${derecha.length ? "" : ' style="border-top:0;margin-top:0;padding-top:0"'}>
-            <div>INGRESO: ${dato(f.ingresoOC ? fecha(f.ingresoOC) : "")}</div>
-            <div>VTO ART 44: ${dato(f.vtoArt44)}</div>
-            <div>VTO OC: ${dato(vtoOC ? fecha(vtoOC) : "")}</div>
-            <div>INICIO SERV: ${dato(f.inicioServicio)}</div>
-          </div>
-        </div>
-      </div>
-      <div class="vence">
-        <h2>VENCE:</h2>
-        <div class="dia">${vtoOC ? esc(dd) + " / " + esc(mm) + " / " + esc(aa) : "____ / ____ / ____"}</div>
+        ${derecha.length ? '<div class="col"><div>' + derecha.map(bloque).join("") + "</div></div>" : ""}
       </div>
     </div></body></html>`);
   ventana.document.close();
@@ -422,32 +436,6 @@ function TarjetaFirma({ f, onCambio }) {
       </div>
       {otra && <div><Pregunta>¿Quién la firmó?</Pregunta><ElegirPersona valor={quien} onChange={v => onCambio({ firmaPor: v })} /></div>}
     </Tarjeta>
-  );
-}
-
-// Control o firma en la tabla: la fecha y, debajo, quién (en la firma, solo
-// si no fue Sol). Lo que no tiene fecha se ve como está en la planilla.
-function FechaYQuien({ e, k }) {
-  if (!e[k]) return "-";
-  const { fecha: dia, quien } = fechaYQuien(e[k], anioDe({ ingresoOC: fechaISO(e.ingresoOC) }));
-  if (!dia) return <span className="line-clamp-2" title={e[k]}>{e[k]}</span>;
-  const mostrar = k === "firmaSol" ? (firmoOtra(quien) ? "Firmó " + quien : "") : quien;
-  return (
-    <span title={e[k]}>
-      <span className="whitespace-nowrap">{fecha(dia)}</span>
-      {mostrar && <span className="block text-[11px] text-slate-500 line-clamp-1">{mostrar}</span>}
-    </span>
-  );
-}
-
-// CBU: tilde si está cargado, cruz si no (el texto de la planilla, al pasar
-// el mouse).
-function IconoCBU({ e }) {
-  const ok = cbuCargado(e);
-  return (
-    <span title={e.cbu || "Sin cargar"} aria-label={ok ? "CBU cargado" : "CBU sin cargar"}>
-      {ok ? <CheckCircle2 size={16} className="text-emerald-600" /> : <XCircle size={16} className="text-red-500" />}
-    </span>
   );
 }
 
@@ -550,7 +538,9 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, o
   }
 
   function imprimir() {
-    if (!imprimirFicha(f, ordenesDeLaFicha(f, inicial, ordenes))) setError("El navegador bloqueó la ventana de impresión: permití las ventanas emergentes.");
+    // Plan de Obras: lo marca el servidor en las OC guardadas; en un alta, por otra OC del mismo expediente.
+    const enPlanObras = !!inicial?.enPlanObras || (ordenes || []).some(o => o.enPlanObras && deLaFicha(o.exp, f.exp));
+    if (!imprimirFicha(f, ordenesDeLaFicha(f, inicial, ordenes), enPlanObras)) setError("El navegador bloqueó la ventana de impresión: permití las ventanas emergentes.");
   }
 
   async function guardar() {
@@ -683,6 +673,7 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, o
                 <DatoFicha label="Firma" valor={f.firmaFecha ? fecha(f.firmaFecha) + " · " + (f.firmaOtra ? f.firmaPor || "otra persona" : "Sol") : f.firmaSol} />
                 <DatoFicha label="OC notificada" valor={f.notificada} />
                 <DatoFicha label="Pase" valor={f.pase} />
+                <DatoFicha label="Lo tiene" valor={f.quienLoTiene} />
                 <DatoFicha label="Estado" valor={f.estado} />
                 {f.informe && <DatoFicha label="Informe" valor={f.informe} />}
                 {f.fechaPublicacion && <DatoFicha label="Fecha de publicación" valor={f.fechaPublicacion} />}
@@ -796,6 +787,9 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, o
                 </Campo>
                 <Campo pregunta="¿A dónde pasó el expediente?" ancho>
                   <ElegirDeLista opciones={PASES_ORDEN_COMPRA} valor={f.pase} onChange={v => set("pase", v)} otro="Otro lugar" vacio="Todavía no" />
+                </Campo>
+                <Campo pregunta="¿Quién lo tiene?" ancho>
+                  <ElegirDeLista opciones={QUIEN_LO_TIENE_OC} valor={f.quienLoTiene} onChange={v => set("quienLoTiene", v)} otro="Otra persona" vacio="Sin definir" />
                 </Campo>
                 <Campo pregunta="¿Cómo está la orden?" ancho>
                   <ElegirDeLista opciones={ESTADOS_ORDEN_COMPRA} valor={f.estado} onChange={v => set("estado", v)} otro="Otro" />
@@ -923,14 +917,14 @@ function exportarExcel(filas, solapa) {
     ["EXP", "AMPLIACION OC", "PRORROGA O/C N°", "AGENTE", "FECHA RESOL", "INGRESO A OC", "VTO. ART 44", "VENCIMIENTO OC",
       "ORGANISMO", "OBJETO", "PLAZO DE EJECUCION", "PROV/SERVICIO", "AG", "N° RESOL", "OC", "PROVEEDOR", "COD. PROVEEDOR", "MONTO POR RESOLUCION",
       "TOTAL CON ULTIMO AJUSTE PARA O/C", "FECHA 44/NOTIF.", "CBU", "INFORME", "CONTABILIDAD", "O/C CONTROLADA POR Y FECHA",
-      "A LA FIRMA DE SOL FECHA", "FECHA DE O/C NOTIFICADA", "ITEM PENDIENTE", "PASE", "ESTADO", "INICIO SERVICIO",
+      "A LA FIRMA DE SOL FECHA", "FECHA DE O/C NOTIFICADA", "ITEM PENDIENTE", "PASE", "LO TIENE", "ESTADO", "INICIO SERVICIO",
       "OBSERVACIONES", "FECHA DE PUBLICACION", "ETAPA", "DIAS EN OC", "PRIORITARIA"],
     ...filas.map(e => [
       e.exp, e.ampliacionOC || "", e.prorrogaOC || "", e.agente || "", e.fechaResol ? fecha(e.fechaResol) : "", e.ingresoOC ? fecha(e.ingresoOC) : "",
       e.vtoArt44 || "", e.vencimientoOC ? fecha(e.vencimientoOC) : "", e.organismo || "", e.objeto, e.plazoEjecucion || "", e.tipo || "",
       e.autoriza || "", e.numeroResol || "", e.numeroOC || "", e.proveedor || "", e.codigoProveedor || "", e.montoResolucion || "", e.montoAjustado || "",
       e.notificacion44 || "", e.cbu || "", e.informe || "", e.contabilidad || "", e.controlada || "", e.firmaSol || "", e.notificada || "",
-      e.itemPendiente || "", e.pase || "", e.estado || "", e.inicioServicio || "", e.observaciones || "", e.fechaPublicacion || "",
+      e.itemPendiente || "", e.pase || "", e.quienLoTiene || "", e.estado || "", e.inicioServicio || "", e.observaciones || "", e.fechaPublicacion || "",
       avanceOC(e).etapa, diasEnOC(e) ?? "", e.enPlanObras ? "SI (PLAN DE OBRAS)" : e.prioritario ? "SI" : "",
     ]),
   ];
@@ -999,6 +993,7 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
     return {
       tipo: de(lista.map(e => e.tipo), TIPOS_ORDEN_COMPRA),
       agente: de(lista.map(e => e.agente), AGENTES_ORDENES_COMPRA),
+      quien: [...QUIEN_LO_TIENE_OC, ...[...new Set(lista.map(e => e.quienLoTiene).filter(x => x && !QUIEN_LO_TIENE_OC.includes(x)))].sort()],
     };
   }, [lista]);
 
@@ -1010,6 +1005,7 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
     if (f.texto && !norm([e.objeto, e.organismo, e.proveedor, e.codigoProveedor, e.observaciones].join(" ")).includes(norm(f.texto))) return false;
     if (f.tipo && e.tipo !== f.tipo) return false;
     if (f.agente && e.agente !== f.agente) return false;
+    if (f.quien && e.quienLoTiene !== f.quien) return false;
     return true;
   }).sort(deSolapa.orden || compararOrdenesCompra), [deLaSolapa, deSolapa, f]);
 
@@ -1082,63 +1078,42 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
   // Para la jefa, pase y estado son texto: la celda abre la ficha.
   const celdaRapida = esJefa ? undefined : ev => ev.stopPropagation();
   const txt = k => e => <span className="line-clamp-2" title={e[k] || ""}>{e[k] || "-"}</span>;
-  // Columnas en el orden de la planilla del departamento. `filtro`: el
-  // control de la segunda fila del encabezado.
+  // Columnas del cuadro (el resto de los datos, en la ficha y en el Excel).
+  // `filtro`: el control de la segunda fila del encabezado.
   const columnas = [
     { titulo: "Exp.", ancho: "min-w-[150px]", fija: true,
       filtro: <input value={f.exp} onChange={e => set("exp", e.target.value)} placeholder="Exp. u OC" className={CLASE_INPUT} />,
-      celda: e => <span className="font-mono font-semibold text-slate-900 max-w-[150px] whitespace-normal break-words" title={e.exp}>{e.exp}</span> },
-    { titulo: "Ampliación OC", ancho: "min-w-[90px]", celda: txt("ampliacionOC") },
-    { titulo: "Prórroga O/C N°", ancho: "min-w-[90px]", celda: txt("prorrogaOC") },
+      celda: e => (
+        <>
+          <span className="font-mono font-semibold text-slate-900 max-w-[150px] whitespace-normal break-words" title={e.exp}>{e.exp}</span>
+          <EtiquetasPrioridad expediente={e} />
+        </>
+      ) },
+    { titulo: "N° OC", ancho: "min-w-[60px]", fondo: " bg-blue-950 text-white", celda: e => <span className="font-semibold tabular-nums">{e.numeroOC || "-"}</span> },
     { titulo: "Agente", ancho: "min-w-[100px]",
       filtro: <FiltroColumna valor={f.agente} etiqueta="Todos" opciones={opciones.agente} onChange={v => set("agente", v)} />,
       alTocar: celdaRapida,
       celda: e => (esJefa ? (e.agente || "-") : (
         <SelectRapido valor={e.agente} opciones={AGENTES_ORDENES_COMPRA} vacio="Sin asignar" onChange={v => cambiarRapido(e, { agente: v })} className="min-w-[110px]" />
       )) },
-    { titulo: "Fecha resol.", ancho: "min-w-[90px] whitespace-nowrap", celda: e => fecha(e.fechaResol) },
-    { titulo: "Ingreso a OC", ancho: "min-w-[100px] whitespace-nowrap", celda: e => {
+    { titulo: "Fecha de ingreso", ancho: "min-w-[90px] whitespace-nowrap", celda: e => fecha(e.ingresoOC) },
+    { titulo: "Días en el sector", ancho: "min-w-[80px]", celda: e => {
       const dias = diasEnOC(e);
-      return (
-        <>
-          {fecha(e.ingresoOC)}
-          {dias != null && (
-            <span className={"block w-fit mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""} en OC</span>
-          )}
-        </>
+      return dias == null ? "-" : (
+        <span className={"inline-block whitespace-nowrap text-[11px] font-medium px-1.5 py-0.5 rounded border " + ALERTA_ESTILO[alertaDias(dias)]}>{dias} día{dias !== 1 ? "s" : ""}</span>
       );
     } },
     { titulo: "Vto. art. 44", ancho: "min-w-[90px]", celda: txt("vtoArt44") },
-    { titulo: "Vencimiento OC", ancho: "min-w-[110px]", celda: e => <Vencimiento e={e} /> },
-    { titulo: "Organismo", ancho: "min-w-[180px] max-w-[220px]", celda: txt("organismo") },
-    { titulo: "Objeto", ancho: "min-w-[220px] max-w-[280px]",
-      filtro: <input value={f.texto} onChange={e => set("texto", e.target.value)} placeholder="Objeto, organismo, proveedor" className={CLASE_INPUT} />,
-      celda: txt("objeto") },
-    { titulo: "Plazo de ejecución", ancho: "min-w-[130px] max-w-[160px]", celda: txt("plazoEjecucion") },
+    { titulo: "Vto. OC", ancho: "min-w-[110px]", celda: e => <Vencimiento e={e} /> },
     { titulo: "Prov./Servicio", ancho: "min-w-[110px]",
       filtro: <FiltroColumna valor={f.tipo} etiqueta="Todos" opciones={opciones.tipo} onChange={v => set("tipo", v)} />,
       celda: txt("tipo") },
-    { titulo: "AG", ancho: "min-w-[50px]", celda: txt("autoriza") },
-    { titulo: "N° resol.", ancho: "min-w-[80px] whitespace-nowrap", celda: txt("numeroResol") },
-    { titulo: "OC", ancho: "min-w-[50px]", fondo: " bg-blue-950 text-white", celda: e => <span className="font-semibold tabular-nums">{e.numeroOC || "-"}</span> },
-    { titulo: "Proveedor", ancho: "min-w-[170px] max-w-[220px]", celda: txt("proveedor") },
-    { titulo: "Cód. proveedor", ancho: "min-w-[90px]", celda: txt("codigoProveedor") },
-    { titulo: "Por resolución", grupo: "Monto", ancho: "min-w-[130px] whitespace-nowrap tabular-nums", celda: e => e.montoResolucion || "-" },
-    { titulo: "Ajuste para O/C", grupo: "Monto", ancho: "min-w-[130px] whitespace-nowrap tabular-nums", celda: e => e.montoAjustado || e.montoResolucion || "-" },
-    { titulo: "Fecha 44/notif.", ancho: "min-w-[100px]", celda: txt("notificacion44") },
-    { titulo: "CBU", ancho: "min-w-[50px]", celda: e => <IconoCBU e={e} /> },
-    { titulo: "Contabilidad", ancho: "min-w-[110px] max-w-[150px]", celda: txt("contabilidad") },
-    { titulo: "O/C controlada por y fecha", ancho: "min-w-[120px] max-w-[170px]", celda: e => <FechaYQuien e={e} k="controlada" /> },
-    { titulo: "A la firma de Sol (fecha)", ancho: "min-w-[120px] max-w-[170px]", celda: e => <FechaYQuien e={e} k="firmaSol" /> },
-    { titulo: "Fecha de O/C notificada", ancho: "min-w-[110px]", celda: txt("notificada") },
-    { titulo: "Pase", ancho: "min-w-[120px]", alTocar: celdaRapida,
-      celda: e => (esJefa ? (e.pase || "-") : <SelectRapido valor={e.pase} opciones={PASES_ORDEN_COMPRA} onChange={v => cambiarRapido(e, { pase: v })} className="max-w-[170px]" />) },
-    { titulo: "Estado", ancho: "min-w-[130px]", alTocar: celdaRapida,
-      celda: e => (esJefa
-        ? <span className={esCompleta(e) ? "font-medium text-emerald-700" : ""}>{e.estado || "-"}</span>
-        : <SelectRapido valor={e.estado} opciones={ESTADOS_ORDEN_COMPRA} onChange={v => cambiarRapido(e, { estado: v })} fuerte className="max-w-[170px]" />) },
-    { titulo: "Inicio servicio", ancho: "min-w-[120px] max-w-[160px]", celda: txt("inicioServicio") },
-    { titulo: "Fecha de publicación", ancho: "min-w-[100px]", celda: txt("fechaPublicacion") },
+    { titulo: "Organismo", ancho: "min-w-[180px] max-w-[240px]",
+      filtro: <input value={f.texto} onChange={e => set("texto", e.target.value)} placeholder="Organismo, objeto, proveedor" className={CLASE_INPUT} />,
+      celda: txt("organismo") },
+    { titulo: "Lo tiene", ancho: "min-w-[150px]", alTocar: ev => ev.stopPropagation(),
+      filtro: <FiltroColumna valor={f.quien} etiqueta="Todos" opciones={opciones.quien} onChange={v => set("quien", v)} />,
+      celda: e => <SelectRapido valor={e.quienLoTiene} opciones={QUIEN_LO_TIENE_OC} vacio="Sin definir" onChange={v => cambiarRapido(e, { quienLoTiene: v })} className="max-w-[170px]" /> },
   ];
   // La primera columna queda fija al desplazar la tabla a los costados.
   const fija = c => (c.fija ? " sticky left-0 z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100" : "");

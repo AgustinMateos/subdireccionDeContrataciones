@@ -28,8 +28,9 @@ export async function PUT(request, { params }) {
 }
 
 // Cambio rápido desde la tabla: `{ estado }`, `{ pase }` o `{ agente }`
-// (el departamento; queda en el historial); `{ prioritario }` solo la
-// jefa de la Subdirección.
+// (el departamento; queda en el historial); `{ quienLoTiene }` cualquiera
+// (también la Subdirección, que es una de las opciones); `{ prioritario }`
+// solo la jefa de la Subdirección.
 export async function PATCH(request, { params }) {
   const { id } = await params;
   const session = await sesionOrdenesCompra();
@@ -46,7 +47,7 @@ export async function PATCH(request, { params }) {
   if (!existente) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
 
   const data = {};
-  for (const k of ["estado", "pase", "agente"]) {
+  for (const k of ["estado", "pase", "agente", "quienLoTiene"]) {
     if (k in body) data[k] = String(body[k] || "").trim() || null;
   }
   if ("prioritario" in body) data.prioritario = body.prioritario === true;
