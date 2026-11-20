@@ -794,6 +794,10 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, o
           ) : solapa === "datos" ? (
             <>
               <p className="text-sm text-slate-600">Completá lo que sepas; lo demás se puede cargar después. Lo único obligatorio es el <b>N° de expediente</b> y el <b>objeto</b>. Tocá cada paso para abrirlo.</p>
+              {/* A la vista (no dentro de un paso cerrado): agregar un proveedor que faltó. */}
+              {inicial && !esJefa && onProveedorAgregado && (
+                <AgregarProveedorOC base={inicial} ordenes={ordenes || []} hayCambios={hayCambios} onAgregado={onProveedorAgregado} />
+              )}
 
               <Paso {...paso(1)} titulo="La resolución">
                 <Campo pregunta="N° de expediente (obligatorio)">
@@ -856,9 +860,6 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, o
                         onChange={v => setF(prev => ({ ...prev, seAjusta: v, montoAjustado: v ? prev.montoAjustado : "" }))} />
                       {f.seAjusta && <div className="mt-2"><Entrada valor={f.montoAjustado} onChange={v => set("montoAjustado", v)} ejemplo="$ 51.000.000,00" /></div>}
                     </Campo>
-                    {!esJefa && onProveedorAgregado && (
-                      <AgregarProveedorOC base={inicial} ordenes={ordenes || []} hayCambios={hayCambios} onAgregado={onProveedorAgregado} />
-                    )}
                   </>
                 ) : (
                   <Campo pregunta="Proveedores del expediente" ayuda="Si el expediente tiene varios proveedores, agregalos acá: cada uno lleva su N° de OC y queda en su propia fila." ancho>
