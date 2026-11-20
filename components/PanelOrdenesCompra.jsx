@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Plus, Download, Trash2, ArrowRight, Users, Check, Printer } from "lucide-react";
+import { X, Plus, Download, Trash2, ArrowRight, Users, Check, Printer, Ban, RotateCcw } from "lucide-react";
 import * as XLSX from "xlsx";
 import { ALERTA_ESTILO } from "@/lib/constants";
 import { alertaDias } from "@/lib/diasEnSector";
@@ -11,7 +11,7 @@ import { EMAIL_JEFA_SUBDIRECCION, fechaISO } from "@/lib/resoluciones";
 import { esFechaISO } from "@/lib/diasHabiles";
 import {
   AGENTES_ORDENES_COMPRA, QUIEN_LO_TIENE_OC, TIPOS_ORDEN_COMPRA, ESTADOS_ORDEN_COMPRA, PASES_ORDEN_COMPRA, PASOS_ORDEN_COMPRA,
-  CONTROLADORES_ORDENES_COMPRA, numeroOCEntero, ordenesACorrer, avanceOC, cbuCargado, compararOrdenesCompra, fechaYQuien, numeroOCSiguiente, textoFechaYQuien, compararPorNumeroOC, diasEnOC, siguienteNumeroOC, diasParaVencerOC, esCompleta, esPrioritariaOC, porVencerOC,
+  CONTROLADORES_ORDENES_COMPRA, numeroOCEntero, ordenesACorrer, avanceOC, cbuCargado, compararOrdenesCompra, fechaYQuien, numeroOCSiguiente, textoFechaYQuien, compararPorNumeroOC, diasEnOC, siguienteNumeroOC, diasParaVencerOC, esCompleta, esCancelada, estaCerrada, ESTADO_CANCELADA, esPrioritariaOC, porVencerOC,
 } from "@/lib/ordenesCompra";
 import BotonAccion from "./BotonAccion";
 import {
@@ -94,7 +94,7 @@ const aTextoFecha = iso => iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.
 // Nombres de las listas como se leen (las opciones se guardan como en la
 // planilla, en mayúsculas).
 const ETIQUETAS = {
-  "EN TRAMITE": "En trámite", COMPLETO: "Completa", TECNICA: "Técnica", LICITACIONES: "Licitaciones",
+  "EN TRAMITE": "En trámite", COMPLETO: "Completa", CANCELADA: "Cancelada", TECNICA: "Técnica", LICITACIONES: "Licitaciones",
   CONTABILIDAD: "Contabilidad", SUBDIRECCION: "Subdirección", PROVISION: "Provisión", SERVICIO: "Servicio",
 };
 const etiqueta = o => ETIQUETAS[o] || (o.length > 3 ? o.charAt(0) + o.slice(1).toLowerCase() : o);
@@ -325,6 +325,7 @@ function imprimirFicha(f, ocs, enPlanObras) {
       @page { margin: 12mm; }
     </style></head>
     <body><div class="ficha">
+      ${esCancelada(f) ? '<div class="prioridad"><span>OC CANCELADA</span></div>' : ""}
       ${f.prioritario || enPlanObras ? `<div class="prioridad">
         ${f.prioritario ? '<span><span class="estrella">&#9733;</span> PRIORITARIO</span>' : ""}
         ${enPlanObras ? "<span>PLAN DE OBRAS</span>" : ""}
@@ -550,7 +551,7 @@ function AgregarProveedorOC({ base, ordenes, valor, onChange }) {
   );
 }
 
-export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, onCerrar, onGuardar, onEliminar, onProveedorAgregado }) {
+export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, onCerrar, onGuardar, onEliminar, onProveedorAgregado, onCancelar }) {
   const [f, setF] = useState(() => aFormulario(inicial, numeroNuevo));
   // Para saber si hay cambios sin guardar (antes de agregar un proveedor).
   const [alAbrir] = useState(() => JSON.stringify(aFormulario(inicial, numeroNuevo)));
@@ -563,6 +564,13 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, o
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
+  const [confirmarCancelar, setConfirmarCancelar] = useState(false);
+  const cancelada = !!inicial && esCancelada(inicial);
+  async function cancelarOC(valor) {
+    setGuardando(true);
+    await onCancelar(valor);
+    setGuardando(false);
+  }
   const [versionAlAbrir] = useState(inicial?.actualizadoEn);
   const cambioMientrasEditaba = !!inicial && inicial.actualizadoEn !== versionAlAbrir;
   const fijo = esJefa && !!inicial;
@@ -714,6 +722,13 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, o
               )}
             </div>
             <div className="flex items-center gap-1 shrink-0">
+              {inicial && !esJefa && onCancelar && (cancelada ? (
+                <button onClick={() => cancelarOC(false)} disabled={guardando} title="Volver a ponerla en trámite"
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-md hover:bg-slate-100 text-slate-700 text-xs font-medium"><RotateCcw size={15} /> Reactivar</button>
+              ) : (
+                <button onClick={() => setConfirmarCancelar(true)} title="Cancelar la orden de compra"
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-md hover:bg-slate-100 text-slate-600 text-xs font-medium"><Ban size={15} /> Cancelar OC</button>
+              ))}
               {inicial && (
                 <button onClick={() => setConfirmarEliminar(true)} title="Eliminar" className="p-1.5 rounded-md hover:bg-red-50 text-red-600"><Trash2 size={16} /></button>
               )}
@@ -738,6 +753,23 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, o
           {cambioMientrasEditaba && (
             <div className="border border-amber-300 bg-amber-50 rounded-md p-3 text-sm text-amber-900">
               Esta orden cambió mientras la tenías abierta (la modificó otra persona). Cerrá sin guardar y volvé a abrirla para ver los cambios; si guardás ahora, se pisan con lo que tenés en pantalla.
+            </div>
+          )}
+          {cancelada && (
+            <div className="border border-slate-300 bg-slate-100 rounded-md p-3 text-sm text-slate-700 flex items-center gap-2">
+              <Ban size={16} className="text-slate-500 shrink-0" /> Esta orden de compra está <b>cancelada</b>. Queda en el cuadro en gris; con &quot;Reactivar&quot; vuelve a estar en trámite.
+            </div>
+          )}
+          {confirmarCancelar && !cancelada && (
+            <div className="border border-slate-300 bg-slate-50 rounded-md p-3 flex items-center justify-between gap-3">
+              <p className="text-sm text-slate-800">¿Cancelar esta orden de compra? Queda en el cuadro con la etiqueta &quot;Cancelada&quot; y en gris, y deja de contar para vencimientos y días en el sector.</p>
+              <div className="flex gap-2 shrink-0">
+                <button onClick={() => setConfirmarCancelar(false)} disabled={guardando} className="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-xs font-medium">No</button>
+                <BotonAccion onClick={() => cancelarOC(true)} cargando={guardando} cargandoTexto="Cancelando..."
+                  className="px-3 py-1.5 rounded-md bg-slate-700 text-white text-xs font-medium hover:bg-slate-800">
+                  Sí, cancelar la OC
+                </BotonAccion>
+              </div>
             </div>
           )}
           {confirmarEliminar && (
@@ -991,7 +1023,7 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, o
 
 // Cuántas órdenes en trámite tiene cada agente. Tocar uno filtra.
 function ResumenAgentes({ lista, onElegir }) {
-  const enTramite = lista.filter(e => !esCompleta(e));
+  const enTramite = lista.filter(e => !estaCerrada(e));
   const agentes = [...new Set([...AGENTES_ORDENES_COMPRA, ...enTramite.map(e => e.agente).filter(Boolean)])];
   const cuenta = a => enTramite.filter(e => e.agente === a).length;
   const sinAsignar = enTramite.filter(e => !String(e.agente || "").trim()).length;
@@ -1029,12 +1061,13 @@ function ResumenAgentes({ lista, onElegir }) {
 // cuenta con las mismas) y, si no es el de siempre, en qué orden.
 export const SOLAPAS = [
   { id: "general", etiqueta: "General", incluye: () => true, orden: compararPorNumeroOC },
-  { id: "escritorio", etiqueta: "En trámite", incluye: e => !esCompleta(e) },
+  { id: "escritorio", etiqueta: "En trámite", incluye: e => !estaCerrada(e) },
   { id: "porVencer", etiqueta: "Vencidas y por vencer", incluye: porVencerOC },
-  { id: "prioritarios", etiqueta: "Prioritarias", incluye: e => !esCompleta(e) && esPrioritariaOC(e) },
+  { id: "prioritarios", etiqueta: "Prioritarias", incluye: e => !estaCerrada(e) && esPrioritariaOC(e) },
   { id: "completas", etiqueta: "Completas", incluye: esCompleta },
+  { id: "canceladas", etiqueta: "Canceladas", incluye: esCancelada },
   // Para que el departamento asigne lo pendiente.
-  { id: "sinAsignar", etiqueta: "Sin asignar", incluye: e => !esCompleta(e) && !String(e.agente || "").trim() },
+  { id: "sinAsignar", etiqueta: "Sin asignar", incluye: e => !estaCerrada(e) && !String(e.agente || "").trim() },
 ];
 
 function exportarExcel(filas, solapa) {
@@ -1199,6 +1232,16 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
         : nombre + ": " + ETIQUETA_CAMPO[campo] + " → " + (valor || "sin definir"));
   }
 
+  // Cancelar (o reactivar) la OC abierta: es su estado, queda en el historial.
+  async function cancelar(valor) {
+    const e = seleccionada;
+    const data = await enviar("/api/ordenes-compra/" + e.id, "PATCH", { estado: valor ? ESTADO_CANCELADA : "EN TRAMITE" });
+    if (data.error) { mostrarToast(data.error); return; }
+    setOrdenes(prev => prev.map(x => (x.id === data.expediente.id ? data.expediente : x)));
+    setForm(null);
+    mostrarToast("OC " + (e.numeroOC || e.exp) + (valor ? " cancelada" : " reactivada: vuelve a estar en trámite"));
+  }
+
   async function eliminar() {
     const data = await enviar("/api/ordenes-compra/" + seleccionada.id, "DELETE");
     if (data.error) { mostrarToast(data.error); return; }
@@ -1223,6 +1266,7 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
         <>
           <span className="font-mono font-semibold text-slate-900 max-w-[150px] whitespace-normal break-words" title={e.exp}>{e.exp}</span>
           <EtiquetasPrioridad expediente={e} />
+          {esCancelada(e) && <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-600 text-white uppercase tracking-wide"><Ban size={10} /> Cancelada</span>}
         </>
       ) },
     { titulo: "N° OC", ancho: "min-w-[60px]", fondo: " bg-blue-950 text-white", celda: e => <span className="font-semibold tabular-nums">{e.numeroOC || "-"}</span> },
@@ -1314,9 +1358,12 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
             {filas.length === 0 ? (
               <tr><td colSpan={columnas.length} className="py-10 text-center text-sm text-slate-500">No hay órdenes de compra con esos filtros.</td></tr>
             ) : filasPagina.map(e => (
-              <tr key={e.id} onClick={() => setForm(e.id)} className="group border-b border-slate-50 last:border-0 hover:bg-slate-50 cursor-pointer align-top text-xs text-slate-700">
+              <tr key={e.id} onClick={() => setForm(e.id)}
+                className={"group border-b last:border-0 cursor-pointer align-top text-xs " + (esCancelada(e) ? "bg-slate-200 border-slate-300 text-slate-500 hover:bg-slate-300" : "border-slate-50 hover:bg-slate-50 text-slate-700")}>
                 {columnas.map(c => (
-                  <td key={c.titulo} onClick={c.alTocar} className={"py-2.5 px-3 " + c.ancho + fija(c) + (c.fondo || "")}>{c.celda(e)}</td>
+                  <td key={c.titulo} onClick={c.alTocar} className={"py-2.5 px-3 " + c.ancho + (esCancelada(e)
+                    ? fija(c).replace("bg-white group-hover:bg-slate-50", "bg-slate-200 group-hover:bg-slate-300") + (c.fondo ? " bg-slate-400 text-white" : "")
+                    : fija(c) + (c.fondo || ""))}>{c.celda(e)}</td>
                 ))}
               </tr>
             ))}
@@ -1337,6 +1384,7 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
           onCerrar={() => setForm(null)}
           onGuardar={guardar}
           onEliminar={eliminar}
+          onCancelar={cancelar}
           onProveedorAgregado={proveedorAgregado}
         />
       )}

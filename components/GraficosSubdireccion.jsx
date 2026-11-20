@@ -14,7 +14,7 @@ import {
   esPrioritarioLicitacion, esTerminada, estaEnLicitaciones,
 } from "@/lib/licitaciones";
 import {
-  AGENTES_ORDENES_COMPRA, DIAS_AVISO_VENCIMIENTO_OC, ETAPAS_ORDEN_COMPRA, TIPOS_ORDEN_COMPRA, diasEnOC, esCompleta,
+  AGENTES_ORDENES_COMPRA, DIAS_AVISO_VENCIMIENTO_OC, ETAPAS_ORDEN_COMPRA, TIPOS_ORDEN_COMPRA, diasEnOC, esCompleta, estaCerrada,
   esPrioritariaOC, etapaOC,
 } from "@/lib/ordenesCompra";
 import EstrellaPrioridad from "./EstrellaPrioridad";
@@ -92,12 +92,12 @@ const DEPTOS = {
     ],
     // En el departamento hasta que tiene pase a otro sector.
     normalizar: e => ({
-      e, terminado: esCompleta(e), enDepto: !String(e.pase || "").trim(), dias: diasEnOC(e),
+      e, terminado: estaCerrada(e), enDepto: !String(e.pase || "").trim(), dias: diasEnOC(e),
       sector: texto(e.pase, "Órdenes de Compra"), prioritario: esPrioritariaOC(e),
       etapa: etapaOC(e), encuadre: texto(e.tipo, "Sin tipo"), origen: texto(e.organismo, "Sin organismo"),
       detalle: [e.numeroOC && "OC " + e.numeroOC, e.proveedor].filter(Boolean).join(" · ") || e.organismo,
       monto: montoNumero(e.montoAjustado) ?? montoNumero(e.montoResolucion),
-      vence: esCompleta(e) ? null : fechaISO(e.vencimientoOC) || null,
+      vence: estaCerrada(e) ? null : fechaISO(e.vencimientoOC) || null,
     }),
   },
 };

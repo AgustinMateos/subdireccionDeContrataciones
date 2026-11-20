@@ -11,7 +11,7 @@ import { ESTADOS_OBRA } from "@/lib/planObras";
 import { FormularioResolucion, SOLAPAS as SOLAPAS_RESOLUCIONES } from "./PanelResoluciones";
 import { FormularioLicitacion, SOLAPAS as SOLAPAS_LICITACIONES } from "./PanelLicitaciones";
 import { FormularioOrdenCompra, SOLAPAS as SOLAPAS_ORDENES } from "./PanelOrdenesCompra";
-import { DIAS_AVISO_VENCIMIENTO_OC, avanceOC, diasEnOC, esCompleta, esPrioritariaOC } from "@/lib/ordenesCompra";
+import { DIAS_AVISO_VENCIMIENTO_OC, avanceOC, diasEnOC, estaCerrada, esPrioritariaOC } from "@/lib/ordenesCompra";
 import { expParaBuscar, mismoExp } from "@/lib/numeroExpediente";
 
 const DIAS_DEMORA = 15; // más de esto, rojo en el semáforo de días en sector
@@ -26,7 +26,7 @@ const itemResolucion = e => ({ e, area: "Resoluciones", dias: diasEnSector(e), s
 const itemLicitacion = e => ({ e, area: "Licitaciones", dias: diasEnSectorLicitacion(e), sector: e.sector, prioritario: esPrioritarioLicitacion(e), vence: null });
 const itemOrdenCompra = e => ({
   e, area: OC, dias: diasEnOC(e), sector: e.pase || avanceOC(e).etapa, prioritario: esPrioritariaOC(e),
-  vence: esCompleta(e) ? null : fechaISO(e.vencimientoOC) || null,
+  vence: estaCerrada(e) ? null : fechaISO(e.vencimientoOC) || null,
 });
 const fmtMonto = n => "$ " + Math.round(n).toLocaleString("es-AR");
 
@@ -85,7 +85,7 @@ export default function InicioSubdireccion({ onIr, mostrarToast }) {
   const R = res.datos, L = lic.datos;
   // Si Órdenes de Compra no responde, el resto del Inicio sigue igual.
   const O = ord.datos ?? (ord.error ? [] : null);
-  const ordEnTramite = O?.filter(e => !esCompleta(e));
+  const ordEnTramite = O?.filter(e => !estaCerrada(e));
   const resEnTramite = R?.filter(e => !esFinalizado(e));
   const licEnTramite = L?.filter(e => !esTerminada(e));
   // Lista de expedientes que se abre al tocar una cifra.
