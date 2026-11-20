@@ -344,7 +344,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
       </div>
 
       {enPresupuesto ? (
-        <PresupuestoBienesDeUso presupuesto={PRESUPUESTO_IYV} conAntecedentes archivo="informatica-y-varios-presupuesto" lista={contrataciones} resolucionesDeResoluciones={cruceAnalisis.resoluciones} onAbrir={id => setFicha(String(id).split(":")[0])} />
+        <PresupuestoBienesDeUso cuadro="iyv" presupuesto={PRESUPUESTO_IYV} conAntecedentes archivo="informatica-y-varios-presupuesto" lista={contrataciones} resolucionesDeResoluciones={cruceAnalisis.resoluciones} onAbrir={id => setFicha(String(id).split(":")[0])} />
       ) : enAnalisis ? (
         <AnalisisLicitaciones lista={contrataciones} motivosResoluciones={cruceAnalisis.motivos} resolucionesDeResoluciones={cruceAnalisis.resoluciones}
           onAbrir={id => setFicha(String(id).split(":")[0])}

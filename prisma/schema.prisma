@@ -706,3 +706,20 @@ model ObservacionIyV {
 
   @@index([clave])
 }
+
+// Presupuesto de bienes de uso (solapa "Presupuesto" del Cuadro IyV y de
+// Licitaciones): el título que se le asignó a mano a un expediente, en vez
+// del que sale del cruce por palabras. `cuadro`: "iyv" | "licitaciones";
+// `clave`: el id del expediente en ese cuadro ("<fila>:<bloque>" en IyV);
+// `renglonId`: el id del título ("tangibles-3"...), o null = ningún título.
+model TituloPresupuesto {
+  id            String   @id @default(cuid())
+  cuadro        String
+  anio          Int
+  clave         String
+  renglonId     String?
+  usuario       String
+  actualizadoEn DateTime @updatedAt
+
+  @@unique([cuadro, anio, clave])
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { hoyLocalISO } from "@/lib/mesaEntradas";
@@ -30,8 +30,10 @@ const FRACASADAS = ["Fracasada", "Fracasa / Autoriza", "Fracasa / Desierta"];
 // `resolucionesDeResoluciones` ({ [id]: { valor, enTramite } }): cómo
 // terminó según Resoluciones, para los que no la tienen cargada en el cuadro
 // (el mismo cruce que el Análisis).
+// `cuadro` ("iyv" | "licitaciones"): dónde se guardan los títulos asignados
+// a mano (/api/presupuesto); el asignado a mano reemplaza al del cruce.
 export default function PresupuestoBienesDeUso({
-  presupuesto, lista, onAbrir, resolucionesDeResoluciones, textoDe = e => e.objeto, conAntecedentes: opcionAntecedentes = false, archivo,
+  presupuesto, lista, onAbrir, resolucionesDeResoluciones, textoDe = e => e.objeto, conAntecedentes: opcionAntecedentes = false, archivo, cuadro,
 }) {
   const PRESUPUESTO = presupuesto;
   const RENGLONES = presupuesto.renglones;
@@ -44,6 +46,41 @@ export default function PresupuestoBienesDeUso({
   const [abiertos, setAbiertos] = useState(() => new Set());
   // Lista abierta desde las tarjetas: null | "todos" | "revisar" | "adjudicadas" | "fracasadas" | "sinTitulo".
   const [verLista, setVerLista] = useState(null);
+  // Títulos asignados a mano: { [id del expediente]: renglonId | null }.
+  const [manuales, setManuales] = useState({});
+  const [edita, setEdita] = useState(false);
+  const [errorTitulo, setErrorTitulo] = useState("");
+  useEffect(() => {
+    if (!cuadro) return;
+    let vivo = true;
+    fetch("/api/presupuesto?cuadro=" + cuadro + "&anio=" + presupuesto.anio).then(r => (r.ok ? r.json() : null)).then(data => {
+      if (!vivo || !data) return;
+      setManuales(Object.fromEntries(data.titulos.map(t => [t.clave, t.renglonId])));
+      setEdita(!!data.edita);
+    }).catch(() => {});
+    return () => { vivo = false; };
+  }, [cuadro, presupuesto.anio]);
+
+  async function asignarTitulo(id, renglonId) {
+    setErrorTitulo("");
+    const antes = manuales;
+    setManuales(m => {
+      const n = { ...m };
+      if (renglonId === "auto") delete n[id]; else n[id] = renglonId;
+      return n;
+    });
+    try {
+      const res = await fetch("/api/presupuesto", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cuadro, anio: presupuesto.anio, clave: id, renglonId }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "No se pudo guardar el título");
+    } catch (err) {
+      setManuales(antes);
+      setErrorTitulo(err.message);
+    }
+  }
+  const asignar = cuadro && edita ? asignarTitulo : null;
 
   const base = useMemo(() => lista.filter(e => (conAntecedentes || !opcionAntecedentes || !esAntecedente(e)) && (!soloBienesDeUso || PARTIDAS_INCISO_4[e.partida])),
     [lista, conAntecedentes, soloBienesDeUso]);
@@ -52,10 +89,13 @@ export default function PresupuestoBienesDeUso({
   const expedientes = useMemo(() => base.filter(e => !anioMov || anioMovDe(e) === (anioMov === SIN_MOV ? "" : anioMov)).map(e => {
     const r = !e.resolucionConv && resolucionesDeResoluciones?.[e.id];
     if (r) e = { ...e, resolucionConv: r.valor, resolucionDeResoluciones: true, resolucionEnTramite: r.enTramite };
-    return { ...e, renglones: presupuesto.renglonesDe(textoDe(e)) };
+    const auto = presupuesto.renglonesDe(textoDe(e));
+    if (!(e.id in manuales)) return { ...e, renglones: auto, renglonesAuto: auto };
+    const x = manuales[e.id] && RENGLONES.find(r => r.id === manuales[e.id]);
+    return { ...e, renglones: x ? [x] : [], renglonesAuto: auto, tituloManual: true };
     // textoDe es fijo para cada cuadro.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [base, anioMov, resolucionesDeResoluciones, presupuesto]);
+  }), [base, anioMov, resolucionesDeResoluciones, presupuesto, manuales]);
   const porRenglon = useMemo(() => {
     const m = new Map(RENGLONES.map(x => [x.id, []]));
     for (const e of expedientes) for (const x of e.renglones) m.get(x.id).push(e);
@@ -101,6 +141,7 @@ export default function PresupuestoBienesDeUso({
         <p className="text-xs text-slate-500 max-w-2xl">
           Bienes de uso {PRESUPUESTO.anio} ({PRESUPUESTO.fuente}). Cada expediente del cuadro
           encuadra en un título según su objeto. Los que encuadran en más de uno quedan <span className="text-amber-700 font-medium">a revisar</span>.
+          {asignar && " En las listas de expedientes podés asignarle o cambiarle el título a mano."}
         </p>
         <div className="flex items-center gap-3 flex-wrap">
           <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
@@ -173,12 +214,14 @@ export default function PresupuestoBienesDeUso({
         </button>
       </div>
 
+      {errorTitulo && <p className="text-xs text-rose-700">{errorTitulo}</p>}
+
       {verLista && (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50/60">
             <h3 className="text-sm font-semibold text-slate-900">{LISTAS[verLista].titulo}</h3>
           </div>
-          <ListaExpedientes expedientes={LISTAS[verLista].es} onAbrir={onAbrir} />
+          <ListaExpedientes expedientes={LISTAS[verLista].es} onAbrir={onAbrir} presupuesto={presupuesto} asignar={asignar} />
         </div>
       )}
 
@@ -231,7 +274,7 @@ export default function PresupuestoBienesDeUso({
                             <td className="py-1.5 px-3 text-right tabular-nums text-slate-600">{monto ? pct(monto, x.monto) : ""}</td>
                           </tr>
                           {abierto && (
-                            <tr><td colSpan={5} className="bg-slate-50/40 px-3 pb-3"><ListaExpedientes expedientes={es} onAbrir={onAbrir} renglon={x} tipo={t} /></td></tr>
+                            <tr><td colSpan={5} className="bg-slate-50/40 px-3 pb-3"><ListaExpedientes expedientes={es} onAbrir={onAbrir} renglon={x} tipo={t} presupuesto={presupuesto} asignar={asignar} /></td></tr>
                           )}
                         </Fragment>
                       );
@@ -247,7 +290,26 @@ export default function PresupuestoBienesDeUso({
   );
 }
 
-function ListaExpedientes({ expedientes, onAbrir, renglon, tipo }) {
+// Elegir el título de un expediente: el del cruce por palabras, uno a mano o ninguno.
+function ElegirTitulo({ e, presupuesto, asignar }) {
+  const valor = !e.tituloManual ? "auto" : e.renglones[0]?.id || "ninguno";
+  const auto = e.renglonesAuto.length ? e.renglonesAuto.map(x => x.descripcion).join(" / ") : "sin título";
+  return (
+    <select value={valor} onClick={ev => ev.stopPropagation()}
+      onChange={ev => asignar(e.id, ev.target.value === "ninguno" ? null : ev.target.value)}
+      className={"mt-1 block max-w-[340px] w-full text-[11px] border rounded-md px-1.5 py-1 bg-white " + (e.tituloManual ? "border-sky-300 text-sky-800" : "border-slate-200 text-slate-600")}>
+      <option value="auto">Automático ({auto.length > 60 ? auto.slice(0, 57) + "..." : auto})</option>
+      <option value="ninguno">Ningún título (a mano)</option>
+      {presupuesto.tipos.map(t => t.secciones.map(s => (
+        <optgroup key={t.id + s.titulo} label={t.titulo + " · " + s.titulo}>
+          {presupuesto.renglones.filter(x => x.tipo === t.id && x.seccion === s.titulo).map(x => <option key={x.id} value={x.id}>{x.descripcion}</option>)}
+        </optgroup>
+      )))}
+    </select>
+  );
+}
+
+function ListaExpedientes({ expedientes, onAbrir, renglon, tipo, presupuesto, asignar }) {
   if (!expedientes.length) return <p className="px-5 py-4 text-xs text-slate-400">No hay expedientes.</p>;
   return (
     <table className="w-full text-xs">
@@ -274,7 +336,9 @@ function ListaExpedientes({ expedientes, onAbrir, renglon, tipo }) {
                 {!renglon && e.renglones.length > 0 && (
                   <span className={"block text-[10px] " + (e.renglones.length > 1 ? "text-amber-700" : "text-emerald-700")}>Título: {e.renglones.map(x => x.descripcion).join(" / ")}</span>
                 )}
-                {!renglon && !e.renglones.length && <span className="block text-[10px] text-rose-700">Sin título del presupuesto</span>}
+                {!renglon && !e.renglones.length && <span className="block text-[10px] text-rose-700">Sin título del presupuesto{e.tituloManual ? " (asignado a mano)" : ""}</span>}
+                {e.tituloManual && e.renglones.length > 0 && <span className="block text-[10px] text-sky-700">Título asignado a mano</span>}
+                {asignar && <ElegirTitulo e={e} presupuesto={presupuesto} asignar={asignar} />}
               </td>
               <td className="py-1.5 px-3 whitespace-nowrap">
                 <span className={PARTIDAS_INCISO_4[e.partida] ? "text-slate-700" : "text-rose-700"}>{etiquetaPartida(e.partida)}</span>

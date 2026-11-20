@@ -662,7 +662,7 @@ export default function PanelLicitaciones({ sesion, mostrarToast, solapaInicial 
       ))}
     </div>
     {enPresupuesto ? (
-      <PresupuestoBienesDeUso presupuesto={PRESUPUESTO_LICITACIONES} lista={listaPresupuesto} textoDe={textoPresupuesto}
+      <PresupuestoBienesDeUso cuadro="licitaciones" presupuesto={PRESUPUESTO_LICITACIONES} lista={listaPresupuesto} textoDe={textoPresupuesto}
         onAbrir={setForm} archivo="licitaciones-presupuesto" />
     ) : enAnalisis ? (
       <AnalisisLicitaciones lista={lista} motivosResoluciones={cruce ? cruce.motivos : undefined} onAbrir={setForm} />
