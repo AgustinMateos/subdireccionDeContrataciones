@@ -463,43 +463,29 @@ function Vencimiento({ e }) {
 // con los datos del expediente. El N° viene a continuación de las del
 // expediente; si ya lo tiene otra OC (otro expediente cargado después), esa
 // y todas las siguientes se corren +1 al guardar.
-function AgregarProveedorOC({ base, ordenes, hayCambios, onAgregado }) {
+// Sugerencias de N° y qué OC tiene el elegido (y cuáles se correrían).
+function numerosParaProveedorNuevo(base, ordenes, numeroElegido) {
   const delExpediente = ordenes.filter(o => deLaFicha(o.exp, base.exp));
   const ultimo = Math.max(0, ...delExpediente.map(o => numeroOCEntero(o.numeroOC) ?? 0));
-  const aContinuacion = ultimo ? String(ultimo + 1) : "";
-  const libre = siguienteNumeroOC(ordenes);
-  const [abierto, setAbierto] = useState(false);
-  const [p, setP] = useState(() => proveedorVacio(aContinuacion || libre));
-  const [error, setError] = useState("");
-  const [guardando, setGuardando] = useState(false);
-  const numero = String(p.numeroOC || "").trim();
+  const numero = String(numeroElegido || "").trim();
   const ocupada = numero ? ordenes.find(o => String(o.numeroOC || "").trim() === numero) : null;
-  const corren = ocupada ? ordenesACorrer(ordenes, numero) : [];
-  const cambiar = cambios => { setP(prev => ({ ...prev, ...cambios })); setError(""); };
+  return {
+    aContinuacion: ultimo ? String(ultimo + 1) : "",
+    libre: siguienteNumeroOC(ordenes),
+    numero,
+    ocupada,
+    corren: ocupada ? ordenesACorrer(ordenes, numero) : [],
+  };
+}
 
-  async function agregar() {
-    if (hayCambios) { setError("Guardá o descartá los cambios de la ficha antes de agregar un proveedor."); return; }
-    if (!String(p.proveedor || "").trim()) { setError("Completá el proveedor."); return; }
-    if (ocupada && numeroOCEntero(numero) == null) { setError("El N° " + numero + " ya lo tiene el expediente " + ocupada.exp + ": elegí otro."); return; }
-    setGuardando(true);
-    try {
-      const res = await fetch("/api/ordenes-compra/" + base.id + "/proveedor", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...p, correr: !!ocupada }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setError(data.error || "No se pudo agregar el proveedor"); return; }
-      onAgregado(data);
-    } catch {
-      setError("Sin conexión: no se agregó el proveedor");
-    } finally {
-      setGuardando(false);
-    }
-  }
-
-  if (!abierto) {
+// El recuadro del proveedor nuevo (lo guarda el botón de abajo de la ficha).
+// `valor`: null (cerrado) o los datos del proveedor.
+function AgregarProveedorOC({ base, ordenes, valor, onChange }) {
+  if (!valor) {
+    const { aContinuacion, libre } = numerosParaProveedorNuevo(base, ordenes, "");
     return (
-      <div className="md:col-span-2">
-        <button type="button" onClick={() => setAbierto(true)}
+      <div>
+        <button type="button" onClick={() => onChange(proveedorVacio(aContinuacion || libre))}
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50">
           <Plus size={15} /> Agregar proveedor a este expediente
         </button>
@@ -507,12 +493,17 @@ function AgregarProveedorOC({ base, ordenes, hayCambios, onAgregado }) {
       </div>
     );
   }
+  const p = valor;
+  const { aContinuacion, libre, numero, ocupada, corren } = numerosParaProveedorNuevo(base, ordenes, p.numeroOC);
+  const cambiar = cambios => onChange({ ...p, ...cambios });
+  const maximo = corren.length ? Math.max(...corren.map(o => numeroOCEntero(o.numeroOC))) : null;
   return (
-    <div className="md:col-span-2 rounded-lg border border-slate-300 bg-slate-50/60 p-3 grid md:grid-cols-2 gap-3">
+    <div className="rounded-lg border-2 border-slate-800 bg-slate-50/60 p-3 grid md:grid-cols-2 gap-3">
       <div className="md:col-span-2 flex items-center justify-between">
         <p className="text-sm font-semibold text-slate-800">Proveedor nuevo del expediente {base.exp}</p>
-        <button type="button" onClick={() => { setAbierto(false); setError(""); }} className="text-sm text-slate-600 underline">Cancelar</button>
+        <button type="button" onClick={() => onChange(null)} className="text-sm text-slate-600 underline">Cancelar</button>
       </div>
+      <p className="md:col-span-2 -mt-1 text-xs text-slate-600">Al terminar, tocá <b>{ocupada ? "Agregar y correr las OC siguientes" : "Agregar proveedor"}</b> abajo.</p>
       <Campo pregunta="N° de orden de compra" ancho>
         <Entrada valor={p.numeroOC} onChange={v => cambiar({ numeroOC: v })} ejemplo="146" />
         <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -535,8 +526,7 @@ function AgregarProveedorOC({ base, ordenes, hayCambios, onAgregado }) {
           <p className="mt-2 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-2">
             El N° {numero} lo tiene la OC del expediente <b>{ocupada.exp}</b>{ocupada.proveedor ? " (" + ocupada.proveedor + ")" : ""}. Al agregar el proveedor,
             esa y las siguientes se corren +1: {corren.length === 1 ? "1 OC" : corren.length + " OC"} (la {numero} pasa a {numeroOCEntero(numero) + 1}
-            {corren.length > 1 ? ", …, la " + Math.max(...corren.map(o => numeroOCEntero(o.numeroOC))) + " pasa a " + (Math.max(...corren.map(o => numeroOCEntero(o.numeroOC))) + 1) : ""}).
-            Queda anotado en el historial de cada una.
+            {corren.length > 1 ? ", …, la " + maximo + " pasa a " + (maximo + 1) : ""}). Queda anotado en el historial de cada una.
           </p>
         ))}
       </Campo>
@@ -556,13 +546,6 @@ function AgregarProveedorOC({ base, ordenes, hayCambios, onAgregado }) {
       <Campo pregunta="¿Está cargado el CBU?" ancho>
         <ElegirCBU valor={p.cbu} onChange={v => cambiar({ cbu: v })} />
       </Campo>
-      {error && <p className="md:col-span-2 text-sm text-red-700">{error}</p>}
-      <div className="md:col-span-2">
-        <BotonAccion onClick={agregar} cargando={guardando} cargandoTexto="Agregando..."
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800">
-          <Plus size={15} /> {ocupada ? "Agregar y correr las OC siguientes" : "Agregar proveedor"}
-        </BotonAccion>
-      </div>
     </div>
   );
 }
@@ -572,6 +555,10 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, o
   // Para saber si hay cambios sin guardar (antes de agregar un proveedor).
   const [alAbrir] = useState(() => JSON.stringify(aFormulario(inicial, numeroNuevo)));
   const hayCambios = JSON.stringify(f) !== alAbrir;
+  // Proveedor nuevo del expediente (null: recuadro cerrado). Con el recuadro
+  // abierto, el botón de abajo lo agrega en vez de guardar la ficha.
+  const [proveedorNuevo, setProveedorNuevo] = useState(null);
+  const infoNuevo = proveedorNuevo && inicial ? numerosParaProveedorNuevo(inicial, ordenes || [], proveedorNuevo.numeroOC) : null;
   const [solapa, setSolapa] = useState("datos");
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -654,7 +641,29 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, o
     if (!imprimirFicha(f, ordenesDeLaFicha(f, inicial, ordenes), enPlanObras)) setError("El navegador bloqueó la ventana de impresión: permití las ventanas emergentes.");
   }
 
+  async function agregarProveedor() {
+    const p = proveedorNuevo;
+    if (hayCambios) { setError("Guardá primero los cambios de la ficha (o cancelá el proveedor nuevo)."); return; }
+    if (!String(p.proveedor || "").trim()) { setError("Completá el proveedor."); return; }
+    if (infoNuevo.ocupada && numeroOCEntero(infoNuevo.numero) == null) { setError("El N° " + infoNuevo.numero + " ya lo tiene el expediente " + infoNuevo.ocupada.exp + ": elegí otro."); return; }
+    setGuardando(true);
+    try {
+      const res = await fetch("/api/ordenes-compra/" + inicial.id + "/proveedor", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...p, montoAjustado: p.seAjusta ? p.montoAjustado : p.montoResolucion, correr: !!infoNuevo.ocupada }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error || "No se pudo agregar el proveedor"); return; }
+      onProveedorAgregado(data);
+    } catch {
+      setError("Sin conexión: no se agregó el proveedor");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
   async function guardar() {
+    if (proveedorNuevo) { agregarProveedor(); return; }
     if (!f.exp.trim() || !f.objeto.trim()) { setError("Completá N° de expediente y objeto."); setSolapa("datos"); pasos.abrir(1, 2); return; }
     setGuardando(true);
     // Sin observación nueva, queda la última que tenía.
@@ -796,7 +805,7 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, o
               <p className="text-sm text-slate-600">Completá lo que sepas; lo demás se puede cargar después. Lo único obligatorio es el <b>N° de expediente</b> y el <b>objeto</b>. Tocá cada paso para abrirlo.</p>
               {/* A la vista (no dentro de un paso cerrado): agregar un proveedor que faltó. */}
               {inicial && !esJefa && onProveedorAgregado && (
-                <AgregarProveedorOC base={inicial} ordenes={ordenes || []} hayCambios={hayCambios} onAgregado={onProveedorAgregado} />
+                <AgregarProveedorOC base={inicial} ordenes={ordenes || []} valor={proveedorNuevo} onChange={v => { setProveedorNuevo(v); setError(""); }} />
               )}
 
               <Paso {...paso(1)} titulo="La resolución">
@@ -971,7 +980,8 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, o
           </button>
           <BotonAccion onClick={guardar} cargando={guardando}
             className="px-5 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 disabled:opacity-50">
-            {inicial ? "Guardar cambios" : f.proveedores.length > 1 ? "Guardar las " + f.proveedores.length + " órdenes de compra" : "Guardar la orden de compra"}
+            {proveedorNuevo ? (infoNuevo?.ocupada ? "Agregar y correr las OC siguientes" : "Agregar proveedor")
+              : inicial ? "Guardar cambios" : f.proveedores.length > 1 ? "Guardar las " + f.proveedores.length + " órdenes de compra" : "Guardar la orden de compra"}
           </BotonAccion>
         </div>
       </div>
