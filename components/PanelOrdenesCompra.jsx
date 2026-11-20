@@ -11,7 +11,7 @@ import { EMAIL_JEFA_SUBDIRECCION, fechaISO } from "@/lib/resoluciones";
 import { esFechaISO } from "@/lib/diasHabiles";
 import {
   AGENTES_ORDENES_COMPRA, QUIEN_LO_TIENE_OC, TIPOS_ORDEN_COMPRA, ESTADOS_ORDEN_COMPRA, PASES_ORDEN_COMPRA, PASOS_ORDEN_COMPRA,
-  CONTROLADORES_ORDENES_COMPRA, avanceOC, cbuCargado, compararOrdenesCompra, fechaYQuien, numeroOCSiguiente, textoFechaYQuien, compararPorNumeroOC, diasEnOC, siguienteNumeroOC, diasParaVencerOC, esCompleta, esPrioritariaOC, porVencerOC,
+  CONTROLADORES_ORDENES_COMPRA, numeroOCEntero, ordenesACorrer, avanceOC, cbuCargado, compararOrdenesCompra, fechaYQuien, numeroOCSiguiente, textoFechaYQuien, compararPorNumeroOC, diasEnOC, siguienteNumeroOC, diasParaVencerOC, esCompleta, esPrioritariaOC, porVencerOC,
 } from "@/lib/ordenesCompra";
 import BotonAccion from "./BotonAccion";
 import {
@@ -459,8 +459,119 @@ function Vencimiento({ e }) {
 // Alta / edición de una orden de compra, en dos solapas: los datos y el
 // circuito (con el historial). Al editar, la jefa ve todo como ficha:
 // solo cambia la prioridad (la asignación la hace el departamento).
-export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, onCerrar, onGuardar, onEliminar }) {
+// Agregar un proveedor que faltó a un expediente ya cargado: una OC nueva
+// con los datos del expediente. El N° viene a continuación de las del
+// expediente; si ya lo tiene otra OC (otro expediente cargado después), esa
+// y todas las siguientes se corren +1 al guardar.
+function AgregarProveedorOC({ base, ordenes, hayCambios, onAgregado }) {
+  const delExpediente = ordenes.filter(o => deLaFicha(o.exp, base.exp));
+  const ultimo = Math.max(0, ...delExpediente.map(o => numeroOCEntero(o.numeroOC) ?? 0));
+  const aContinuacion = ultimo ? String(ultimo + 1) : "";
+  const libre = siguienteNumeroOC(ordenes);
+  const [abierto, setAbierto] = useState(false);
+  const [p, setP] = useState(() => proveedorVacio(aContinuacion || libre));
+  const [error, setError] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const numero = String(p.numeroOC || "").trim();
+  const ocupada = numero ? ordenes.find(o => String(o.numeroOC || "").trim() === numero) : null;
+  const corren = ocupada ? ordenesACorrer(ordenes, numero) : [];
+  const cambiar = cambios => { setP(prev => ({ ...prev, ...cambios })); setError(""); };
+
+  async function agregar() {
+    if (hayCambios) { setError("Guardá o descartá los cambios de la ficha antes de agregar un proveedor."); return; }
+    if (!String(p.proveedor || "").trim()) { setError("Completá el proveedor."); return; }
+    if (ocupada && numeroOCEntero(numero) == null) { setError("El N° " + numero + " ya lo tiene el expediente " + ocupada.exp + ": elegí otro."); return; }
+    setGuardando(true);
+    try {
+      const res = await fetch("/api/ordenes-compra/" + base.id + "/proveedor", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...p, correr: !!ocupada }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error || "No se pudo agregar el proveedor"); return; }
+      onAgregado(data);
+    } catch {
+      setError("Sin conexión: no se agregó el proveedor");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  if (!abierto) {
+    return (
+      <div className="md:col-span-2">
+        <button type="button" onClick={() => setAbierto(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-medium hover:bg-slate-50">
+          <Plus size={15} /> Agregar proveedor a este expediente
+        </button>
+        <p className="mt-1 text-xs text-slate-500">Si faltó un proveedor: se carga en su propia OC, con los mismos datos del expediente.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="md:col-span-2 rounded-lg border border-slate-300 bg-slate-50/60 p-3 grid md:grid-cols-2 gap-3">
+      <div className="md:col-span-2 flex items-center justify-between">
+        <p className="text-sm font-semibold text-slate-800">Proveedor nuevo del expediente {base.exp}</p>
+        <button type="button" onClick={() => { setAbierto(false); setError(""); }} className="text-sm text-slate-600 underline">Cancelar</button>
+      </div>
+      <Campo pregunta="N° de orden de compra" ancho>
+        <Entrada valor={p.numeroOC} onChange={v => cambiar({ numeroOC: v })} ejemplo="146" />
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {aContinuacion && (
+            <button type="button" onClick={() => cambiar({ numeroOC: aContinuacion })}
+              className={"px-2.5 py-1 rounded-md border text-xs font-medium " + (numero === aContinuacion ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-300 text-slate-700 hover:border-slate-500")}>
+              A continuación de las de este expediente: {aContinuacion}
+            </button>
+          )}
+          {libre !== aContinuacion && (
+            <button type="button" onClick={() => cambiar({ numeroOC: libre })}
+              className={"px-2.5 py-1 rounded-md border text-xs font-medium " + (numero === libre ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-300 text-slate-700 hover:border-slate-500")}>
+              Siguiente libre: {libre}
+            </button>
+          )}
+        </div>
+        {ocupada && (numeroOCEntero(numero) == null ? (
+          <p className="mt-2 text-xs text-red-700">El N° {numero} ya lo tiene el expediente {ocupada.exp}: elegí otro.</p>
+        ) : (
+          <p className="mt-2 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-2">
+            El N° {numero} lo tiene la OC del expediente <b>{ocupada.exp}</b>{ocupada.proveedor ? " (" + ocupada.proveedor + ")" : ""}. Al agregar el proveedor,
+            esa y las siguientes se corren +1: {corren.length === 1 ? "1 OC" : corren.length + " OC"} (la {numero} pasa a {numeroOCEntero(numero) + 1}
+            {corren.length > 1 ? ", …, la " + Math.max(...corren.map(o => numeroOCEntero(o.numeroOC))) + " pasa a " + (Math.max(...corren.map(o => numeroOCEntero(o.numeroOC))) + 1) : ""}).
+            Queda anotado en el historial de cada una.
+          </p>
+        ))}
+      </Campo>
+      <Campo pregunta="Proveedor">
+        <Entrada valor={p.proveedor} onChange={v => cambiar({ proveedor: v })} ejemplo="LIMPRO SAS" />
+      </Campo>
+      <Campo pregunta="Código de proveedor">
+        <Entrada valor={p.codigoProveedor} onChange={v => cambiar({ codigoProveedor: v })} ejemplo="12345" />
+      </Campo>
+      <Campo pregunta="Monto de la resolución">
+        <Entrada valor={p.montoResolucion} onChange={v => cambiar({ montoResolucion: v })} ejemplo="$ 49.355.142,75" />
+      </Campo>
+      <Campo pregunta="¿El monto cambió para la orden de compra?">
+        <SiNo valor={!!p.seAjusta} si="Sí, se ajustó" no="No, es el mismo" onChange={v => cambiar({ seAjusta: v, montoAjustado: v ? p.montoAjustado : "" })} />
+        {p.seAjusta && <div className="mt-2"><Entrada valor={p.montoAjustado} onChange={v => cambiar({ montoAjustado: v })} ejemplo="$ 51.000.000,00" /></div>}
+      </Campo>
+      <Campo pregunta="¿Está cargado el CBU?" ancho>
+        <ElegirCBU valor={p.cbu} onChange={v => cambiar({ cbu: v })} />
+      </Campo>
+      {error && <p className="md:col-span-2 text-sm text-red-700">{error}</p>}
+      <div className="md:col-span-2">
+        <BotonAccion onClick={agregar} cargando={guardando} cargandoTexto="Agregando..."
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800">
+          <Plus size={15} /> {ocupada ? "Agregar y correr las OC siguientes" : "Agregar proveedor"}
+        </BotonAccion>
+      </div>
+    </div>
+  );
+}
+
+export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, onCerrar, onGuardar, onEliminar, onProveedorAgregado }) {
   const [f, setF] = useState(() => aFormulario(inicial, numeroNuevo));
+  // Para saber si hay cambios sin guardar (antes de agregar un proveedor).
+  const [alAbrir] = useState(() => JSON.stringify(aFormulario(inicial, numeroNuevo)));
+  const hayCambios = JSON.stringify(f) !== alAbrir;
   const [solapa, setSolapa] = useState("datos");
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -745,6 +856,9 @@ export function FormularioOrdenCompra({ inicial, numeroNuevo, esJefa, ordenes, o
                         onChange={v => setF(prev => ({ ...prev, seAjusta: v, montoAjustado: v ? prev.montoAjustado : "" }))} />
                       {f.seAjusta && <div className="mt-2"><Entrada valor={f.montoAjustado} onChange={v => set("montoAjustado", v)} ejemplo="$ 51.000.000,00" /></div>}
                     </Campo>
+                    {!esJefa && onProveedorAgregado && (
+                      <AgregarProveedorOC base={inicial} ordenes={ordenes || []} hayCambios={hayCambios} onAgregado={onProveedorAgregado} />
+                    )}
                   </>
                 ) : (
                   <Campo pregunta="Proveedores del expediente" ayuda="Si el expediente tiene varios proveedores, agregalos acá: cada uno lleva su N° de OC y queda en su propia fila." ancho>
@@ -1041,6 +1155,17 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
       : data.expedientes.length > 1 ? "Se cargaron " + data.expedientes.length + " órdenes de compra" : "Orden de compra cargada");
   }
 
+  // Proveedor agregado a un expediente desde su ficha: la OC nueva y las
+  // que se corrieron +1.
+  function proveedorAgregado(data) {
+    const porId = new Map((data.corridas || []).map(x => [x.id, x]));
+    setOrdenes(prev => [...prev.map(x => porId.get(x.id) || x), data.expediente]);
+    setForm(null);
+    const n = data.corridas?.length || 0;
+    mostrarToast("Se agregó la OC " + (data.expediente.numeroOC ? "N° " + data.expediente.numeroOC + " " : "") + "de " + data.expediente.proveedor
+      + (n ? " · se corrieron " + n + " OC" : ""));
+  }
+
   // Cambio rápido desde la tabla: estado, pase o asignación (el
   // departamento), prioridad (la jefa). Se muestra al instante; si el
   // servidor lo rechaza, se vuelve atrás.
@@ -1201,6 +1326,7 @@ function PanelOrdenes({ sesion, mostrarToast, solapaInicial }) {
           onCerrar={() => setForm(null)}
           onGuardar={guardar}
           onEliminar={eliminar}
+          onProveedorAgregado={proveedorAgregado}
         />
       )}
     </div>
