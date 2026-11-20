@@ -44,3 +44,10 @@ test("Licitaciones: cada objeto va a su título", () => {
   assert.deepEqual(tituloLic("Sistema de detección de incendio"), ["Provisión de Sistema Detección Incendio"]);
   assert.deepEqual(tituloLic("Provisión de resmas", "RESMAS"), []);
 });
+
+test("Licitaciones: los de la partida 4.2 van a Construcciones y remodelaciones", () => {
+  const tit = (objeto, partida) => PRESUPUESTO_LICITACIONES.renglonesDe(objeto, partida).map(x => x.descripcion);
+  assert.deepEqual(tit("Refacción integral del edificio de Tribunales", "4.2"), ["Construcciones y remodelaciones"]);
+  assert.deepEqual(tit("Refacción integral del edificio de Tribunales", "4.3"), []);
+  assert.deepEqual(tit("Provisión de sillas", "4.3"), ["Dependencias Total País"]);
+});

@@ -8,7 +8,7 @@ import { montoNumero } from "@/lib/resoluciones";
 import { PARTIDAS_INCISO_4, etiquetaPartida } from "@/lib/inciso4";
 import EtiquetaResolucion from "./EtiquetaResolucion";
 
-const fmtMonto = n => "$ " + Math.round(n).toLocaleString("es-AR");
+const fmtMonto = n => (n == null ? "Sin monto cargado" : "$ " + Math.round(n).toLocaleString("es-AR"));
 const pct = (n, total) => (!total ? "-" : n && n / total < 0.01 ? "<1%" : Math.round((n / total) * 100) + "%");
 const montoDe = e => montoNumero(e.monto);
 const sumaMontos = es => es.reduce((s, e) => s + (montoDe(e) || 0), 0);
@@ -89,7 +89,7 @@ export default function PresupuestoBienesDeUso({
   const expedientes = useMemo(() => base.filter(e => !anioMov || anioMovDe(e) === (anioMov === SIN_MOV ? "" : anioMov)).map(e => {
     const r = !e.resolucionConv && resolucionesDeResoluciones?.[e.id];
     if (r) e = { ...e, resolucionConv: r.valor, resolucionDeResoluciones: true, resolucionEnTramite: r.enTramite };
-    const auto = presupuesto.renglonesDe(textoDe(e));
+    const auto = presupuesto.renglonesDe(textoDe(e), e.partida);
     if (!(e.id in manuales)) return { ...e, renglones: auto, renglonesAuto: auto };
     const x = manuales[e.id] && RENGLONES.find(r => r.id === manuales[e.id]);
     return { ...e, renglones: x ? [x] : [], renglonesAuto: auto, tituloManual: true };
@@ -108,7 +108,7 @@ export default function PresupuestoBienesDeUso({
   const adjudicadas = expedientes.filter(e => e.renglones.length && ADJUDICADAS.includes(e.resolucionConv));
   const parciales = adjudicadas.filter(e => e.resolucionConv !== "Adjudicada").length;
   const fracasadas = expedientes.filter(e => e.renglones.length && FRACASADAS.includes(e.resolucionConv));
-  const presupuestoTotal = PRESUPUESTO.tipos.reduce((s, t) => s + t.total, 0);
+  const presupuestoTotal = PRESUPUESTO.total;
   const LISTAS = {
     todos: { titulo: (soloBienesDeUso ? "Todos los bienes de uso del cuadro" : "Todos los expedientes del cuadro") + (anioMov ? " (último movimiento: " + (anioMov === SIN_MOV ? "sin fecha" : anioMov) + ")" : "") + " y su título del presupuesto", es: expedientes },
     revisar: { titulo: "Expedientes que encuadran en más de un título", es: aRevisar },
@@ -262,7 +262,8 @@ export default function PresupuestoBienesDeUso({
                               <span className="flex items-center gap-1.5">
                                 {es.length ? (abierto ? <ChevronDown size={13} className="text-slate-400 shrink-0" /> : <ChevronRight size={13} className="text-slate-400 shrink-0" />) : <span className="w-[13px] shrink-0" />}
                                 <span className="text-slate-900">{x.descripcion}</span>
-                                {!x.claves && <span className="text-[10px] text-slate-400">(no se cruza: previsión)</span>}
+                                {!x.claves && !x.partidas && <span className="text-[10px] text-slate-400">(no se cruza: previsión)</span>}
+                                {x.partidas && <span className="text-[10px] text-slate-400">(todos los de la partida {x.partidas.join(", ")})</span>}
                               </span>
                             </td>
                             <td className="py-1.5 px-3 text-right whitespace-nowrap tabular-nums text-slate-900">{fmtMonto(x.monto)}</td>
