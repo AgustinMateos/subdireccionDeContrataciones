@@ -120,7 +120,20 @@ export default function PresupuestoBienesDeUso({
 
   function alternar(id) { setAbiertos(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; }); }
 
+  // Con una lista abierta (Adjudicadas, Fracasadas...), solo esa; si no, todo el presupuesto.
+  function exportarLista(id) {
+    const l = LISTAS[id];
+    const filas = l.es.map(e => [e.exp, e.bloque || "", e.objeto, etiquetaPartida(e.partida), montoDe(e) ?? (e.monto || ""), e.resolucionConv || "",
+      e.renglones.length ? e.renglones.map(x => x.descripcion).join(" / ") : "SIN TÍTULO", e.tituloManual ? "A mano" : e.renglones.length > 1 ? "A revisar" : ""]);
+    const ws = XLSX.utils.aoa_to_sheet([[l.titulo], [], ["EXP", "BLOQUE", "OBJETO", "PARTIDA", "MONTO DEL EXP.", "RESOLUCION CONV.", "TITULO DEL PRESUPUESTO", "NOTA"], ...filas,
+      [], ["TOTAL", "", filas.length + " expediente" + (filas.length !== 1 ? "s" : ""), "", sumaMontos(l.es)]]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Presupuesto " + PRESUPUESTO.anio);
+    XLSX.writeFile(wb, archivo + "-" + PRESUPUESTO.anio + "-" + id + "-" + hoyLocalISO() + ".xlsx");
+  }
+
   function exportar() {
+    if (verLista) { exportarLista(verLista); return; }
     const filas = [];
     for (const x of RENGLONES) {
       const es = porRenglon.get(x.id);
@@ -160,7 +173,7 @@ export default function PresupuestoBienesDeUso({
           )}
           <button type="button" onClick={exportar}
             className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700">
-            <Download size={14} /> Excel
+            <Download size={14} /> {verLista ? "Excel de la lista" : "Excel"}
           </button>
         </div>
       </div>
