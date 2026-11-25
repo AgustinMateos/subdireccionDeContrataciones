@@ -11,6 +11,7 @@ import {
   CLASES_CONTRATACION_IYV, clasesIyV, unirClasesIyV, demoraInicioIyV,
   mesesDeAtrasoIyV, etiquetaMesIyV, leerMotivosAtrasoIyV, unirMotivosAtrasoIyV, MOTIVOS_DEMORA_IYV, MOTIVOS_FRACASO_IYV, MOTIVOS_ATRASO_IYV,
   partidaIyV, partidaSegunObjetoIyV, esBienDeUsoIyV, esAnticipoIyV, RESOLUCIONES_CONV_IYV, ENCUADRES_IYV, contratacionesIyV, RESOLUCION_DE_EXP_IYV, FRENADO_DE_EXP_IYV, resolucionesIyV, expDeBloqueIyV, siguienteSubidaIyV, TITULO_BLOQUE_IYV,
+  ORDEN_BLOQUES_IYV, datoBloqueIyV,
 } from "@/lib/cuadroIyV";
 import Paginacion, { OPCIONES_POR_PAGINA } from "./Paginacion";
 import CampoOpciones from "./CampoOpciones";
@@ -133,6 +134,75 @@ function exportarExcel(hoja, filas, obsPorClave) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, def.etiqueta.slice(0, 31));
   XLSX.writeFile(wb, "informatica-y-varios-" + hoja + "-" + hoyLocalISO() + ".xlsx");
+}
+
+// Excel de los N° de expediente de los bloques elegidos (vigente,
+// continuidad, renovación) de las filas que se ven: un renglón por
+// expediente, agrupados por bloque, con los datos del servicio y del bloque.
+const COLUMNAS_EXP_BLOQUE = [
+  ["Exp.", "exp", 16], ["Contratación", "contratacion", 28], ["Monto $", "montoPesos", 18], ["Monto USD", "montoUsd", 16],
+  ["Inicio", "inicio", 12], ["Vencimiento", "vencimiento", 12], ["Adjudicatario", "adjudicatario", 28],
+  ["Último movimiento", "ultimoMov", 14], ["Sector", "sector", 18], ["Estado de convocatoria", "estadoConvocatoria", 24],
+];
+const COLUMNAS_SERVICIO = [["Tipo", "tipoServicio", 12], ["Agente", "agente", 8], ["Organismo", "organismo", 30], ["Objeto", "objeto", 50]];
+function filasExpedientesIyV(filas, bloques) {
+  return ORDEN_BLOQUES_IYV.filter(b => bloques.includes(b))
+    .flatMap(b => filas.filter(f => expDeBloqueIyV(f.datos, b)).map(f => ({ b, d: f.datos })));
+}
+function exportarExpedientes(hoja, filas, bloques) {
+  const renglones = filasExpedientesIyV(filas, bloques);
+  const datos = [
+    ["BLOQUE", ...COLUMNAS_EXP_BLOQUE.slice(0, 1), ...COLUMNAS_SERVICIO, ...COLUMNAS_EXP_BLOQUE.slice(1)].map(c => (Array.isArray(c) ? c[0] : c).toUpperCase()),
+    ...renglones.map(({ b, d }) => [
+      TITULO_BLOQUE_IYV[b][0].toUpperCase() + TITULO_BLOQUE_IYV[b].slice(1),
+      datoBloqueIyV(d, b, "exp"),
+      ...COLUMNAS_SERVICIO.map(([, k]) => d[k] || ""),
+      ...COLUMNAS_EXP_BLOQUE.slice(1).map(([, k]) => datoBloqueIyV(d, b, k)),
+    ]),
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(datos);
+  ws["!cols"] = [{ wch: 14 }, ...[...COLUMNAS_EXP_BLOQUE.slice(0, 1), ...COLUMNAS_SERVICIO, ...COLUMNAS_EXP_BLOQUE.slice(1)].map(c => ({ wch: c[2] }))];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Expedientes");
+  const nombre = bloques.length === ORDEN_BLOQUES_IYV.length ? "todos" : ORDEN_BLOQUES_IYV.filter(b => bloques.includes(b)).join("-");
+  XLSX.writeFile(wb, "informatica-y-varios-" + hoja + "-expedientes-" + nombre + "-" + hoyLocalISO() + ".xlsx");
+}
+
+// Botón con un menú para elegir los bloques y bajar sus expedientes.
+function ExportarExpedientes({ hoja, filas }) {
+  const [abierto, setAbierto] = useState(false);
+  const [bloques, setBloques] = useState(ORDEN_BLOQUES_IYV);
+  const cantidad = filasExpedientesIyV(filas, bloques).length;
+  const alternar = b => setBloques(prev => (prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b]));
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setAbierto(a => !a)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50">
+        <Download size={14} /> Exportar expedientes
+      </button>
+      {abierto && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setAbierto(false)} />
+          <div className="absolute right-0 mt-1 z-20 w-60 bg-white border border-slate-200 rounded-lg shadow-lg p-3">
+            <p className="text-[11px] text-slate-500 mb-2">N° de expediente de las filas que se ven, de los bloques:</p>
+            {ORDEN_BLOQUES_IYV.map(b => (
+              <label key={b} className="flex items-center gap-2 py-1 text-xs text-slate-700 cursor-pointer">
+                <input type="checkbox" checked={bloques.includes(b)} onChange={() => alternar(b)} />
+                <span className={"px-1.5 py-0.5 rounded border text-[11px] font-medium " + COLOR_BLOQUE[b]}>
+                  {TITULO_BLOQUE_IYV[b][0].toUpperCase() + TITULO_BLOQUE_IYV[b].slice(1)}
+                </span>
+                <span className="ml-auto text-[11px] text-slate-400">{filasExpedientesIyV(filas, [b]).length}</span>
+              </label>
+            ))}
+            <button type="button" disabled={!cantidad}
+              onClick={() => { exportarExpedientes(hoja, filas, bloques); setAbierto(false); }}
+              className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed">
+              <Download size={14} /> Descargar {cantidad} expediente{cantidad !== 1 ? "s" : ""}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 // Cuadro de Informática y Varios: la planilla del departamento, en cuatro
@@ -366,6 +436,7 @@ export default function PanelCuadroIyV({ sesion, mostrarToast }) {
             <button type="button" onClick={() => exportarExcel(hoja, filtradas, obsPorClave)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 text-xs font-medium hover:bg-slate-50">
               <Download size={14} /> Exportar a Excel
             </button>
+            {campoIyV(hoja, "cExp") && <ExportarExpedientes hoja={hoja} filas={filtradas} />}
             {puedeEditar && (
               <button type="button" onClick={() => setFicha("nueva")} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800">
                 <Plus size={14} /> Cargar fila
